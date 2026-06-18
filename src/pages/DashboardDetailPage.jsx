@@ -7,6 +7,8 @@ import ActionPlanWidget from '../components/widgets/ActionPlanWidget'
 import KPICard from '../components/widgets/KPICard'
 import TextBlock from '../components/widgets/TextBlock'
 import BIEmbed from '../components/widgets/BIEmbed'
+import TableWidget from '../components/widgets/TableWidget'
+import ExcelLink from '../components/widgets/ExcelLink'
 import 'react-grid-layout/css/styles.css'
 
 const WIDGET_TYPES = [
@@ -14,6 +16,8 @@ const WIDGET_TYPES = [
   { id: 'kpi_card', label: '🎯 KPI Card', icon: '🎯', defaultSize: { w: 3, h: 3 } },
   { id: 'text_block', label: '📝 Blocco Testo', icon: '📝', defaultSize: { w: 4, h: 4 } },
   { id: 'bi_embed', label: '📊 Embed BI', icon: '📊', defaultSize: { w: 6, h: 6 } },
+  { id: 'table', label: '📑 Tabella', icon: '📑', defaultSize: { w: 6, h: 5 } },
+  { id: 'excel_link', label: '🔗 Link Excel', icon: '🔗', defaultSize: { w: 4, h: 4 } },
 ]
 
 export default function DashboardDetailPage() {
@@ -37,9 +41,7 @@ export default function DashboardDetailPage() {
   const saveDashboard = async () => {
     setSaving(true)
     try {
-      await api.put(`/dashboards/${id}`, {
-        layout: dashboard.layout,
-      })
+      await api.put(`/dashboards/${id}`, { layout: dashboard.layout })
       alert('Dashboard salvata!')
       setEditMode(false)
     } catch (err) {
@@ -58,10 +60,7 @@ export default function DashboardDetailPage() {
       posizione: { x: 0, y: 0, w: widgetType.defaultSize.w, h: widgetType.defaultSize.h },
       config: {},
     }
-    setDashboard({
-      ...dashboard,
-      layout: [...(dashboard.layout || []), newWidget],
-    })
+    setDashboard({ ...dashboard, layout: [...(dashboard.layout || []), newWidget] })
     setShowAddWidget(false)
   }
 
@@ -103,6 +102,10 @@ export default function DashboardDetailPage() {
         return <TextBlock config={widget.config} />
       case 'bi_embed':
         return <BIEmbed config={widget.config} />
+      case 'table':
+        return <TableWidget config={widget.config} />
+      case 'excel_link':
+        return <ExcelLink config={widget.config} />
       default:
         return <div className="bg-white p-4">Widget sconosciuto</div>
     }
@@ -159,24 +162,36 @@ export default function DashboardDetailPage() {
         </div>
       ) : (
         <GridLayout
-  className="layout"
-  layout={gridLayout}
-  cols={12}
-  rowHeight={50}
-  width={1200}
-  onLayoutChange={onLayoutChange}
-  isDraggable={editMode}
-  isResizable={editMode}
-  draggableCancel=".widget-action-btn"
->
+          className="layout"
+          layout={gridLayout}
+          cols={12}
+          rowHeight={50}
+          width={1200}
+          onLayoutChange={onLayoutChange}
+          isDraggable={editMode}
+          isResizable={editMode}
+          draggableCancel=".widget-action-btn"
+        >
           {dashboard.layout.map(widget => (
             <div key={widget.widget_id} className="relative">
               {editMode && (
-                <div className="absolute top-1 right-1 z-10 flex gap-1">
-                  <button onClick={() => setEditingWidget(widget)} className="bg-blue-500 text-white rounded p-1 hover:bg-blue-600">
+                <div className="absolute top-1 right-1 z-20 flex gap-1 widget-action-btn">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); setEditingWidget(widget) }}
+                    className="widget-action-btn bg-blue-500 text-white rounded p-1 hover:bg-blue-600 cursor-pointer shadow"
+                  >
                     <Settings size={12} />
                   </button>
-                  <button onClick={() => removeWidget(widget.widget_id)} className="bg-red-500 text-white rounded p-1 hover:bg-red-600">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); removeWidget(widget.widget_id) }}
+                    className="widget-action-btn bg-red-500 text-white rounded p-1 hover:bg-red-600 cursor-pointer shadow"
+                  >
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -214,8 +229,8 @@ export default function DashboardDetailPage() {
       {/* Modal Edit Widget */}
       {editingWidget && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4 sticky top-0 bg-white">
               <h2 className="text-lg font-bold">⚙️ Configura Widget</h2>
               <button onClick={() => setEditingWidget(null)}><X size={20} /></button>
             </div>
@@ -298,8 +313,11 @@ export default function DashboardDetailPage() {
                       setEditingWidget({ ...editingWidget, config: { ...editingWidget.config, url: e.target.value } })
                     }}
                     className="w-full border rounded-lg px-3 py-2"
-                    placeholder="https://app.powerbi.com/..."
+                    placeholder="https://app.powerbi.com/view?r=..."
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Da Power BI: File → Embed report → Publish to web → copia URL
+                  </p>
                 </div>
               )}
 
@@ -334,6 +352,58 @@ export default function DashboardDetailPage() {
                     </select>
                   </div>
                 </>
+              )}
+
+              {editingWidget.tipo === 'table' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Colonne (separate da virgola)</label>
+                    <input
+                      value={(editingWidget.config.headers || []).join(', ')}
+                      onChange={(e) => {
+                        const headers = e.target.value.split(',').map(s => s.trim())
+                        updateWidgetConfig(editingWidget.widget_id, { headers })
+                        setEditingWidget({ ...editingWidget, config: { ...editingWidget.config, headers } })
+                      }}
+                      className="w-full border rounded-lg px-3 py-2"
+                      placeholder="Es: Nome, Stato, Data"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Righe (una per riga, valori separati da | )</label>
+                    <textarea
+                      rows={5}
+                      value={(editingWidget.config.rows || []).map(r => r.join(' | ')).join('\n')}
+                      onChange={(e) => {
+                        const rows = e.target.value.split('\n').filter(l => l.trim()).map(l => l.split('|').map(s => s.trim()))
+                        updateWidgetConfig(editingWidget.widget_id, { rows })
+                        setEditingWidget({ ...editingWidget, config: { ...editingWidget.config, rows } })
+                      }}
+                      className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
+                      placeholder={"Mario | Aperto | 18/06\nLuca | Chiuso | 17/06"}
+                    />
+                  </div>
+                </>
+              )}
+
+              {editingWidget.tipo === 'excel_link' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Link (uno per riga: etichetta | URL)</label>
+                  <textarea
+                    rows={5}
+                    value={(editingWidget.config.links || []).map(l => `${l.label || ''} | ${l.url || ''}`).join('\n')}
+                    onChange={(e) => {
+                      const links = e.target.value.split('\n').filter(l => l.trim()).map(l => {
+                        const parts = l.split('|').map(s => s.trim())
+                        return { label: parts[0], url: parts[1] || parts[0] }
+                      })
+                      updateWidgetConfig(editingWidget.widget_id, { links })
+                      setEditingWidget({ ...editingWidget, config: { ...editingWidget.config, links } })
+                    }}
+                    className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
+                    placeholder={"Report Production | https://sharepoint.com/...\nOPL Linea 1 | \\\\server\\opl.xlsx"}
+                  />
+                </div>
               )}
 
               <button
