@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
-import { FileText, Upload, Download, Search, Trash2, Edit2, Eye, Plus, X, ExternalLink } from 'lucide-react'
+import { FileText, Upload, Download, Search, Trash2, Edit2, Eye, X } from 'lucide-react'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -66,7 +66,7 @@ export default function DocumentiPage() {
         </button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {['OPL', 'SOP'].map(tipo => {
           const total = Object.values(stats[tipo] || {}).reduce((s, n) => s + n, 0)
@@ -135,57 +135,53 @@ export default function DocumentiPage() {
             {documenti.length === 0 ? (
               <tr><td colSpan="8" className="text-center text-gray-400 py-8">Nessun documento. Caricane uno!</td></tr>
             ) : (
-              documenti.map(doc => (
-                <tr key={doc._id} className="border-t hover:bg-gray-50">
-                  <td className="p-4 font-mono text-primary font-bold">{doc.numero}</td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <span>{getTipoIcon(doc.tipo)}</span>
-                      <div>
-                        <div className="font-medium">{doc.titolo}</div>
-                        {doc.descrizione && <div className="text-xs text-gray-500 truncate max-w-xs">{doc.descrizione}</div>}
+              documenti.map(doc => {
+                const fileUrl = `${API_BASE}/api/documenti/${doc._id}/file`
+                return (
+                  <tr key={doc._id} className="border-t hover:bg-gray-50">
+                    <td className="p-4 font-mono text-primary font-bold">{doc.numero}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <span>{getTipoIcon(doc.tipo)}</span>
+                        <div>
+                          <div className="font-medium">{doc.titolo}</div>
+                          {doc.descrizione && <div className="text-xs text-gray-500 truncate max-w-xs">{doc.descrizione}</div>}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="p-4">{doc.tipo}</td>
-                  <td className="p-4">{doc.categoria || '-'}</td>
-                  <td className="p-4 text-xs">
-                    {doc.reparto && <div>🏭 {doc.reparto}</div>}
-                    {doc.linea && <div>⚙️ {doc.linea}</div>}
-                  </td>
-                  <td className="p-4">
-                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">v{doc.versione || 1}</span>
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatoBadge(doc.stato)}`}>
-                      {doc.stato}
-                    </span>
-                  </td>
-                  <td className="p-4 flex gap-2">
-                    {API_BASE}/api/documenti/${doc._id}/file`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:bg-blue-50 p-1 rounded"
-                      title="Visualizza"
-                    >
-                      <Eye size={16} />
-                    </a>
-                    {API_BASE}/api/documenti/${doc._id}/file`}
-                      download
-                      className="text-green-600 hover:bg-green-50 p-1 rounded"
-                      title="Scarica"
-                    >
-                      <Download size={16} />
-                    </a>
-                    <button onClick={() => setEditingDoc(doc)} className="text-yellow-600 hover:bg-yellow-50 p-1 rounded" title="Modifica">
-                      <Edit2 size={16} />
-                    </button>
-                    <button onClick={() => deleteDoc(doc._id)} className="text-red-600 hover:bg-red-50 p-1 rounded" title="Elimina">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="p-4">{doc.tipo}</td>
+                    <td className="p-4">{doc.categoria || '-'}</td>
+                    <td className="p-4 text-xs">
+                      {doc.reparto && <div>🏭 {doc.reparto}</div>}
+                      {doc.linea && <div>⚙️ {doc.linea}</div>}
+                    </td>
+                    <td className="p-4">
+                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">v{doc.versione || 1}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatoBadge(doc.stato)}`}>
+                        {doc.stato}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Visualizza">
+                          <Eye size={16} />
+                        </a>
+                        <a href={fileUrl} download className="text-green-600 hover:bg-green-50 p-1 rounded" title="Scarica">
+                          <Download size={16} />
+                        </a>
+                        <button onClick={() => setEditingDoc(doc)} className="text-yellow-600 hover:bg-yellow-50 p-1 rounded" title="Modifica">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => deleteDoc(doc._id)} className="text-red-600 hover:bg-red-50 p-1 rounded" title="Elimina">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
@@ -352,10 +348,7 @@ function EditModal({ doc, onClose, onSaved }) {
     e.preventDefault()
     setSaving(true)
     try {
-      // Aggiorna metadata
       await api.put(`/documenti/${doc._id}`, form)
-
-      // Se c'è nuovo file, carica come nuova versione
       if (newFile) {
         const formData = new FormData()
         formData.append('file', newFile)
@@ -363,7 +356,6 @@ function EditModal({ doc, onClose, onSaved }) {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
       }
-
       alert('Documento aggiornato!')
       onSaved()
       onClose()
@@ -429,7 +421,6 @@ function EditModal({ doc, onClose, onSaved }) {
             <textarea value={form.descrizione} onChange={(e) => setForm({...form, descrizione: e.target.value})} rows={2} className="w-full border rounded-lg px-3 py-2" />
           </div>
 
-          {/* Upload nuova versione */}
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-primary" onClick={() => fileRef.current?.click()}>
             <input ref={fileRef} type="file" onChange={(e) => setNewFile(e.target.files[0])} className="hidden" />
             {newFile ? (
@@ -446,19 +437,18 @@ function EditModal({ doc, onClose, onSaved }) {
             )}
           </div>
 
-          {doc.versioni_precedenti?.length > 0 && (
+          {doc.versioni_precedenti && doc.versioni_precedenti.length > 0 && (
             <div>
               <label className="block text-sm font-medium mb-1">📜 Versioni precedenti</label>
               <div className="space-y-1">
-                {doc.versioni_precedenti.map(v => (
-                  {API_BASE}/api/documenti/${doc._id}/version/${v.versione}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-xs text-gray-600 hover:text-primary"
-                  >
-                    <Download size={12} /> v{v.versione} — {v.file_name}
-                  </a>
-                ))}
+                {doc.versioni_precedenti.map(v => {
+                  const vUrl = `${API_BASE}/api/documenti/${doc._id}/version/${v.versione}`
+                  return (
+                    <a key={v.versione} href={vUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-gray-600 hover:text-primary">
+                      <Download size={12} /> v{v.versione} — {v.file_name}
+                    </a>
+                  )
+                })}
               </div>
             </div>
           )}
