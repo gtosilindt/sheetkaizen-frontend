@@ -159,15 +159,16 @@ export default function DashboardDetailPage() {
         </div>
       ) : (
         <GridLayout
-          className="layout"
-          layout={gridLayout}
-          cols={12}
-          rowHeight={50}
-          width={1200}
-          onLayoutChange={onLayoutChange}
-          isDraggable={editMode}
-          isResizable={editMode}
-        >
+  className="layout"
+  layout={gridLayout}
+  cols={12}
+  rowHeight={50}
+  width={1200}
+  onLayoutChange={onLayoutChange}
+  isDraggable={editMode}
+  isResizable={editMode}
+  draggableCancel=".widget-action-btn"
+>
           {dashboard.layout.map(widget => (
             <div key={widget.widget_id} className="relative">
               {editMode && (
