@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { 
-  Plus, Search, Filter, Calendar, User, AlertCircle, CheckCircle2, 
-  Clock, X, Edit2, Trash2, MessageSquare, TrendingUp, Link2, ChevronDown 
+  Plus, Search, Filter, User, AlertCircle, CheckCircle2, 
+  Clock, X, Edit2, Trash2, MessageSquare, TrendingUp, Link2 
 } from 'lucide-react'
-import { api } from '../services/api'
+import api from '../services/api'
 
 const STATI = ['Aperto', 'In Corso', 'In Verifica', 'Completato', 'Annullato']
 const PRIORITA = ['Bassa', 'Media', 'Alta', 'Critica']
@@ -35,7 +35,6 @@ export default function ActionPlanPage() {
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [kaizens, setKaizens] = useState([])
 
-  // Filtri
   const [filters, setFilters] = useState({
     search: '',
     stato: '',
