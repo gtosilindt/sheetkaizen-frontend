@@ -10,6 +10,7 @@ import BIEmbed from '../components/widgets/BIEmbed'
 import TableWidget from '../components/widgets/TableWidget'
 import ExcelLink from '../components/widgets/ExcelLink'
 import 'react-grid-layout/css/styles.css'
+import TableEditor from '../components/TableEditor'
 
 const WIDGET_TYPES = [
   { id: 'action_plan', label: '📋 Action Plan', icon: '📋', defaultSize: { w: 6, h: 6 } },
@@ -355,15 +356,14 @@ export default function DashboardDetailPage() {
               )}
 
               {editingWidget.tipo === 'table' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Colonne (separate da virgola)</label>
-                    <input
-                      value={(editingWidget.config.headers || []).join(', ')}
-                      onChange={(e) => {
-                        const headers = e.target.value.split(',').map(s => s.trim())
-                        updateWidgetConfig(editingWidget.widget_id, { headers })
-                        setEditingWidget({ ...editingWidget, config: { ...editingWidget.config, headers } })
+                <TableEditor
+                  config={editingWidget.config}
+                  onChange={(newConfig) => {
+                    updateWidgetConfig(editingWidget.widget_id, newConfig)
+                    setEditingWidget({ ...editingWidget, config: { ...editingWidget.config, ...newConfig } })
+                  }}
+                />
+              )}
                       }}
                       className="w-full border rounded-lg px-3 py-2"
                       placeholder="Es: Nome, Stato, Data"
