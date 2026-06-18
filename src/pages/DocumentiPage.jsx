@@ -7,6 +7,17 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const CATEGORIE = ['Operativa', 'Sicurezza', 'Manutenzione', 'Qualità', 'Pulizia', 'Allergeni', 'Avvio/Spegnimento']
 const STATI = ['Bozza', 'In Revisione', 'Approvato', 'Obsoleto']
 
+// Helper per determinare il tipo di anteprima
+function getFileType(filename) {
+  if (!filename) return 'unknown'
+  const ext = filename.split('.').pop().toLowerCase()
+  if (['pdf'].includes(ext)) return 'pdf'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return 'image'
+  if (['xlsx', 'xls', 'docx', 'doc', 'pptx', 'ppt'].includes(ext)) return 'office'
+  if (['txt', 'csv', 'log', 'json', 'xml'].includes(ext)) return 'text'
+  return 'unknown'
+}
+
 export default function DocumentiPage() {
   const [documenti, setDocumenti] = useState([])
   const [stats, setStats] = useState({})
@@ -16,6 +27,7 @@ export default function DocumentiPage() {
   const [filterStato, setFilterStato] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [editingDoc, setEditingDoc] = useState(null)
+  const [previewDoc, setPreviewDoc] = useState(null)
 
   useEffect(() => { load() }, [filterTipo, filterCategoria, filterStato])
 
@@ -134,6 +146,7 @@ export default function DocumentiPage() {
             ) : (
               documenti.map(doc => {
                 const fileUrl = `${API_BASE}/api/documenti/${doc._id}/file`
+                const downloadUrl = `${fileUrl}?download=true`
                 return (
                   <tr key={doc._id} className="border-t hover:bg-gray-50">
                     <td className="p-4 font-mono text-primary font-bold">{doc.numero}</td>
@@ -162,10 +175,10 @@ export default function DocumentiPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
-                        <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Visualizza">
+                        <button onClick={() => setPreviewDoc(doc)} className="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Anteprima">
                           <Eye size={16} />
-                        </a>
-                        <a href={fileUrl} download className="text-green-600 hover:bg-green-50 p-1 rounded" title="Scarica">
+                        </button>
+                        <a href={downloadUrl} download={doc.file_name} className="text-green-600 hover:bg-green-50 p-1 rounded" title="Scarica">
                           <Download size={16} />
                         </a>
                         <button onClick={() => setEditingDoc(doc)} className="text-yellow-600 hover:bg-yellow-50 p-1 rounded" title="Modifica">
@@ -186,10 +199,132 @@ export default function DocumentiPage() {
 
       {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onSaved={load} />}
       {editingDoc && <EditModal doc={editingDoc} onClose={() => setEditingDoc(null)} onSaved={load} />}
+      {previewDoc && <PreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
     </div>
   )
 }
 
+// ─────────────────────────────────────────────────────────────
+// PREVIEW MODAL
+// ─────────────────────────────────────────────────────────────
+
+function PreviewModal({ doc, onClose }) {
+  const fileType = getFileType(doc.file_name)
+  const fileUrl = `${API_BASE}/api/documenti/${doc._id}/file`
+  const downloadUrl = `${fileUrl}?download=true`
+  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="bg-primary text-white px-6 py-3 rounded-t-xl flex justify-between items-center">
+          <div className="min-w-0">
+            <div className="font-semibold truncate">{doc.numero} - {doc.titolo}</div>
+            <div className="text-xs opacity-80 truncate">
+              📎 {doc.file_name} • v{doc.versione || 1} • {doc.stato}
+              {doc.file_size && ` • ${(doc.file_size / 1024).toFixed(1)} KB`}
+            </div>
+          </div>
+          <div className="flex gap-2 items-center flex-shrink-0">
+            <a
+              href={downloadUrl}
+              download={doc.file_name}
+              className="bg-white text-primary px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-gray-100"
+            >
+              <Download size={16} /> Scarica
+            </a>
+            <button onClick={onClose} className="hover:bg-primary-light p-1.5 rounded">
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-hidden bg-gray-100 relative">
+          {fileType === 'pdf' && (
+            <iframe
+              src={fileUrl}
+              className="w-full h-full border-0"
+              title={doc.titolo}
+            />
+          )}
+
+          {fileType === 'image' && (
+            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+              <img
+                src={fileUrl}
+                alt={doc.titolo}
+                className="max-w-full max-h-full object-contain shadow-lg"
+              />
+            </div>
+          )}
+
+          {fileType === 'office' && (
+            <>
+              <iframe
+                src={officeViewerUrl}
+                className="w-full h-full border-0"
+                title={doc.titolo}
+                frameBorder="0"
+              />
+              <div className="absolute bottom-3 right-3 bg-white shadow-lg rounded px-3 py-2 text-xs text-gray-600 max-w-xs">
+                ℹ️ Se l'anteprima non si carica (file privato/troppo grande), usa <strong>Scarica</strong> per aprirlo.
+              </div>
+            </>
+          )}
+
+          {fileType === 'text' && <TextPreview url={fileUrl} />}
+
+          {fileType === 'unknown' && (
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 p-8">
+              <div className="text-7xl mb-4">📄</div>
+              <div className="text-lg mb-2 font-medium">Anteprima non disponibile</div>
+              <div className="text-sm mb-6 text-gray-400">{doc.file_name}</div>
+              <a
+                href={downloadUrl}
+                download={doc.file_name}
+                className="bg-primary text-white px-5 py-2 rounded-lg hover:bg-primary-light flex items-center gap-2"
+              >
+                <Download size={18} /> Scarica per visualizzare
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {(doc.descrizione || doc.autore) && (
+          <div className="border-t bg-white px-6 py-2 text-xs text-gray-600 flex gap-4">
+            {doc.autore && <span>👤 <strong>Autore:</strong> {doc.autore}</span>}
+            {doc.categoria && <span>🏷️ <strong>Categoria:</strong> {doc.categoria}</span>}
+            {doc.descrizione && <span className="truncate">📝 {doc.descrizione}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TextPreview({ url }) {
+  const [content, setContent] = useState('Caricamento...')
+
+  useEffect(() => {
+    fetch(url)
+      .then(r => r.text())
+      .then(setContent)
+      .catch(() => setContent('❌ Errore caricamento file'))
+  }, [url])
+
+  return (
+    <pre className="w-full h-full overflow-auto p-6 bg-gray-50 text-sm font-mono whitespace-pre-wrap">
+      {content}
+    </pre>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// UPLOAD MODAL (invariato)
+// ─────────────────────────────────────────────────────────────
 
 function UploadModal({ onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -325,6 +460,9 @@ function UploadModal({ onClose, onSaved }) {
   )
 }
 
+// ─────────────────────────────────────────────────────────────
+// EDIT MODAL (invariato)
+// ─────────────────────────────────────────────────────────────
 
 function EditModal({ doc, onClose, onSaved }) {
   const [form, setForm] = useState({
