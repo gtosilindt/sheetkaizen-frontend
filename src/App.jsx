@@ -5,9 +5,9 @@ import KaizenListPage from './pages/KaizenListPage'
 import KaizenDetailPage from './pages/KaizenDetailPage'
 import ActionPlanPage from './pages/ActionPlanPage'
 import DashboardListPage from './pages/DashboardListPage'
-import AdminPage from './pages/AdminPage'
 import DashboardDetailPage from './pages/DashboardDetailPage'
 import DocumentiPage from './pages/DocumentiPage'
+import AdminPage from './pages/AdminPage'
 
 export default function App() {
   return (
@@ -17,7 +17,6 @@ export default function App() {
         <Route path="kaizen" element={<KaizenListPage />} />
         <Route path="kaizen/:id" element={<KaizenDetailPage />} />
         <Route path="action-plan" element={<ActionPlanPage />} />
-        <Route path="dashboard" element={<DashboardListPage />} />
         <Route path="dashboard" element={<DashboardListPage />} />
         <Route path="dashboard/:id" element={<DashboardDetailPage />} />
         <Route path="documenti" element={<DocumentiPage />} />
