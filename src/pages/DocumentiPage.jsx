@@ -28,6 +28,7 @@ export default function DocumentiPage() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [editingDoc, setEditingDoc] = useState(null)
   const [previewDoc, setPreviewDoc] = useState(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   useEffect(() => { load() }, [filterTipo, filterCategoria, filterStato])
 
@@ -72,11 +73,22 @@ export default function DocumentiPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">📚 Document Manager (OPL / SOP)</h1>
-        <button onClick={() => setUploadOpen(true)} className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light">
-          <Upload size={18} /> Carica Documento
-        </button>
-      </div>
+  <h1 className="text-2xl font-bold text-gray-800">📚 Document Manager (OPL / SOP)</h1>
+  <div className="flex gap-2">
+    <button 
+      onClick={() => setBulkOpen(true)} 
+      className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700"
+    >
+      📦 Bulk Upload
+    </button>
+    <button 
+      onClick={() => setUploadOpen(true)} 
+      className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light"
+    >
+      <Upload size={18} /> Carica Singolo
+    </button>
+  </div>
+</div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {['OPL', 'SOP'].map(tipo => {
@@ -200,6 +212,7 @@ export default function DocumentiPage() {
       {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onSaved={load} />}
       {editingDoc && <EditModal doc={editingDoc} onClose={() => setEditingDoc(null)} onSaved={load} />}
       {previewDoc && <PreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
+      {bulkOpen && <BulkUploadModal onClose={() => setBulkOpen(false)} onSaved={load} />}
     </div>
   )
 }
