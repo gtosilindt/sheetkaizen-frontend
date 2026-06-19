@@ -7,7 +7,6 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const CATEGORIE = ['Operativa', 'Sicurezza', 'Manutenzione', 'Qualità', 'Pulizia', 'Allergeni', 'Avvio/Spegnimento']
 const STATI = ['Bozza', 'In Revisione', 'Approvato', 'Obsoleto']
 
-// Helper per determinare il tipo di anteprima
 function getFileType(filename) {
   if (!filename) return 'unknown'
   const ext = filename.split('.').pop().toLowerCase()
@@ -73,22 +72,22 @@ export default function DocumentiPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-  <h1 className="text-2xl font-bold text-gray-800">📚 Document Manager (OPL / SOP)</h1>
-  <div className="flex gap-2">
-    <button 
-      onClick={() => setBulkOpen(true)} 
-      className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700"
-    >
-      📦 Bulk Upload
-    </button>
-    <button 
-      onClick={() => setUploadOpen(true)} 
-      className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light"
-    >
-      <Upload size={18} /> Carica Singolo
-    </button>
-  </div>
-</div>
+        <h1 className="text-2xl font-bold text-gray-800">📚 Document Manager (OPL / SOP)</h1>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setBulkOpen(true)} 
+            className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700"
+          >
+            📦 Bulk Upload
+          </button>
+          <button 
+            onClick={() => setUploadOpen(true)} 
+            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light"
+          >
+            <Upload size={18} /> Carica Singolo
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {['OPL', 'SOP'].map(tipo => {
@@ -230,7 +229,6 @@ function PreviewModal({ doc, onClose }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl">
-        {/* Header */}
         <div className="bg-primary text-white px-6 py-3 rounded-t-xl flex justify-between items-center">
           <div className="min-w-0">
             <div className="font-semibold truncate">{doc.numero} - {doc.titolo}</div>
@@ -240,11 +238,7 @@ function PreviewModal({ doc, onClose }) {
             </div>
           </div>
           <div className="flex gap-2 items-center flex-shrink-0">
-            <a
-              href={downloadUrl}
-              download={doc.file_name}
-              className="bg-white text-primary px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-gray-100"
-            >
+            <a href={downloadUrl} download={doc.file_name} className="bg-white text-primary px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-gray-100">
               <Download size={16} /> Scarica
             </a>
             <button onClick={onClose} className="hover:bg-primary-light p-1.5 rounded">
@@ -253,59 +247,36 @@ function PreviewModal({ doc, onClose }) {
           </div>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-hidden bg-gray-100 relative">
           {fileType === 'pdf' && (
-            <iframe
-              src={fileUrl}
-              className="w-full h-full border-0"
-              title={doc.titolo}
-            />
+            <iframe src={fileUrl} className="w-full h-full border-0" title={doc.titolo} />
           )}
-
           {fileType === 'image' && (
             <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
-              <img
-                src={fileUrl}
-                alt={doc.titolo}
-                className="max-w-full max-h-full object-contain shadow-lg"
-              />
+              <img src={fileUrl} alt={doc.titolo} className="max-w-full max-h-full object-contain shadow-lg" />
             </div>
           )}
-
           {fileType === 'office' && (
             <>
-              <iframe
-                src={officeViewerUrl}
-                className="w-full h-full border-0"
-                title={doc.titolo}
-                frameBorder="0"
-              />
+              <iframe src={officeViewerUrl} className="w-full h-full border-0" title={doc.titolo} frameBorder="0" />
               <div className="absolute bottom-3 right-3 bg-white shadow-lg rounded px-3 py-2 text-xs text-gray-600 max-w-xs">
-                ℹ️ Se l'anteprima non si carica (file privato/troppo grande), usa <strong>Scarica</strong> per aprirlo.
+                ℹ️ Se l'anteprima non si carica, usa <strong>Scarica</strong> per aprirlo.
               </div>
             </>
           )}
-
           {fileType === 'text' && <TextPreview url={fileUrl} />}
-
           {fileType === 'unknown' && (
             <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 p-8">
               <div className="text-7xl mb-4">📄</div>
               <div className="text-lg mb-2 font-medium">Anteprima non disponibile</div>
               <div className="text-sm mb-6 text-gray-400">{doc.file_name}</div>
-              <a
-                href={downloadUrl}
-                download={doc.file_name}
-                className="bg-primary text-white px-5 py-2 rounded-lg hover:bg-primary-light flex items-center gap-2"
-              >
+              <a href={downloadUrl} download={doc.file_name} className="bg-primary text-white px-5 py-2 rounded-lg hover:bg-primary-light flex items-center gap-2">
                 <Download size={18} /> Scarica per visualizzare
               </a>
             </div>
           )}
         </div>
 
-        {/* Footer */}
         {(doc.descrizione || doc.autore) && (
           <div className="border-t bg-white px-6 py-2 text-xs text-gray-600 flex gap-4">
             {doc.autore && <span>👤 <strong>Autore:</strong> {doc.autore}</span>}
@@ -320,23 +291,16 @@ function PreviewModal({ doc, onClose }) {
 
 function TextPreview({ url }) {
   const [content, setContent] = useState('Caricamento...')
-
   useEffect(() => {
-    fetch(url)
-      .then(r => r.text())
-      .then(setContent)
-      .catch(() => setContent('❌ Errore caricamento file'))
+    fetch(url).then(r => r.text()).then(setContent).catch(() => setContent('❌ Errore caricamento file'))
   }, [url])
-
   return (
-    <pre className="w-full h-full overflow-auto p-6 bg-gray-50 text-sm font-mono whitespace-pre-wrap">
-      {content}
-    </pre>
+    <pre className="w-full h-full overflow-auto p-6 bg-gray-50 text-sm font-mono whitespace-pre-wrap">{content}</pre>
   )
 }
 
 // ─────────────────────────────────────────────────────────────
-// UPLOAD MODAL (invariato)
+// UPLOAD MODAL
 // ─────────────────────────────────────────────────────────────
 
 function UploadModal({ onClose, onSaved }) {
@@ -350,34 +314,33 @@ function UploadModal({ onClose, onSaved }) {
   const fileRef = useRef(null)
 
   const handleSubmit = async (e) => {
-  e.preventDefault()
-  if (!file) return alert('Seleziona un file')
-  setUploading(true)
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('compress', compress ? 'true' : 'false')
-    Object.entries(form).forEach(([k, v]) => v && formData.append(k, v))
-    const res = await api.post('/documenti/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    
-    const c = res.data.compressione
-    let msg = `✅ Documento ${res.data.numero} creato!`
-    if (c && c.compressed) {
-      const origMB = (c.original_size / 1024 / 1024).toFixed(2)
-      const finalMB = (c.final_size / 1024 / 1024).toFixed(2)
-      msg += `\n\n🗜️ Compressione: ${origMB} MB → ${finalMB} MB (-${c.saved_pct}%)`
+    e.preventDefault()
+    if (!file) return alert('Seleziona un file')
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('compress', compress ? 'true' : 'false')
+      Object.entries(form).forEach(([k, v]) => v && formData.append(k, v))
+      const res = await api.post('/documenti/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const c = res.data.compressione
+      let msg = `✅ Documento ${res.data.numero} creato!`
+      if (c && c.compressed) {
+        const origMB = (c.original_size / 1024 / 1024).toFixed(2)
+        const finalMB = (c.final_size / 1024 / 1024).toFixed(2)
+        msg += `\n\n🗜️ Compressione: ${origMB} MB → ${finalMB} MB (-${c.saved_pct}%)`
+      }
+      alert(msg)
+      onSaved()
+      onClose()
+    } catch (err) {
+      console.error(err)
+      alert('Errore upload: ' + (err.response?.data?.detail || err.message))
     }
-    alert(msg)
-    onSaved()
-    onClose()
-  } catch (err) {
-    console.error(err)
-    alert('Errore upload: ' + (err.response?.data?.detail || err.message))
+    setUploading(false)
   }
-  setUploading(false)
-}
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -410,13 +373,11 @@ function UploadModal({ onClose, onSaved }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Titolo <span className="text-red-500">*</span></label>
-              <input required value={form.titolo} onChange={(e) => setForm({...form, titolo: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2" placeholder="Es: Pulizia filtro Bindler 11" />
+              <input required value={form.titolo} onChange={(e) => setForm({...form, titolo: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Es: Pulizia filtro Bindler 11" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Tipo <span className="text-red-500">*</span></label>
-              <select value={form.tipo} onChange={(e) => setForm({...form, tipo: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2">
+              <select value={form.tipo} onChange={(e) => setForm({...form, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2">
                 <option>OPL</option>
                 <option>SOP</option>
                 <option>Procedura</option>
@@ -428,61 +389,49 @@ function UploadModal({ onClose, onSaved }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Categoria</label>
-              <select value={form.categoria} onChange={(e) => setForm({...form, categoria: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2">
+              <select value={form.categoria} onChange={(e) => setForm({...form, categoria: e.target.value})} className="w-full border rounded-lg px-3 py-2">
                 <option value="">-- Seleziona --</option>
                 {CATEGORIE.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Autore</label>
-              <input value={form.autore} onChange={(e) => setForm({...form, autore: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2" />
+              <input value={form.autore} onChange={(e) => setForm({...form, autore: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Reparto</label>
-              <input value={form.reparto} onChange={(e) => setForm({...form, reparto: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2" placeholder="Es: Confezionamento" />
+              <input value={form.reparto} onChange={(e) => setForm({...form, reparto: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Es: Confezionamento" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Linea</label>
-              <input value={form.linea} onChange={(e) => setForm({...form, linea: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2" placeholder="Es: Linea 1" />
+              <input value={form.linea} onChange={(e) => setForm({...form, linea: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Es: Linea 1" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Macchina</label>
-              <input value={form.macchina} onChange={(e) => setForm({...form, macchina: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2" placeholder="Opzionale" />
+              <input value={form.macchina} onChange={(e) => setForm({...form, macchina: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Opzionale" />
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Descrizione</label>
-            <textarea value={form.descrizione} onChange={(e) => setForm({...form, descrizione: e.target.value})}
-              rows={2} className="w-full border rounded-lg px-3 py-2" />
+            <textarea value={form.descrizione} onChange={(e) => setForm({...form, descrizione: e.target.value})} rows={2} className="w-full border rounded-lg px-3 py-2" />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Tag (separati da virgola)</label>
-            <input value={form.tag} onChange={(e) => setForm({...form, tag: e.target.value})}
-              className="w-full border rounded-lg px-3 py-2" placeholder="filtro, pulizia, manutenzione" />
+            <input value={form.tag} onChange={(e) => setForm({...form, tag: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="filtro, pulizia, manutenzione" />
           </div>
+
           <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-  <input
-    type="checkbox"
-    id="compress"
-    checked={compress}
-    onChange={(e) => setCompress(e.target.checked)}
-    className="w-4 h-4"
-  />
-  <label htmlFor="compress" className="text-sm cursor-pointer flex-1">
-    🗜️ <strong>Comprimi automaticamente</strong> — Riduce dimensioni di immagini, PDF e file Office (consigliato)
-  </label>
-</div>
-          
+            <input type="checkbox" id="compress" checked={compress} onChange={(e) => setCompress(e.target.checked)} className="w-4 h-4" />
+            <label htmlFor="compress" className="text-sm cursor-pointer flex-1">
+              🗜️ <strong>Comprimi automaticamente</strong> — Riduce dimensioni di immagini, PDF e file Office (consigliato)
+            </label>
+          </div>
+
           <div className="flex justify-end gap-2 pt-4 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
             <button type="submit" disabled={uploading || !file} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50">
@@ -496,7 +445,7 @@ function UploadModal({ onClose, onSaved }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// EDIT MODAL (invariato)
+// EDIT MODAL
 // ─────────────────────────────────────────────────────────────
 
 function EditModal({ doc, onClose, onSaved }) {
@@ -627,8 +576,16 @@ function EditModal({ doc, onClose, onSaved }) {
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
             <button type="submit" disabled={saving} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50">
               {saving ? 'Salvo...' : '💾 Salva'}
-              // ─────────────────────────────────────────────────────────────
-// BULK UPLOAD MODAL (drag & drop multiplo con auto-parsing)
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// BULK UPLOAD MODAL
 // ─────────────────────────────────────────────────────────────
 
 function BulkUploadModal({ onClose, onSaved }) {
@@ -641,7 +598,6 @@ function BulkUploadModal({ onClose, onSaved }) {
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef(null)
 
-  // Pattern di riconoscimento auto
   const namePattern = /^(OPL|SOP|PROC|IST)-(\d{4})-(\d+)_(.+?)\.(pdf|docx|xlsx|pptx|png|jpg|jpeg|doc|xls|ppt)$/i
 
   function analyzeFile(file) {
@@ -700,7 +656,7 @@ function BulkUploadModal({ onClose, onSaved }) {
             setProgress(Math.round((e.loaded * 100) / e.total))
           }
         },
-        timeout: 300000, // 5 minuti
+        timeout: 300000,
       })
       setResult(res.data)
     } catch (err) {
@@ -722,14 +678,12 @@ function BulkUploadModal({ onClose, onSaved }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto shadow-2xl">
-        {/* Header */}
         <div className="bg-green-600 text-white p-4 rounded-t-xl flex justify-between items-center sticky top-0 z-10">
           <h2 className="text-lg font-bold">📦 Bulk Upload — Carica multipli</h2>
           <button onClick={handleClose}><X size={20} /></button>
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Info convenzione */}
           {!result && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
               <div className="font-semibold text-blue-900 mb-1">💡 Naming intelligente</div>
@@ -741,7 +695,6 @@ function BulkUploadModal({ onClose, onSaved }) {
             </div>
           )}
 
-          {/* Drag & Drop area */}
           {!result && !uploading && (
             <div
               onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -767,7 +720,6 @@ function BulkUploadModal({ onClose, onSaved }) {
             </div>
           )}
 
-          {/* Lista file aggiunti */}
           {!result && files.length > 0 && !uploading && (
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-gray-50 px-3 py-2 text-xs font-medium flex justify-between items-center">
@@ -802,7 +754,6 @@ function BulkUploadModal({ onClose, onSaved }) {
             </div>
           )}
 
-          {/* Settings */}
           {!result && !uploading && files.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
               <div>
@@ -828,7 +779,6 @@ function BulkUploadModal({ onClose, onSaved }) {
             </div>
           )}
 
-          {/* Progress bar durante upload */}
           {uploading && !result && (
             <div className="text-center py-8">
               <div className="text-lg font-medium mb-2">📤 Caricamento in corso...</div>
@@ -850,7 +800,6 @@ function BulkUploadModal({ onClose, onSaved }) {
             </div>
           )}
 
-          {/* Report finale */}
           {result && (
             <div className="space-y-3">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
@@ -923,7 +872,6 @@ function BulkUploadModal({ onClose, onSaved }) {
             </div>
           )}
 
-          {/* Bottoni */}
           <div className="flex justify-end gap-2 pt-4 border-t">
             <button type="button" onClick={handleClose} className="px-4 py-2 border rounded-lg">
               {result ? 'Chiudi' : 'Annulla'}
@@ -939,13 +887,6 @@ function BulkUploadModal({ onClose, onSaved }) {
             )}
           </div>
         </div>
-      </div>
-    </div>
-  )
-}     
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   )
