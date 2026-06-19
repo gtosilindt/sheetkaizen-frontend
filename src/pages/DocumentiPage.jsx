@@ -627,6 +627,322 @@ function EditModal({ doc, onClose, onSaved }) {
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
             <button type="submit" disabled={saving} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50">
               {saving ? 'Salvo...' : '💾 Salva'}
+              // ─────────────────────────────────────────────────────────────
+// BULK UPLOAD MODAL (drag & drop multiplo con auto-parsing)
+// ─────────────────────────────────────────────────────────────
+
+function BulkUploadModal({ onClose, onSaved }) {
+  const [files, setFiles] = useState([])
+  const [autore, setAutore] = useState('')
+  const [compress, setCompress] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [result, setResult] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
+  const fileRef = useRef(null)
+
+  // Pattern di riconoscimento auto
+  const namePattern = /^(OPL|SOP|PROC|IST)-(\d{4})-(\d+)_(.+?)\.(pdf|docx|xlsx|pptx|png|jpg|jpeg|doc|xls|ppt)$/i
+
+  function analyzeFile(file) {
+    const match = file.name.match(namePattern)
+    if (match) {
+      return {
+        valid: true,
+        tipo: match[1].toUpperCase(),
+        numero: `${match[1].toUpperCase()}-${match[2]}-${match[3]}`,
+        titolo: match[4].replace(/_/g, ' '),
+        ext: match[5],
+      }
+    }
+    return {
+      valid: false,
+      titolo: file.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').replace(/-/g, ' '),
+    }
+  }
+
+  function handleFiles(selectedFiles) {
+    const arr = Array.from(selectedFiles)
+    const enriched = arr.map(f => ({
+      file: f,
+      name: f.name,
+      size: f.size,
+      analysis: analyzeFile(f),
+    }))
+    setFiles(prev => [...prev, ...enriched])
+  }
+
+  function removeFile(index) {
+    setFiles(files.filter((_, i) => i !== index))
+  }
+
+  function handleDrop(e) {
+    e.preventDefault()
+    setDragOver(false)
+    handleFiles(e.dataTransfer.files)
+  }
+
+  async function handleUpload() {
+    if (files.length === 0) return alert('Aggiungi almeno un file')
+    setUploading(true)
+    setProgress(0)
+
+    const formData = new FormData()
+    files.forEach(f => formData.append('files', f.file))
+    if (autore) formData.append('autore', autore)
+    formData.append('compress', compress ? 'true' : 'false')
+
+    try {
+      const res = await api.post('/documenti/bulk-upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => {
+          if (e.total) {
+            setProgress(Math.round((e.loaded * 100) / e.total))
+          }
+        },
+        timeout: 300000, // 5 minuti
+      })
+      setResult(res.data)
+    } catch (err) {
+      console.error(err)
+      alert('Errore bulk upload: ' + (err.response?.data?.detail || err.message))
+      setUploading(false)
+    }
+  }
+
+  function handleClose() {
+    if (result) onSaved()
+    onClose()
+  }
+
+  const totalSize = files.reduce((sum, f) => sum + f.size, 0)
+  const validCount = files.filter(f => f.analysis.valid).length
+  const invalidCount = files.length - validCount
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto shadow-2xl">
+        {/* Header */}
+        <div className="bg-green-600 text-white p-4 rounded-t-xl flex justify-between items-center sticky top-0 z-10">
+          <h2 className="text-lg font-bold">📦 Bulk Upload — Carica multipli</h2>
+          <button onClick={handleClose}><X size={20} /></button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Info convenzione */}
+          {!result && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+              <div className="font-semibold text-blue-900 mb-1">💡 Naming intelligente</div>
+              <div className="text-blue-700 text-xs space-y-0.5">
+                <div>I file con nome <code className="bg-blue-100 px-1 rounded">TIPO-ANNO-NUM_Titolo.ext</code> vengono parsati automaticamente.</div>
+                <div>Esempi: <code className="bg-blue-100 px-1 rounded">OPL-2026-001_Pulizia_Filtro.pdf</code> · <code className="bg-blue-100 px-1 rounded">SOP-2026-014_Avviamento.docx</code></div>
+                <div>Altri nomi → verranno usati come titolo con numero progressivo automatico.</div>
+              </div>
+            </div>
+          )}
+
+          {/* Drag & Drop area */}
+          {!result && !uploading && (
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current?.click()}
+              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                dragOver ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-400'
+              }`}
+            >
+              <input
+                ref={fileRef}
+                type="file"
+                multiple
+                onChange={(e) => handleFiles(e.target.files)}
+                className="hidden"
+                accept=".pdf,.docx,.xlsx,.pptx,.doc,.xls,.ppt,.png,.jpg,.jpeg"
+              />
+              <Upload className="mx-auto mb-2 text-gray-400" size={48} />
+              <p className="text-lg font-medium">Trascina qui i tuoi file</p>
+              <p className="text-sm text-gray-500">oppure click per selezionarli</p>
+              <p className="text-xs text-gray-400 mt-2">PDF, DOCX, XLSX, PPTX, immagini · Max 50MB ciascuno</p>
+            </div>
+          )}
+
+          {/* Lista file aggiunti */}
+          {!result && files.length > 0 && !uploading && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-3 py-2 text-xs font-medium flex justify-between items-center">
+                <span>{files.length} file pronti · {(totalSize / 1024 / 1024).toFixed(2)} MB totali</span>
+                <span className="flex gap-3">
+                  <span className="text-green-600">✅ {validCount} parsati</span>
+                  {invalidCount > 0 && <span className="text-orange-600">⚠️ {invalidCount} manuali</span>}
+                  <button onClick={() => setFiles([])} className="text-red-600 hover:underline">Svuota</button>
+                </span>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {files.map((f, i) => (
+                  <div key={i} className="px-3 py-2 border-t flex items-center gap-3 text-sm hover:bg-gray-50">
+                    <FileText size={16} className={f.analysis.valid ? 'text-green-600' : 'text-orange-500'} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{f.name}</div>
+                      <div className="text-xs text-gray-500 flex gap-2">
+                        <span>{(f.size / 1024).toFixed(1)} KB</span>
+                        {f.analysis.valid ? (
+                          <span className="text-green-600">→ {f.analysis.numero} · {f.analysis.titolo}</span>
+                        ) : (
+                          <span className="text-orange-600">→ Titolo: "{f.analysis.titolo}" · numero auto</span>
+                        )}
+                      </div>
+                    </div>
+                    <button onClick={() => removeFile(i)} className="text-red-500 hover:bg-red-50 p-1 rounded">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Settings */}
+          {!result && !uploading && files.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              <div>
+                <label className="block text-sm font-medium mb-1">Autore (opzionale)</label>
+                <input
+                  value={autore}
+                  onChange={(e) => setAutore(e.target.value)}
+                  placeholder="Es: Giovanni Tosi"
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex items-end">
+                <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-200 cursor-pointer flex-1">
+                  <input
+                    type="checkbox"
+                    checked={compress}
+                    onChange={(e) => setCompress(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm">🗜️ Comprimi automaticamente</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Progress bar durante upload */}
+          {uploading && !result && (
+            <div className="text-center py-8">
+              <div className="text-lg font-medium mb-2">📤 Caricamento in corso...</div>
+              <div className="text-sm text-gray-500 mb-4">
+                Sto caricando {files.length} file · {(totalSize / 1024 / 1024).toFixed(2)} MB
+                {compress && ' · con compressione attiva'}
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div 
+                  className="bg-green-500 h-4 transition-all duration-300 flex items-center justify-center text-xs text-white font-bold"
+                  style={{ width: `${progress}%` }}
+                >
+                  {progress > 10 && `${progress}%`}
+                </div>
+              </div>
+              <div className="text-xs text-gray-400 mt-2">
+                {progress < 100 ? '⏳ Upload + compressione + salvataggio in corso...' : '✨ Elaborazione finale...'}
+              </div>
+            </div>
+          )}
+
+          {/* Report finale */}
+          {result && (
+            <div className="space-y-3">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <div className="text-3xl mb-2">🎉</div>
+                <div className="text-lg font-bold text-green-900">Bulk Upload completato!</div>
+                <div className="text-sm text-gray-700 mt-2 flex justify-center gap-4">
+                  <span>📊 Totale: <strong>{result.totale}</strong></span>
+                  <span className="text-green-700">✅ Successo: <strong>{result.successo}</strong></span>
+                  {result.fallimenti > 0 && (
+                    <span className="text-red-600">❌ Errori: <strong>{result.fallimenti}</strong></span>
+                  )}
+                </div>
+                {result.risparmio_totale_mb > 0 && (
+                  <div className="mt-2 text-sm text-blue-700">
+                    🗜️ Risparmio compressione: <strong>{result.risparmio_totale_mb} MB</strong>
+                  </div>
+                )}
+              </div>
+
+              {result.creati && result.creati.length > 0 && (
+                <details className="border rounded-lg" open>
+                  <summary className="px-3 py-2 bg-green-50 cursor-pointer font-medium text-sm">
+                    ➕ Nuovi documenti ({result.creati.length})
+                  </summary>
+                  <div className="max-h-48 overflow-y-auto text-xs">
+                    {result.creati.map((d, i) => (
+                      <div key={i} className="px-3 py-1.5 border-t flex justify-between">
+                        <span>
+                          <strong className="text-primary">{d.numero}</strong> — {d.titolo}
+                          {!d.auto_parsed && <span className="text-orange-500 ml-1">(titolo manuale)</span>}
+                        </span>
+                        {d.compressione?.compressed && (
+                          <span className="text-green-600">-{d.compressione.saved_pct}%</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {result.aggiornati && result.aggiornati.length > 0 && (
+                <details className="border rounded-lg">
+                  <summary className="px-3 py-2 bg-blue-50 cursor-pointer font-medium text-sm">
+                    🔄 Nuove versioni ({result.aggiornati.length})
+                  </summary>
+                  <div className="max-h-48 overflow-y-auto text-xs">
+                    {result.aggiornati.map((d, i) => (
+                      <div key={i} className="px-3 py-1.5 border-t">
+                        <strong className="text-primary">{d.numero}</strong> — {d.titolo} → v{d.versione}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {result.errori && result.errori.length > 0 && (
+                <details className="border rounded-lg" open>
+                  <summary className="px-3 py-2 bg-red-50 cursor-pointer font-medium text-sm text-red-700">
+                    ❌ Errori ({result.errori.length})
+                  </summary>
+                  <div className="max-h-48 overflow-y-auto text-xs">
+                    {result.errori.map((e, i) => (
+                      <div key={i} className="px-3 py-1.5 border-t">
+                        <strong>{e.filename}</strong>: <span className="text-red-600">{e.errore}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+
+          {/* Bottoni */}
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" onClick={handleClose} className="px-4 py-2 border rounded-lg">
+              {result ? 'Chiudi' : 'Annulla'}
+            </button>
+            {!result && (
+              <button
+                onClick={handleUpload}
+                disabled={uploading || files.length === 0}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {uploading ? `⏳ Carico ${files.length}...` : `📤 Carica ${files.length} file`}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}     
             </button>
           </div>
         </form>
