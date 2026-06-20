@@ -7,7 +7,9 @@ import ActionPlanPage from './pages/ActionPlanPage'
 import DashboardListPage from './pages/DashboardListPage'
 import DashboardDetailPage from './pages/DashboardDetailPage'
 import DocumentiPage from './pages/DocumentiPage'
+import SettingsPage from './pages/SettingsPage'
 import AdminPage from './pages/AdminPage'
+
 
 export default function App() {
   return (
@@ -20,6 +22,7 @@ export default function App() {
         <Route path="dashboard" element={<DashboardListPage />} />
         <Route path="dashboard/:id" element={<DashboardDetailPage />} />
         <Route path="documenti" element={<DocumentiPage />} />
+        <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" />} />
