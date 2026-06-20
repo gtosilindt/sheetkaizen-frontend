@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
 import { Plus, AlertTriangle } from 'lucide-react'
-import ActionPlanForm from '../ActionPlanForm'
 
 export default function ActionPlanWidget({ filterReparto, filterStato, dashboardId, dashboardName, title = "Action Plan" }) {
   const [plans, setPlans] = useState([])
