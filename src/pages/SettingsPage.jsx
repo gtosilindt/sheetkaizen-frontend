@@ -304,3 +304,135 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (!form.label.trim()) return alert('Label obbligatoria')
+    setSaving(true)
+    try {
+      const payload = {
+        ...form,
+        tipo,
+        codice: form.codice.trim() || null,  // null = auto-genera
+      }
+      if (item?._id) {
+        await api.put(`/configurazioni/${item._id}`, payload)
+      } else {
+        await api.post('/configurazioni/', payload)
+      }
+      onSaved()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="bg-primary text-white px-5 py-3 flex justify-between items-center">
+          <h2 className="font-semibold">
+            {item ? '✏️ Modifica' : '➕ Nuova voce'} — {label}
+          </h2>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Label <span className="text-red-500">*</span>
+            </label>
+            <input
+              required
+              autoFocus
+              value={form.label}
+              onChange={(e) => setForm({ ...form, label: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Es: Quick Kaizen"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Codice
+              <span className="text-xs text-gray-500 font-normal ml-1">(auto se vuoto)</span>
+            </label>
+            <input
+              value={form.codice}
+              onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
+              className="w-full border rounded-lg px-3 py-2 font-mono"
+              placeholder="Es: QK"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Descrizione</label>
+            <textarea
+              value={form.descrizione}
+              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
+              rows={2}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="Es: Risoluzione rapida in 24h"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Icon <span className="text-xs text-gray-500 font-normal">(emoji)</span>
+              </label>
+              <input
+                value={form.icon}
+                onChange={(e) => setForm({ ...form, icon: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-2xl text-center"
+                placeholder="📋"
+                maxLength={4}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Colore</label>
+              <div className="flex gap-1">
+                <input
+                  type="color"
+                  value={form.color || '#3b82f6'}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  className="w-12 h-10 border rounded cursor-pointer"
+                />
+                <input
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  className="flex-1 border rounded-lg px-2 py-2 text-sm font-mono"
+                  placeholder="#3b82f6"
+                />
+              </div>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.attivo}
+              onChange={(e) => setForm({ ...form, attivo: e.target.checked })}
+              className="w-4 h-4"
+            />
+            <span className="text-sm">
+              Attivo <span className="text-xs text-gray-500">(visibile nei menu/tendine)</span>
+            </span>
+          </label>
+
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">
+              Annulla
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50 flex items-center gap-2"
+            >
+              <Save size={16} />
+              {saving ? 'Salvataggio...' : (item ? 'Salva' : 'Crea')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
