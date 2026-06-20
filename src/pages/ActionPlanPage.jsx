@@ -1,31 +1,67 @@
-import { useState, useEffect } from 'react'
-import { 
-  Plus, Search, Filter, User, AlertCircle, CheckCircle2, 
-  Clock, X, Edit2, Trash2, MessageSquare, TrendingUp, Link2 
+import { useState, useEffect, useRef } from 'react'
+import {
+  Plus, Search, Filter, User, AlertCircle, CheckCircle2, Clock, X, Edit2,
+  Trash2, MessageSquare, TrendingUp, Link2, Tag, AtSign, ChevronDown,
+  Calendar, Flag, Activity, CheckSquare, Square, Send, MoreHorizontal,
+  Shield, Zap, Bug, Wrench, Eye
 } from 'lucide-react'
 import api from '../services/api'
 
-const STATI = ['Aperto', 'In Corso', 'In Verifica', 'Completato', 'Annullato']
-const PRIORITA = ['Bassa', 'Media', 'Alta', 'Critica']
-const CATEGORIE = ['Sicurezza', 'Qualità', 'Manutenzione', '5S', 'Produzione', 'Ambiente', 'Altro']
-
-const PRIORITA_COLORS = {
-  Bassa: 'bg-gray-100 text-gray-700 border-gray-300',
-  Media: 'bg-blue-100 text-blue-700 border-blue-300',
-  Alta: 'bg-orange-100 text-orange-700 border-orange-300',
-  Critica: 'bg-red-100 text-red-700 border-red-300',
-}
+// ──────────────────────────────────────────────────────────
+// CONFIG
+// ──────────────────────────────────────────────────────────
+const STATI = ['Backlog', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
+const PRIORITA = ['Lowest', 'Low', 'Medium', 'High', 'Critical']
+const TIPI = ['Task', 'Bug', 'Improvement', 'Audit', 'Manutenzione', 'Sicurezza']
 
 const STATO_COLORS = {
-  Aperto: 'bg-gray-100 text-gray-700',
-  'In Corso': 'bg-blue-100 text-blue-700',
-  'In Verifica': 'bg-purple-100 text-purple-700',
-  Completato: 'bg-green-100 text-green-700',
-  Annullato: 'bg-gray-100 text-gray-500',
-  'In Ritardo': 'bg-red-100 text-red-700',
-  'In Scadenza': 'bg-yellow-100 text-yellow-700',
+  Backlog: 'bg-gray-100 text-gray-700 border-gray-300',
+  Aperto: 'bg-blue-100 text-blue-700 border-blue-300',
+  'In Corso': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+  'In Verifica': 'bg-purple-100 text-purple-700 border-purple-300',
+  Done: 'bg-green-100 text-green-700 border-green-300',
+  Cancelled: 'bg-gray-100 text-gray-500 border-gray-300',
+  'In Ritardo': 'bg-red-100 text-red-700 border-red-300',
+  'In Scadenza': 'bg-yellow-100 text-yellow-700 border-yellow-300',
 }
 
+const PRIORITA_COLORS = {
+  Lowest: 'text-gray-500',
+  Low: 'text-blue-500',
+  Medium: 'text-yellow-500',
+  High: 'text-orange-500',
+  Critical: 'text-red-600',
+}
+
+const PRIORITA_BG = {
+  Lowest: 'bg-gray-100 text-gray-700',
+  Low: 'bg-blue-100 text-blue-700',
+  Medium: 'bg-yellow-100 text-yellow-700',
+  High: 'bg-orange-100 text-orange-700',
+  Critical: 'bg-red-100 text-red-700',
+}
+
+const TIPO_ICONS = {
+  Task: CheckSquare,
+  Bug: Bug,
+  Improvement: TrendingUp,
+  Audit: Shield,
+  Manutenzione: Wrench,
+  Sicurezza: AlertCircle,
+}
+
+const TIPO_COLORS = {
+  Task: 'text-blue-600',
+  Bug: 'text-red-600',
+  Improvement: 'text-green-600',
+  Audit: 'text-purple-600',
+  Manutenzione: 'text-orange-600',
+  Sicurezza: 'text-yellow-600',
+}
+
+// ──────────────────────────────────────────────────────────
+// MAIN PAGE
+// ──────────────────────────────────────────────────────────
 export default function ActionPlanPage() {
   const [plans, setPlans] = useState([])
   const [stats, setStats] = useState({})
@@ -33,26 +69,21 @@ export default function ActionPlanPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingPlan, setEditingPlan] = useState(null)
   const [selectedPlan, setSelectedPlan] = useState(null)
-  const [kaizens, setKaizens] = useState([])
-
   const [filters, setFilters] = useState({
-    search: '',
-    stato: '',
-    priorita: '',
-    categoria: '',
-    reparto: '',
+    search: '', stato: '', tipo: '', priorita: '', categoria: '',
+    responsabile: '', reparto: '', tag: '', overdue: false,
   })
 
-  useEffect(() => {
-    loadData()
-    loadKaizens()
-  }, [filters])
+  useEffect(() => { loadData() }, [filters])
 
   async function loadData() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      Object.entries(filters).forEach(([k, v]) => v && params.append(k, v))
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v === true) params.append(k, 'true')
+        else if (v) params.append(k, v)
+      })
       const [plansRes, statsRes] = await Promise.all([
         api.get(`/action-plans/?${params.toString()}`),
         api.get('/action-plans/stats/summary'),
@@ -61,78 +92,112 @@ export default function ActionPlanPage() {
       setStats(statsRes.data)
     } catch (err) {
       console.error(err)
-      alert('Errore caricamento Action Plan')
     } finally {
       setLoading(false)
     }
   }
 
-  async function loadKaizens() {
-    try {
-      const res = await api.get('/kaizens/')
-      setKaizens(res.data)
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
   async function handleDelete(id) {
     if (!confirm('Eliminare questo Action Plan?')) return
-    try {
-      await api.delete(`/action-plans/${id}`)
-      loadData()
-    } catch (err) {
-      alert('Errore eliminazione')
-    }
+    await api.delete(`/action-plans/${id}`)
+    loadData()
+  }
+
+  async function quickStateChange(planId, newStato) {
+    await api.patch(`/action-plans/${planId}/stato`, { stato: newStato })
+    loadData()
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4">
+      {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            📋 Action Plan
+            🎯 Action Plan Management
           </h1>
-          <p className="text-gray-500 text-sm">Gestione piani d'azione e attività</p>
+          <p className="text-gray-500 text-sm">Gestione piani d'azione trasversali</p>
         </div>
         <button
           onClick={() => { setEditingPlan(null); setShowForm(true) }}
-          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light"
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light shadow-sm"
         >
           <Plus size={20} /> Nuovo Action Plan
         </button>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label="Aperti" value={stats.Aperto || 0} color="gray" icon={Clock} />
-        <StatCard label="In Corso" value={stats['In Corso'] || 0} color="blue" icon={TrendingUp} />
-        <StatCard label="In Verifica" value={stats['In Verifica'] || 0} color="purple" icon={Filter} />
-        <StatCard label="Completati" value={stats.Completato || 0} color="green" icon={CheckCircle2} />
-        <StatCard label="In Ritardo" value={stats.in_ritardo || 0} color="red" icon={AlertCircle} />
+      {/* STATS CARDS */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <StatCard 
+          label="Totale" 
+          value={stats.totale || 0} 
+          color="gray" 
+          icon={Activity}
+          onClick={() => setFilters({...filters, stato: '', overdue: false})}
+          active={!filters.stato && !filters.overdue}
+        />
+        <StatCard 
+          label="Backlog" 
+          value={stats.per_stato?.Backlog || 0} 
+          color="gray" 
+          icon={Clock}
+          onClick={() => setFilters({...filters, stato: 'Backlog', overdue: false})}
+          active={filters.stato === 'Backlog'}
+        />
+        <StatCard 
+          label="In Corso" 
+          value={stats.per_stato?.['In Corso'] || 0} 
+          color="indigo" 
+          icon={TrendingUp}
+          onClick={() => setFilters({...filters, stato: 'In Corso', overdue: false})}
+          active={filters.stato === 'In Corso'}
+        />
+        <StatCard 
+          label="In Verifica" 
+          value={stats.per_stato?.['In Verifica'] || 0} 
+          color="purple" 
+          icon={Eye}
+          onClick={() => setFilters({...filters, stato: 'In Verifica', overdue: false})}
+          active={filters.stato === 'In Verifica'}
+        />
+        <StatCard 
+          label="Done" 
+          value={stats.per_stato?.Done || 0} 
+          color="green" 
+          icon={CheckCircle2}
+          onClick={() => setFilters({...filters, stato: 'Done', overdue: false})}
+          active={filters.stato === 'Done'}
+        />
+        <StatCard 
+          label="Overdue" 
+          value={stats.overdue || 0} 
+          color="red" 
+          icon={AlertCircle}
+          onClick={() => setFilters({...filters, stato: '', overdue: !filters.overdue})}
+          active={filters.overdue}
+        />
       </div>
 
-      {/* Filtri */}
-      <div className="bg-white p-4 rounded-lg shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <div className="relative">
-            <Search size={18} className="absolute left-3 top-2.5 text-gray-400" />
+      {/* FILTERS BAR */}
+      <div className="bg-white p-3 rounded-lg shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+          <div className="relative md:col-span-2">
+            <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
             <input
               type="text"
-              placeholder="Cerca per titolo, numero..."
+              placeholder="Cerca titolo, numero, tag, descrizione..."
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="w-full pl-10 pr-3 py-2 border rounded-lg text-sm"
+              className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
             />
           </div>
           <select
-            value={filters.stato}
-            onChange={(e) => setFilters({ ...filters, stato: e.target.value })}
+            value={filters.tipo}
+            onChange={(e) => setFilters({ ...filters, tipo: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
           >
-            <option value="">Tutti gli stati</option>
-            {STATI.map(s => <option key={s} value={s}>{s}</option>)}
+            <option value="">Tutti i tipi</option>
+            {TIPI.map(t => <option key={t}>{t}</option>)}
           </select>
           <select
             value={filters.priorita}
@@ -140,19 +205,18 @@ export default function ActionPlanPage() {
             className="border rounded-lg px-3 py-2 text-sm"
           >
             <option value="">Tutte le priorità</option>
-            {PRIORITA.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <select
-            value={filters.categoria}
-            onChange={(e) => setFilters({ ...filters, categoria: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">Tutte le categorie</option>
-            {CATEGORIE.map(c => <option key={c} value={c}>{c}</option>)}
+            {PRIORITA.map(p => <option key={p}>{p}</option>)}
           </select>
           <input
             type="text"
-            placeholder="Reparto..."
+            placeholder="Responsabile"
+            value={filters.responsabile}
+            onChange={(e) => setFilters({ ...filters, responsabile: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            type="text"
+            placeholder="Reparto"
             value={filters.reparto}
             onChange={(e) => setFilters({ ...filters, reparto: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
@@ -160,166 +224,224 @@ export default function ActionPlanPage() {
         </div>
       </div>
 
-      {/* Lista */}
+      {/* LISTA */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-400">Caricamento...</div>
+          <div className="p-12 text-center text-gray-400">⏳ Caricamento...</div>
         ) : plans.length === 0 ? (
           <div className="p-12 text-center text-gray-400">
-            Nessun Action Plan trovato. Creane uno!
+            <div className="text-5xl mb-2">📋</div>
+            <p>Nessun Action Plan trovato</p>
+            <button onClick={() => setShowForm(true)} className="text-primary hover:underline mt-2">
+              Creane uno nuovo →
+            </button>
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
               <tr>
-                <th className="px-4 py-3 text-left">Numero</th>
-                <th className="px-4 py-3 text-left">Titolo</th>
-                <th className="px-4 py-3 text-left">Responsabile</th>
-                <th className="px-4 py-3 text-left">Categoria</th>
-                <th className="px-4 py-3 text-left">Priorità</th>
-                <th className="px-4 py-3 text-left">Avanzamento</th>
-                <th className="px-4 py-3 text-left">Scadenza</th>
-                <th className="px-4 py-3 text-left">Stato</th>
-                <th className="px-4 py-3 text-center">Azioni</th>
+                <th className="px-3 py-2 text-left w-24">Numero</th>
+                <th className="px-3 py-2 text-left">Titolo</th>
+                <th className="px-3 py-2 text-left w-20">Tipo</th>
+                <th className="px-3 py-2 text-left w-24">Priorità</th>
+                <th className="px-3 py-2 text-left w-32">Responsabile</th>
+                <th className="px-3 py-2 text-left w-28">Stato</th>
+                <th className="px-3 py-2 text-left w-28">Scadenza</th>
+                <th className="px-3 py-2 text-left w-20">Health</th>
+                <th className="px-3 py-2 text-center w-32">Azioni</th>
               </tr>
             </thead>
             <tbody>
-              {plans.map(p => (
-                <tr key={p._id} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-primary">{p.numero}</td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => setSelectedPlan(p)} className="text-left hover:underline">
-                      {p.titolo}
-                    </button>
-                    {p.kaizen_id && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-xs text-gray-500">
-                        <Link2 size={12} /> Kaizen
+              {plans.map(p => {
+                const TipoIcon = TIPO_ICONS[p.tipo] || CheckSquare
+                return (
+                  <tr key={p._id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedPlan(p)}>
+                    <td className="px-3 py-2 font-mono text-primary text-xs">{p.numero}</td>
+                    <td className="px-3 py-2">
+                      <div className="font-medium truncate max-w-md">{p.titolo}</div>
+                      {(p.tags?.length > 0 || p.mentions?.length > 0) && (
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          {p.tags?.slice(0, 3).map(t => (
+                            <span key={t} className="text-xs bg-purple-50 text-purple-700 px-1.5 rounded">#{t}</span>
+                          ))}
+                          {p.mentions?.slice(0, 2).map(m => (
+                            <span key={m} className="text-xs bg-blue-50 text-blue-700 px-1.5 rounded">@{m}</span>
+                          ))}
+                          {p.links?.length > 0 && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex items-center gap-0.5">
+                              <Link2 size={10} /> {p.links.length}
+                            </span>
+                          )}
+                          {p.commenti?.length > 0 && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex items-center gap-0.5">
+                              <MessageSquare size={10} /> {p.commenti.length}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className={`flex items-center gap-1 text-xs ${TIPO_COLORS[p.tipo]}`}>
+                        <TipoIcon size={14} />
+                        <span>{p.tipo}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={`px-2 py-0.5 rounded text-xs ${PRIORITA_BG[p.priorita]}`}>
+                        {p.priorita === 'Critical' && '🔥 '}
+                        {p.priorita}
                       </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <User size={14} className="text-gray-400" />
-                      {p.responsabile || '—'}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">{p.categoria || '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs border ${PRIORITA_COLORS[p.priorita] || ''}`}>
-                      {p.priorita}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 w-32">
-                    <ProgressBar value={p.avanzamento || 0} />
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.data_scadenza ? new Date(p.data_scadenza).toLocaleDateString('it-IT') : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs ${STATO_COLORS[p.stato_visuale] || STATO_COLORS[p.stato]}`}>
-                      {p.stato_visuale || p.stato}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-center gap-1">
-                      <button onClick={() => setSelectedPlan(p)} className="p-1 hover:bg-gray-200 rounded" title="Dettaglio">
-                        <MessageSquare size={16} />
-                      </button>
-                      <button onClick={() => { setEditingPlan(p); setShowForm(true) }} className="p-1 hover:bg-gray-200 rounded" title="Modifica">
-                        <Edit2 size={16} />
-                      </button>
-                      <button onClick={() => handleDelete(p._id)} className="p-1 hover:bg-red-100 text-red-600 rounded" title="Elimina">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-3 py-2">
+                      {p.responsabile ? (
+                        <div className="flex items-center gap-1">
+                          <Avatar name={p.responsabile} size={20} />
+                          <span className="text-xs truncate">{p.responsabile}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">— Non assegnato</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={p.stato}
+                        onChange={(e) => quickStateChange(p._id, e.target.value)}
+                        className={`text-xs px-1.5 py-1 rounded border ${STATO_COLORS[p.stato_visuale] || STATO_COLORS[p.stato]}`}
+                      >
+                        {STATI.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {p.data_scadenza ? (
+                        <div className={p.stato_visuale === 'In Ritardo' ? 'text-red-600 font-bold' : ''}>
+                          {new Date(p.data_scadenza).toLocaleDateString('it-IT')}
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <HealthBadge score={p.health_score || 0} />
+                    </td>
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-center gap-1">
+                        <button onClick={() => setSelectedPlan(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Dettaglio">
+                          <Eye size={14} />
+                        </button>
+                        <button onClick={() => { setEditingPlan(p); setShowForm(true) }} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(p._id)} className="p-1 hover:bg-red-100 rounded text-red-600" title="Elimina">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* Form modal */}
+      {/* MODALS */}
       {showForm && (
         <ActionPlanForm
           plan={editingPlan}
-          kaizens={kaizens}
           onClose={() => { setShowForm(false); setEditingPlan(null) }}
-          onSaved={() => { setShowForm(false); setEditingPlan(null); loadData() }}
+          onSaved={(saved) => { setShowForm(false); setEditingPlan(null); loadData(); if (saved) setSelectedPlan(saved) }}
         />
       )}
-
-      {/* Detail modal */}
       {selectedPlan && (
         <ActionPlanDetail
           plan={selectedPlan}
           onClose={() => setSelectedPlan(null)}
-          onUpdated={() => { loadData(); setSelectedPlan(null) }}
+          onUpdated={() => loadData()}
+          onEdit={(p) => { setSelectedPlan(null); setEditingPlan(p); setShowForm(true) }}
         />
       )}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// COMPONENTS
-// ─────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
+// COMPONENTS (mini)
+// ──────────────────────────────────────────────────────────
 
-function StatCard({ label, value, color, icon: Icon }) {
+function Avatar({ name, size = 24 }) {
+  if (!name) return null
+  const initials = name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()
+  const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-yellow-500']
+  const color = colors[name.charCodeAt(0) % colors.length]
+  return (
+    <div
+      style={{ width: size, height: size, fontSize: size * 0.45 }}
+      className={`${color} text-white rounded-full flex items-center justify-center font-bold flex-shrink-0`}
+      title={name}
+    >
+      {initials}
+    </div>
+  )
+}
+
+function StatCard({ label, value, color, icon: Icon, onClick, active }) {
   const colors = {
-    gray: 'bg-gray-50 text-gray-700 border-gray-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
-    green: 'bg-green-50 text-green-700 border-green-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
+    gray: 'border-gray-200 text-gray-700',
+    blue: 'border-blue-200 text-blue-700',
+    indigo: 'border-indigo-200 text-indigo-700',
+    purple: 'border-purple-200 text-purple-700',
+    green: 'border-green-200 text-green-700',
+    red: 'border-red-200 text-red-700',
   }
   return (
-    <div className={`p-4 rounded-lg border ${colors[color]}`}>
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="text-xs uppercase tracking-wider opacity-70">{label}</div>
-          <div className="text-2xl font-bold">{value}</div>
-        </div>
-        <Icon size={28} className="opacity-50" />
+    <button
+      onClick={onClick}
+      className={`p-3 rounded-lg border-2 bg-white hover:shadow-md transition-all text-left ${
+        active ? `${colors[color]} shadow-md scale-105` : 'border-gray-100'
+      }`}
+    >
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-xs uppercase text-gray-500">{label}</span>
+        <Icon size={16} className="opacity-50" />
       </div>
-    </div>
+      <div className="text-2xl font-bold">{value}</div>
+    </button>
   )
 }
 
-function ProgressBar({ value }) {
-  const color = value === 100 ? 'bg-green-500' : value >= 50 ? 'bg-blue-500' : 'bg-orange-400'
+function HealthBadge({ score }) {
+  let color = 'bg-red-500'
+  let label = 'Critical'
+  if (score >= 75) { color = 'bg-green-500'; label = 'Healthy' }
+  else if (score >= 50) { color = 'bg-yellow-500'; label = 'OK' }
+  else if (score >= 25) { color = 'bg-orange-500'; label = 'Warning' }
+  
   return (
-    <div className="w-full">
-      <div className="flex justify-between text-xs text-gray-500 mb-1">
-        <span>{value}%</span>
+    <div className="flex items-center gap-1" title={`Health: ${score}/100`}>
+      <div className="w-12 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+        <div className={`${color} h-full transition-all`} style={{ width: `${score}%` }} />
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2">
-        <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${value}%` }} />
-      </div>
+      <span className="text-xs text-gray-600">{score}</span>
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────
 // FORM (Create / Edit)
-// ─────────────────────────────────────────────────────────────
-
-function ActionPlanForm({ plan, kaizens, onClose, onSaved }) {
+// ──────────────────────────────────────────────────────────
+function ActionPlanForm({ plan, onClose, onSaved }) {
   const [form, setForm] = useState({
     titolo: plan?.titolo || '',
     descrizione: plan?.descrizione || '',
+    tipo: plan?.tipo || 'Task',
+    priorita: plan?.priorita || 'Medium',
+    stato: plan?.stato || 'Backlog',
     categoria: plan?.categoria || '',
-    priorita: plan?.priorita || 'Media',
-    stato: plan?.stato || 'Aperto',
     responsabile: plan?.responsabile || '',
     responsabile_email: plan?.responsabile_email || '',
     reparto: plan?.reparto || '',
     linea: plan?.linea || '',
     macchina: plan?.macchina || '',
-    kaizen_id: plan?.kaizen_id || '',
     data_scadenza: plan?.data_scadenza ? plan.data_scadenza.slice(0, 10) : '',
-    avanzamento: plan?.avanzamento || 0,
+    tags: plan?.tags?.join(', ') || '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -329,54 +451,87 @@ function ActionPlanForm({ plan, kaizens, onClose, onSaved }) {
     try {
       const payload = {
         ...form,
+        tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         data_scadenza: form.data_scadenza ? new Date(form.data_scadenza).toISOString() : null,
-        avanzamento: parseInt(form.avanzamento) || 0,
-        kaizen_id: form.kaizen_id || null,
       }
+      let res
       if (plan?._id) {
-        await api.put(`/action-plans/${plan._id}`, payload)
+        res = await api.put(`/action-plans/${plan._id}`, payload)
       } else {
-        await api.post('/action-plans/', payload)
+        res = await api.post('/action-plans/', payload)
       }
-      onSaved()
+      onSaved(res.data)
     } catch (err) {
       console.error(err)
-      alert('Errore salvataggio: ' + (err.response?.data?.detail || err.message))
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal title={plan ? `Modifica ${plan.numero}` : 'Nuovo Action Plan'} onClose={onClose}>
+    <Modal title={plan ? `✏️ Modifica ${plan.numero}` : '➕ Nuovo Action Plan'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Titolo *">
           <input
             required
             value={form.titolo}
             onChange={(e) => setForm({ ...form, titolo: e.target.value })}
-            className="w-full border rounded px-3 py-2"
+            className="w-full border rounded-lg px-3 py-2"
             placeholder="Es: Sostituire filtro Bindler linea 11"
           />
         </Field>
 
-        <Field label="Descrizione">
+        <Field label="Descrizione (supporta @mentions e #tags)">
           <textarea
             value={form.descrizione}
             onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
-            rows={3}
-            className="w-full border rounded px-3 py-2"
+            rows={4}
+            className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
+            placeholder="Es: @mario.rossi devi sostituire il filtro #manutenzione #linea-2"
           />
+          <div className="text-xs text-gray-500 mt-1">
+            💡 Usa <code className="bg-gray-100 px-1">@nome</code> per taggare persone e <code className="bg-gray-100 px-1">#argomento</code> per categorizzare
+          </div>
         </Field>
 
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Tipo">
+            <select
+              value={form.tipo}
+              onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+            >
+              {TIPI.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </Field>
+          <Field label="Priorità">
+            <select
+              value={form.priorita}
+              onChange={(e) => setForm({ ...form, priorita: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+            >
+              {PRIORITA.map(p => <option key={p}>{p}</option>)}
+            </select>
+          </Field>
+          <Field label="Stato">
+            <select
+              value={form.stato}
+              onChange={(e) => setForm({ ...form, stato: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+            >
+              {STATI.map(s => <option key={s}>{s}</option>)}
+            </select>
+          </Field>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Responsabile *">
+          <Field label="Responsabile">
             <input
-              required
               value={form.responsabile}
               onChange={(e) => setForm({ ...form, responsabile: e.target.value })}
-              className="w-full border rounded px-3 py-2"
               placeholder="Es: Mario Rossi"
+              className="w-full border rounded-lg px-3 py-2"
             />
           </Field>
           <Field label="Email Responsabile">
@@ -384,40 +539,9 @@ function ActionPlanForm({ plan, kaizens, onClose, onSaved }) {
               type="email"
               value={form.responsabile_email}
               onChange={(e) => setForm({ ...form, responsabile_email: e.target.value })}
-              className="w-full border rounded px-3 py-2"
               placeholder="mario.rossi@lindt.it"
+              className="w-full border rounded-lg px-3 py-2"
             />
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="Categoria">
-            <select
-              value={form.categoria}
-              onChange={(e) => setForm({ ...form, categoria: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-            >
-              <option value="">-- Seleziona --</option>
-              {CATEGORIE.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
-          <Field label="Priorità">
-            <select
-              value={form.priorita}
-              onChange={(e) => setForm({ ...form, priorita: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-            >
-              {PRIORITA.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </Field>
-          <Field label="Stato">
-            <select
-              value={form.stato}
-              onChange={(e) => setForm({ ...form, stato: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-            >
-              {STATI.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
           </Field>
         </div>
 
@@ -426,74 +550,54 @@ function ActionPlanForm({ plan, kaizens, onClose, onSaved }) {
             <input
               value={form.reparto}
               onChange={(e) => setForm({ ...form, reparto: e.target.value })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 py-2"
             />
           </Field>
           <Field label="Linea">
             <input
               value={form.linea}
               onChange={(e) => setForm({ ...form, linea: e.target.value })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 py-2"
             />
           </Field>
           <Field label="Macchina">
             <input
               value={form.macchina}
               onChange={(e) => setForm({ ...form, macchina: e.target.value })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 py-2"
             />
           </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Data scadenza">
+          <Field label="Scadenza">
             <input
               type="date"
               value={form.data_scadenza}
               onChange={(e) => setForm({ ...form, data_scadenza: e.target.value })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 py-2"
             />
           </Field>
-          <Field label="Kaizen collegato">
-            <select
-              value={form.kaizen_id}
-              onChange={(e) => setForm({ ...form, kaizen_id: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-            >
-              <option value="">-- Nessuno --</option>
-              {kaizens.map(k => (
-                <option key={k._id} value={k._id}>
-                  {k.numero} - {k.titolo}
-                </option>
-              ))}
-            </select>
+          <Field label="Tags (separati da virgola)">
+            <input
+              value={form.tags}
+              onChange={(e) => setForm({ ...form, tags: e.target.value })}
+              placeholder="sicurezza, manutenzione, linea-2"
+              className="w-full border rounded-lg px-3 py-2"
+            />
           </Field>
         </div>
 
-        {plan && (
-          <Field label={`Avanzamento: ${form.avanzamento}%`}>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="5"
-              value={form.avanzamento}
-              onChange={(e) => setForm({ ...form, avanzamento: e.target.value })}
-              className="w-full"
-            />
-          </Field>
-        )}
-
         <div className="flex justify-end gap-2 pt-3 border-t">
-          <button type="button" onClick={onClose} className="px-4 py-2 border rounded">
+          <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">
             Annulla
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-light disabled:opacity-50"
+            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50"
           >
-            {saving ? 'Salvataggio...' : 'Salva'}
+            {saving ? 'Salvataggio...' : (plan ? '💾 Salva modifiche' : '➕ Crea Action Plan')}
           </button>
         </div>
       </form>
@@ -501,128 +605,272 @@ function ActionPlanForm({ plan, kaizens, onClose, onSaved }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// DETAIL (Note + avanzamento + feed)
-// ─────────────────────────────────────────────────────────────
-
-function ActionPlanDetail({ plan, onClose, onUpdated }) {
+// ──────────────────────────────────────────────────────────
+// DETAIL (Linear/Jira-style modal)
+// ──────────────────────────────────────────────────────────
+function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
   const [detail, setDetail] = useState(plan)
-  const [nuovaNota, setNuovaNota] = useState('')
-  const [avanzamento, setAvanzamento] = useState(plan.avanzamento || 0)
+  const [nuovoCommento, setNuovoCommento] = useState('')
+  const [nuovoChecklistItem, setNuovoChecklistItem] = useState('')
 
   useEffect(() => {
     api.get(`/action-plans/${plan._id}`).then(res => setDetail(res.data)).catch(() => {})
   }, [plan._id])
 
-  async function aggiungiNota() {
-    if (!nuovaNota.trim()) return
-    try {
-      await api.post(`/action-plans/${plan._id}/nota`, { testo: nuovaNota })
-      setNuovaNota('')
-      const res = await api.get(`/action-plans/${plan._id}`)
-      setDetail(res.data)
-    } catch (err) {
-      alert('Errore aggiunta nota')
-    }
+  async function reload() {
+    const res = await api.get(`/action-plans/${plan._id}`)
+    setDetail(res.data)
+    onUpdated()
   }
 
-  async function aggiornaAvanzamento() {
-    try {
-      await api.patch(`/action-plans/${plan._id}/avanzamento`, { avanzamento: parseInt(avanzamento) })
-      onUpdated()
-    } catch (err) {
-      alert('Errore aggiornamento')
-    }
+  async function addCommento() {
+    if (!nuovoCommento.trim()) return
+    await api.post(`/action-plans/${plan._id}/commenti`, { testo: nuovoCommento, autore: 'Default User' })
+    setNuovoCommento('')
+    reload()
   }
+
+  async function addChecklistItem() {
+    if (!nuovoChecklistItem.trim()) return
+    await api.post(`/action-plans/${plan._id}/checklist`, { testo: nuovoChecklistItem })
+    setNuovoChecklistItem('')
+    reload()
+  }
+
+  async function toggleChecklist(itemId, completato) {
+    await api.patch(`/action-plans/${plan._id}/checklist/${itemId}`, { completato })
+    reload()
+  }
+
+  async function removeChecklist(itemId) {
+    await api.delete(`/action-plans/${plan._id}/checklist/${itemId}`)
+    reload()
+  }
+
+  async function changeStato(stato) {
+    await api.patch(`/action-plans/${plan._id}/stato`, { stato })
+    reload()
+  }
+
+  const TipoIcon = TIPO_ICONS[detail.tipo] || CheckSquare
+  const checklistCompletati = detail.checklist?.filter(c => c.completato).length || 0
+  const checklistTotali = detail.checklist?.length || 0
+  const checklistPercent = checklistTotali ? Math.round((checklistCompletati / checklistTotali) * 100) : 0
 
   return (
-    <Modal title={`${detail.numero} - ${detail.titolo}`} onClose={onClose} wide>
-      <div className="grid grid-cols-3 gap-6">
-        {/* Info principali */}
-        <div className="col-span-2 space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
-            <InfoRow label="Responsabile" value={detail.responsabile} />
-            <InfoRow label="Categoria" value={detail.categoria} />
-            <InfoRow label="Priorità" value={<span className={`px-2 py-0.5 rounded text-xs border ${PRIORITA_COLORS[detail.priorita]}`}>{detail.priorita}</span>} />
-            <InfoRow label="Stato" value={<span className={`px-2 py-0.5 rounded text-xs ${STATO_COLORS[detail.stato_visuale || detail.stato]}`}>{detail.stato_visuale || detail.stato}</span>} />
-            <InfoRow label="Reparto/Linea/Macchina" value={`${detail.reparto || '—'} / ${detail.linea || '—'} / ${detail.macchina || '—'}`} />
-            <InfoRow label="Emissione" value={detail.data_emissione ? new Date(detail.data_emissione).toLocaleDateString('it-IT') : '—'} />
-            <InfoRow label="Scadenza" value={detail.data_scadenza ? new Date(detail.data_scadenza).toLocaleDateString('it-IT') : '—'} />
-            {detail.data_completamento && (
-              <InfoRow label="Completato il" value={new Date(detail.data_completamento).toLocaleDateString('it-IT')} />
-            )}
+    <Modal title="" onClose={onClose} wide noPadding>
+      <div className="grid grid-cols-3 gap-0 h-[85vh]">
+        {/* MAIN COLUMN */}
+        <div className="col-span-2 overflow-y-auto border-r">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-primary to-primary-light text-white p-4">
+            <div className="flex items-center gap-2 text-sm opacity-90 mb-2">
+              <TipoIcon size={16} />
+              <span>{detail.tipo}</span>
+              <span>·</span>
+              <span className="font-mono">{detail.numero}</span>
+              <span>·</span>
+              <HealthBadge score={detail.health_score || 0} />
+            </div>
+            <h2 className="text-xl font-bold">{detail.titolo}</h2>
           </div>
 
-          {detail.descrizione && (
-            <div>
-              <div className="text-sm font-medium mb-1">Descrizione</div>
-              <div className="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">{detail.descrizione}</div>
-            </div>
-          )}
-
-          {/* Avanzamento */}
-          <div>
-            <div className="text-sm font-medium mb-2">Avanzamento</div>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                value={avanzamento}
-                onChange={(e) => setAvanzamento(e.target.value)}
-                className="flex-1"
-              />
-              <span className="font-bold w-12 text-right">{avanzamento}%</span>
-              <button onClick={aggiornaAvanzamento} className="px-3 py-1 bg-primary text-white rounded text-sm">
-                Aggiorna
-              </button>
-            </div>
-            <ProgressBar value={avanzamento} />
-          </div>
-
-          {/* Note */}
-          <div>
-            <div className="text-sm font-medium mb-2">Note di avanzamento</div>
-            <div className="space-y-2 max-h-48 overflow-y-auto mb-2">
-              {(detail.note || []).slice().reverse().map((n, i) => (
-                <div key={i} className="bg-blue-50 p-2 rounded text-sm">
-                  <div className="text-xs text-gray-500 mb-1">
-                    {n.utente} - {new Date(n.timestamp).toLocaleString('it-IT')}
-                  </div>
-                  <div>{n.testo}</div>
+          <div className="p-6 space-y-6">
+            {/* Descrizione */}
+            <Section title="📝 Descrizione">
+              {detail.descrizione ? (
+                <div className="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">
+                  {renderWithMentionsTags(detail.descrizione)}
                 </div>
-              ))}
-              {(!detail.note || detail.note.length === 0) && (
-                <div className="text-xs text-gray-400">Nessuna nota</div>
+              ) : (
+                <div className="text-sm text-gray-400 italic">Nessuna descrizione</div>
               )}
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={nuovaNota}
-                onChange={(e) => setNuovaNota(e.target.value)}
-                placeholder="Aggiungi una nota..."
-                className="flex-1 border rounded px-3 py-2 text-sm"
-                onKeyDown={(e) => e.key === 'Enter' && aggiungiNota()}
-              />
-              <button onClick={aggiungiNota} className="px-3 py-2 bg-primary text-white rounded text-sm">
-                Invia
-              </button>
-            </div>
+            </Section>
+
+            {/* Tags & Mentions */}
+            {(detail.tags?.length > 0 || detail.mentions?.length > 0) && (
+              <Section title="🏷️ Tags & Mentions">
+                <div className="flex flex-wrap gap-2">
+                  {detail.tags?.map(t => (
+                    <span key={t} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                      #{t}
+                    </span>
+                  ))}
+                  {detail.mentions?.map(m => (
+                    <span key={m} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center gap-1">
+                      <AtSign size={10} />{m}
+                    </span>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Checklist */}
+            <Section title={`✅ Checklist ${checklistTotali > 0 ? `(${checklistCompletati}/${checklistTotali})` : ''}`}>
+              {checklistTotali > 0 && (
+                <div className="mb-2">
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div className="bg-green-500 h-1.5 rounded-full transition-all" style={{ width: `${checklistPercent}%` }} />
+                  </div>
+                </div>
+              )}
+              <div className="space-y-1">
+                {(detail.checklist || []).map(item => (
+                  <div key={item.id} className="flex items-center gap-2 group">
+                    <button onClick={() => toggleChecklist(item.id, !item.completato)}>
+                      {item.completato ? <CheckSquare size={18} className="text-green-600" /> : <Square size={18} className="text-gray-400" />}
+                    </button>
+                    <span className={`flex-1 text-sm ${item.completato ? 'line-through text-gray-400' : ''}`}>
+                      {item.testo}
+                    </span>
+                    <button onClick={() => removeChecklist(item.id)} className="opacity-0 group-hover:opacity-100 text-red-500">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <input
+                  value={nuovoChecklistItem}
+                  onChange={(e) => setNuovoChecklistItem(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem())}
+                  placeholder="Aggiungi item..."
+                  className="flex-1 border rounded px-3 py-1.5 text-sm"
+                />
+                <button onClick={addChecklistItem} className="px-3 py-1.5 bg-gray-200 rounded text-sm hover:bg-gray-300">
+                  + Item
+                </button>
+              </div>
+            </Section>
+
+            {/* Commenti */}
+            <Section title={`💬 Commenti (${detail.commenti?.length || 0})`}>
+              <div className="space-y-3 mb-3">
+                {(detail.commenti || []).slice().reverse().map(c => (
+                  <div key={c.id} className="flex gap-2">
+                    <Avatar name={c.autore} size={32} />
+                    <div className="flex-1 bg-gray-50 p-3 rounded-lg">
+                      <div className="flex justify-between items-center mb-1">
+                        <strong className="text-sm">{c.autore}</strong>
+                        <span className="text-xs text-gray-400">{new Date(c.timestamp).toLocaleString('it-IT')}</span>
+                      </div>
+                      <div className="text-sm whitespace-pre-wrap">{renderWithMentionsTags(c.testo)}</div>
+                    </div>
+                  </div>
+                ))}
+                {(!detail.commenti || detail.commenti.length === 0) && (
+                  <div className="text-sm text-gray-400 italic">Nessun commento ancora — sii il primo!</div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <textarea
+                  value={nuovoCommento}
+                  onChange={(e) => setNuovoCommento(e.target.value)}
+                  placeholder="Scrivi un commento... usa @nome per taggare e #argomento per categorizzare"
+                  rows={2}
+                  className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                />
+                <button onClick={addCommento} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light self-end">
+                  <Send size={16} />
+                </button>
+              </div>
+            </Section>
           </div>
         </div>
 
-        {/* Feed cronologico */}
-        <div>
-          <div className="text-sm font-medium mb-2">Cronologia</div>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {(detail.feed || []).slice().reverse().map((f, i) => (
-              <div key={i} className="text-xs border-l-2 border-primary pl-2 py-1">
-                <div className="text-gray-500">{new Date(f.timestamp).toLocaleString('it-IT')}</div>
-                <div className="font-medium">{f.utente}</div>
-                <div className="text-gray-700">{f.azione}</div>
+        {/* SIDEBAR */}
+        <div className="overflow-y-auto bg-gray-50 p-4 space-y-4">
+          <div className="flex justify-between items-center pb-2 border-b">
+            <span className="text-sm font-medium">Dettagli</span>
+            <div className="flex gap-1">
+              <button onClick={() => onEdit(detail)} className="p-1.5 hover:bg-gray-200 rounded">
+                <Edit2 size={14} />
+              </button>
+              <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded">
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+
+          <SidebarRow label="Stato">
+            <select
+              value={detail.stato}
+              onChange={(e) => changeStato(e.target.value)}
+              className={`text-xs px-2 py-1 rounded border ${STATO_COLORS[detail.stato_visuale] || STATO_COLORS[detail.stato]}`}
+            >
+              {STATI.map(s => <option key={s}>{s}</option>)}
+            </select>
+          </SidebarRow>
+
+          <SidebarRow label="Priorità">
+            <span className={`px-2 py-0.5 rounded text-xs ${PRIORITA_BG[detail.priorita]}`}>
+              {detail.priorita === 'Critical' && '🔥 '}
+              {detail.priorita}
+            </span>
+          </SidebarRow>
+
+          <SidebarRow label="Tipo">
+            <span className={`text-xs flex items-center gap-1 ${TIPO_COLORS[detail.tipo]}`}>
+              <TipoIcon size={12} /> {detail.tipo}
+            </span>
+          </SidebarRow>
+
+          <SidebarRow label="Responsabile">
+            {detail.responsabile ? (
+              <div className="flex items-center gap-1">
+                <Avatar name={detail.responsabile} size={20} />
+                <span className="text-xs">{detail.responsabile}</span>
               </div>
-            ))}
+            ) : <span className="text-xs text-gray-400">—</span>}
+          </SidebarRow>
+
+          <SidebarRow label="Reporter">
+            <span className="text-xs">{detail.reporter || '—'}</span>
+          </SidebarRow>
+
+          <SidebarRow label="Scadenza">
+            <span className={`text-xs ${detail.stato_visuale === 'In Ritardo' ? 'text-red-600 font-bold' : ''}`}>
+              {detail.data_scadenza ? new Date(detail.data_scadenza).toLocaleDateString('it-IT') : '—'}
+            </span>
+          </SidebarRow>
+
+          <SidebarRow label="Categoria">
+            <span className="text-xs">{detail.categoria || '—'}</span>
+          </SidebarRow>
+
+          {(detail.reparto || detail.linea || detail.macchina) && (
+            <SidebarRow label="Location">
+              <div className="text-xs text-right">
+                {detail.reparto && <div>🏭 {detail.reparto}</div>}
+                {detail.linea && <div>📍 {detail.linea}</div>}
+                {detail.macchina && <div>⚙️ {detail.macchina}</div>}
+              </div>
+            </SidebarRow>
+          )}
+
+          {detail.links?.length > 0 && (
+            <SidebarRow label={`Links (${detail.links.length})`}>
+              <div className="text-xs space-y-1">
+                {detail.links.map((l, i) => (
+                  <div key={i} className="bg-white px-2 py-1 rounded border">
+                    <span className="text-gray-500">{l.entity_type}:</span> {l.entity_label || l.entity_id}
+                  </div>
+                ))}
+              </div>
+            </SidebarRow>
+          )}
+
+          {/* Activity feed */}
+          <div className="pt-3 border-t">
+            <div className="text-xs font-medium mb-2">📜 Attività</div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {(detail.feed || []).slice().reverse().slice(0, 20).map((f, i) => (
+                <div key={i} className="text-xs border-l-2 border-primary pl-2">
+                  <div className="text-gray-500">{new Date(f.timestamp).toLocaleString('it-IT')}</div>
+                  <div><strong>{f.utente}</strong> · {f.azione}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -630,21 +878,22 @@ function ActionPlanDetail({ plan, onClose, onUpdated }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// UTILITIES
-// ─────────────────────────────────────────────────────────────
-
-function Modal({ title, children, onClose, wide = false }) {
+// ──────────────────────────────────────────────────────────
+// UTILS
+// ──────────────────────────────────────────────────────────
+function Modal({ title, children, onClose, wide = false, noPadding = false }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className={`bg-white rounded-lg shadow-xl ${wide ? 'max-w-5xl' : 'max-w-3xl'} w-full max-h-[90vh] overflow-y-auto`}>
-        <div className="bg-primary text-white px-6 py-3 flex justify-between items-center sticky top-0">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="hover:bg-primary-light p-1 rounded">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
+      <div className={`bg-white rounded-lg shadow-xl ${wide ? 'max-w-6xl' : 'max-w-3xl'} w-full max-h-[95vh] overflow-hidden`}>
+        {title && (
+          <div className="bg-primary text-white px-6 py-3 flex justify-between items-center">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <button onClick={onClose} className="hover:bg-primary-light p-1 rounded">
+              <X size={20} />
+            </button>
+          </div>
+        )}
+        <div className={noPadding ? '' : 'p-6'}>{children}</div>
       </div>
     </div>
   )
@@ -659,11 +908,30 @@ function Field({ label, children }) {
   )
 }
 
-function InfoRow({ label, value }) {
+function Section({ title, children }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-gray-600">{label}:</span>
-      <span className="font-medium">{value || '—'}</span>
+    <div>
+      <h3 className="text-sm font-bold mb-2">{title}</h3>
+      {children}
     </div>
   )
+}
+
+function SidebarRow({ label, children }) {
+  return (
+    <div className="flex justify-between items-center text-sm">
+      <span className="text-gray-600 text-xs uppercase">{label}</span>
+      <div>{children}</div>
+    </div>
+  )
+}
+
+function renderWithMentionsTags(text) {
+  if (!text) return null
+  const parts = text.split(/(@[a-zA-Z0-9._-]+|#[a-zA-Z0-9_-]+)/g)
+  return parts.map((p, i) => {
+    if (p.startsWith('@')) return <span key={i} className="text-blue-600 font-medium">{p}</span>
+    if (p.startsWith('#')) return <span key={i} className="text-purple-600 font-medium">{p}</span>
+    return p
+  })
 }
