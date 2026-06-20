@@ -61,15 +61,6 @@ export default function ActionPlanWidget({ filterReparto, filterStato, dashboard
           </ul>
         )}
       </div>
-
-      <ActionPlanForm
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSaved={load}
-        origine="dashboard"
-        origineId={dashboardId}
-        origineNome={dashboardName}
-      />
     </div>
   )
 }
