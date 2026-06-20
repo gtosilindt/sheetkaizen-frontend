@@ -7,6 +7,7 @@ import {
   Shield, Zap, Bug, Wrench, Eye
 } from 'lucide-react'
 import api from '../services/api'
+import { useAllConfigurations } from '../hooks/useConfigurations'
 
 // ──────────────────────────────────────────────────────────
 // CONFIG
@@ -365,6 +366,7 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
     priorita: plan?.priorita || 'Medium',
     stato: plan?.stato || 'Da Valutare',
     categoria: plan?.categoria || '',
+    tipo_perdita: plan?.tipo_perdita || '',
     responsabile: plan?.responsabile || '',
     responsabile_email: plan?.responsabile_email || '',
     reparto: plan?.reparto || '',
@@ -374,6 +376,7 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
     tags: plan?.tags?.join(', ') || '',
   })
   const [saving, setSaving] = useState(false)
+  const { configs } = useAllConfigurations()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -435,6 +438,31 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
+          <Field label="Categoria">
+            <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="">— Seleziona —</option>
+              {(configs.categorie_action_plan || []).map(c => (
+                <option key={c._id} value={c.label}>
+                  {c.icon ? `${c.icon} ` : ''}{c.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Tipo Perdita (TPM)">
+            <select value={form.tipo_perdita} onChange={(e) => setForm({ ...form, tipo_perdita: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="">— Nessuna —</option>
+              {(configs.tipi_perdita || []).map(p => (
+                <option key={p._id} value={p.label}>
+                  {p.icon ? `${p.icon} ` : ''}{p.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Responsabile">
             <input value={form.responsabile} onChange={(e) => setForm({ ...form, responsabile: e.target.value })}
               placeholder="Es: Mario Rossi" className="w-full border rounded-lg px-3 py-2" />
@@ -447,13 +475,37 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
 
         <div className="grid grid-cols-3 gap-3">
           <Field label="Reparto">
-            <input value={form.reparto} onChange={(e) => setForm({ ...form, reparto: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
+            <select value={form.reparto} onChange={(e) => setForm({ ...form, reparto: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="">— Seleziona —</option>
+              {(configs.reparti || []).map(r => (
+                <option key={r._id} value={r.label}>
+                  {r.icon ? `${r.icon} ` : ''}{r.label}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Linea">
-            <input value={form.linea} onChange={(e) => setForm({ ...form, linea: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
+            <select value={form.linea} onChange={(e) => setForm({ ...form, linea: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="">— Seleziona —</option>
+              {(configs.linee || []).map(l => (
+                <option key={l._id} value={l.label}>
+                  {l.icon ? `${l.icon} ` : ''}{l.label}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Macchina">
-            <input value={form.macchina} onChange={(e) => setForm({ ...form, macchina: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
+            <select value={form.macchina} onChange={(e) => setForm({ ...form, macchina: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2">
+              <option value="">— Seleziona —</option>
+              {(configs.macchine || []).map(m => (
+                <option key={m._id} value={m.label}>
+                  {m.icon ? `${m.icon} ` : ''}{m.label}
+                </option>
+              ))}
+            </select>
           </Field>
         </div>
 
