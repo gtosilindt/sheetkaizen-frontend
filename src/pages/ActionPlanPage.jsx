@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
   Plus, Search, Filter, User, AlertCircle, CheckCircle2, Clock, X, Edit2,
   Trash2, MessageSquare, TrendingUp, Link2, Tag, AtSign, ChevronDown,
@@ -10,12 +11,12 @@ import api from '../services/api'
 // ──────────────────────────────────────────────────────────
 // CONFIG
 // ──────────────────────────────────────────────────────────
-const STATI = ['Backlog', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
+const STATI = ['Da Valutare', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
 const PRIORITA = ['Lowest', 'Low', 'Medium', 'High', 'Critical']
 const TIPI = ['Task', 'Bug', 'Improvement', 'Audit', 'Manutenzione', 'Sicurezza']
 
 const STATO_COLORS = {
-  Backlog: 'bg-gray-100 text-gray-700 border-gray-300',
+  'Da Valutare': 'bg-gray-100 text-gray-700 border-gray-300',
   Aperto: 'bg-blue-100 text-blue-700 border-blue-300',
   'In Corso': 'bg-indigo-100 text-indigo-700 border-indigo-300',
   'In Verifica': 'bg-purple-100 text-purple-700 border-purple-300',
@@ -69,6 +70,7 @@ export default function ActionPlanPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingPlan, setEditingPlan] = useState(null)
   const [selectedPlan, setSelectedPlan] = useState(null)
+  const [viewMode, setViewMode] = useState('list')
   const [filters, setFilters] = useState({
     search: '', stato: '', tipo: '', priorita: '', categoria: '',
     responsabile: '', reparto: '', tag: '', overdue: false,
@@ -118,12 +120,32 @@ export default function ActionPlanPage() {
           </h1>
           <p className="text-gray-500 text-sm">Gestione piani d'azione trasversali</p>
         </div>
-        <button
-          onClick={() => { setEditingPlan(null); setShowForm(true) }}
-          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light shadow-sm"
-        >
-          <Plus size={20} /> Nuovo Action Plan
-        </button>
+        <div className="flex gap-2 items-center">
+          <div className="bg-white border rounded-lg p-1 flex gap-1 shadow-sm">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded text-sm flex items-center gap-1 transition-all ${
+                viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              📋 Lista
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`px-3 py-1.5 rounded text-sm flex items-center gap-1 transition-all ${
+                viewMode === 'kanban' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              🎯 Kanban
+            </button>
+          </div>
+          <button
+            onClick={() => { setEditingPlan(null); setShowForm(true) }}
+            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light shadow-sm"
+          >
+            <Plus size={20} /> Nuovo Action Plan
+          </button>
+        </div>
       </div>
 
       {/* STATS CARDS */}
@@ -137,12 +159,12 @@ export default function ActionPlanPage() {
           active={!filters.stato && !filters.overdue}
         />
         <StatCard 
-          label="Backlog" 
-          value={stats.per_stato?.Backlog || 0} 
+          label="Da Valutare" 
+          value={stats.per_stato?.['Da Valutare'] || 0} 
           color="gray" 
           icon={Clock}
-          onClick={() => setFilters({...filters, stato: 'Backlog', overdue: false})}
-          active={filters.stato === 'Backlog'}
+          onClick={() => setFilters({...filters, stato: 'Da Valutare', overdue: false})}
+          active={filters.stato === 'Da Valutare'}
         />
         <StatCard 
           label="In Corso" 
@@ -224,123 +246,33 @@ export default function ActionPlanPage() {
         </div>
       </div>
 
-      {/* LISTA */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-gray-400">⏳ Caricamento...</div>
-        ) : plans.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            <div className="text-5xl mb-2">📋</div>
-            <p>Nessun Action Plan trovato</p>
-            <button onClick={() => setShowForm(true)} className="text-primary hover:underline mt-2">
-              Creane uno nuovo →
-            </button>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
-              <tr>
-                <th className="px-3 py-2 text-left w-24">Numero</th>
-                <th className="px-3 py-2 text-left">Titolo</th>
-                <th className="px-3 py-2 text-left w-20">Tipo</th>
-                <th className="px-3 py-2 text-left w-24">Priorità</th>
-                <th className="px-3 py-2 text-left w-32">Responsabile</th>
-                <th className="px-3 py-2 text-left w-28">Stato</th>
-                <th className="px-3 py-2 text-left w-28">Scadenza</th>
-                <th className="px-3 py-2 text-left w-20">Health</th>
-                <th className="px-3 py-2 text-center w-32">Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plans.map(p => {
-                const TipoIcon = TIPO_ICONS[p.tipo] || CheckSquare
-                return (
-                  <tr key={p._id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedPlan(p)}>
-                    <td className="px-3 py-2 font-mono text-primary text-xs">{p.numero}</td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium truncate max-w-md">{p.titolo}</div>
-                      {(p.tags?.length > 0 || p.mentions?.length > 0) && (
-                        <div className="flex gap-1 mt-1 flex-wrap">
-                          {p.tags?.slice(0, 3).map(t => (
-                            <span key={t} className="text-xs bg-purple-50 text-purple-700 px-1.5 rounded">#{t}</span>
-                          ))}
-                          {p.mentions?.slice(0, 2).map(m => (
-                            <span key={m} className="text-xs bg-blue-50 text-blue-700 px-1.5 rounded">@{m}</span>
-                          ))}
-                          {p.links?.length > 0 && (
-                            <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex items-center gap-0.5">
-                              <Link2 size={10} /> {p.links.length}
-                            </span>
-                          )}
-                          {p.commenti?.length > 0 && (
-                            <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex items-center gap-0.5">
-                              <MessageSquare size={10} /> {p.commenti.length}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className={`flex items-center gap-1 text-xs ${TIPO_COLORS[p.tipo]}`}>
-                        <TipoIcon size={14} />
-                        <span>{p.tipo}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={`px-2 py-0.5 rounded text-xs ${PRIORITA_BG[p.priorita]}`}>
-                        {p.priorita === 'Critical' && '🔥 '}
-                        {p.priorita}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      {p.responsabile ? (
-                        <div className="flex items-center gap-1">
-                          <Avatar name={p.responsabile} size={20} />
-                          <span className="text-xs truncate">{p.responsabile}</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">— Non assegnato</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={p.stato}
-                        onChange={(e) => quickStateChange(p._id, e.target.value)}
-                        className={`text-xs px-1.5 py-1 rounded border ${STATO_COLORS[p.stato_visuale] || STATO_COLORS[p.stato]}`}
-                      >
-                        {STATI.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      {p.data_scadenza ? (
-                        <div className={p.stato_visuale === 'In Ritardo' ? 'text-red-600 font-bold' : ''}>
-                          {new Date(p.data_scadenza).toLocaleDateString('it-IT')}
-                        </div>
-                      ) : '—'}
-                    </td>
-                    <td className="px-3 py-2">
-                      <HealthBadge score={p.health_score || 0} />
-                    </td>
-                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-center gap-1">
-                        <button onClick={() => setSelectedPlan(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Dettaglio">
-                          <Eye size={14} />
-                        </button>
-                        <button onClick={() => { setEditingPlan(p); setShowForm(true) }} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(p._id)} className="p-1 hover:bg-red-100 rounded text-red-600" title="Elimina">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {/* VISTA: Lista o Kanban */}
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-sm p-12 text-center text-gray-400">⏳ Caricamento...</div>
+      ) : plans.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-sm p-12 text-center text-gray-400">
+          <div className="text-5xl mb-2">📋</div>
+          <p>Nessun Action Plan trovato</p>
+          <button onClick={() => setShowForm(true)} className="text-primary hover:underline mt-2">
+            Creane uno nuovo →
+          </button>
+        </div>
+      ) : viewMode === 'list' ? (
+        <ListView 
+          plans={plans} 
+          onSelect={setSelectedPlan} 
+          onEdit={(p) => { setEditingPlan(p); setShowForm(true) }} 
+          onDelete={handleDelete}
+          onQuickStateChange={quickStateChange}
+        />
+      ) : (
+        <KanbanView 
+          plans={plans} 
+          onSelect={setSelectedPlan}
+          onStateChange={quickStateChange}
+          reload={loadData}
+        />
+      )}
 
       {/* MODALS */}
       {showForm && (
@@ -409,10 +341,9 @@ function StatCard({ label, value, color, icon: Icon, onClick, active }) {
 
 function HealthBadge({ score }) {
   let color = 'bg-red-500'
-  let label = 'Critical'
-  if (score >= 75) { color = 'bg-green-500'; label = 'Healthy' }
-  else if (score >= 50) { color = 'bg-yellow-500'; label = 'OK' }
-  else if (score >= 25) { color = 'bg-orange-500'; label = 'Warning' }
+  if (score >= 75) color = 'bg-green-500'
+  else if (score >= 50) color = 'bg-yellow-500'
+  else if (score >= 25) color = 'bg-orange-500'
   
   return (
     <div className="flex items-center gap-1" title={`Health: ${score}/100`}>
@@ -423,7 +354,6 @@ function HealthBadge({ score }) {
     </div>
   )
 }
-
 // ──────────────────────────────────────────────────────────
 // FORM (Create / Edit)
 // ──────────────────────────────────────────────────────────
@@ -433,7 +363,7 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
     descrizione: plan?.descrizione || '',
     tipo: plan?.tipo || 'Task',
     priorita: plan?.priorita || 'Medium',
-    stato: plan?.stato || 'Backlog',
+    stato: plan?.stato || 'Da Valutare',
     categoria: plan?.categoria || '',
     responsabile: plan?.responsabile || '',
     responsabile_email: plan?.responsabile_email || '',
@@ -473,23 +403,14 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
     <Modal title={plan ? `✏️ Modifica ${plan.numero}` : '➕ Nuovo Action Plan'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Titolo *">
-          <input
-            required
-            value={form.titolo}
-            onChange={(e) => setForm({ ...form, titolo: e.target.value })}
-            className="w-full border rounded-lg px-3 py-2"
-            placeholder="Es: Sostituire filtro Bindler linea 11"
-          />
+          <input required value={form.titolo} onChange={(e) => setForm({ ...form, titolo: e.target.value })}
+            className="w-full border rounded-lg px-3 py-2" placeholder="Es: Sostituire filtro Bindler linea 11" />
         </Field>
 
         <Field label="Descrizione (supporta @mentions e #tags)">
-          <textarea
-            value={form.descrizione}
-            onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
-            rows={4}
-            className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
-            placeholder="Es: @mario.rossi devi sostituire il filtro #manutenzione #linea-2"
-          />
+          <textarea value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
+            rows={4} className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
+            placeholder="Es: @mario.rossi devi sostituire il filtro #manutenzione #linea-2" />
           <div className="text-xs text-gray-500 mt-1">
             💡 Usa <code className="bg-gray-100 px-1">@nome</code> per taggare persone e <code className="bg-gray-100 px-1">#argomento</code> per categorizzare
           </div>
@@ -497,29 +418,17 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
 
         <div className="grid grid-cols-3 gap-3">
           <Field label="Tipo">
-            <select
-              value={form.tipo}
-              onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-            >
+            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className="w-full border rounded-lg px-3 py-2">
               {TIPI.map(t => <option key={t}>{t}</option>)}
             </select>
           </Field>
           <Field label="Priorità">
-            <select
-              value={form.priorita}
-              onChange={(e) => setForm({ ...form, priorita: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-            >
+            <select value={form.priorita} onChange={(e) => setForm({ ...form, priorita: e.target.value })} className="w-full border rounded-lg px-3 py-2">
               {PRIORITA.map(p => <option key={p}>{p}</option>)}
             </select>
           </Field>
           <Field label="Stato">
-            <select
-              value={form.stato}
-              onChange={(e) => setForm({ ...form, stato: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-            >
+            <select value={form.stato} onChange={(e) => setForm({ ...form, stato: e.target.value })} className="w-full border rounded-lg px-3 py-2">
               {STATI.map(s => <option key={s}>{s}</option>)}
             </select>
           </Field>
@@ -527,76 +436,40 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Responsabile">
-            <input
-              value={form.responsabile}
-              onChange={(e) => setForm({ ...form, responsabile: e.target.value })}
-              placeholder="Es: Mario Rossi"
-              className="w-full border rounded-lg px-3 py-2"
-            />
+            <input value={form.responsabile} onChange={(e) => setForm({ ...form, responsabile: e.target.value })}
+              placeholder="Es: Mario Rossi" className="w-full border rounded-lg px-3 py-2" />
           </Field>
           <Field label="Email Responsabile">
-            <input
-              type="email"
-              value={form.responsabile_email}
-              onChange={(e) => setForm({ ...form, responsabile_email: e.target.value })}
-              placeholder="mario.rossi@lindt.it"
-              className="w-full border rounded-lg px-3 py-2"
-            />
+            <input type="email" value={form.responsabile_email} onChange={(e) => setForm({ ...form, responsabile_email: e.target.value })}
+              placeholder="mario.rossi@lindt.it" className="w-full border rounded-lg px-3 py-2" />
           </Field>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <Field label="Reparto">
-            <input
-              value={form.reparto}
-              onChange={(e) => setForm({ ...form, reparto: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-            />
+            <input value={form.reparto} onChange={(e) => setForm({ ...form, reparto: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
           </Field>
           <Field label="Linea">
-            <input
-              value={form.linea}
-              onChange={(e) => setForm({ ...form, linea: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-            />
+            <input value={form.linea} onChange={(e) => setForm({ ...form, linea: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
           </Field>
           <Field label="Macchina">
-            <input
-              value={form.macchina}
-              onChange={(e) => setForm({ ...form, macchina: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-            />
+            <input value={form.macchina} onChange={(e) => setForm({ ...form, macchina: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
           </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Scadenza">
-            <input
-              type="date"
-              value={form.data_scadenza}
-              onChange={(e) => setForm({ ...form, data_scadenza: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-            />
+            <input type="date" value={form.data_scadenza} onChange={(e) => setForm({ ...form, data_scadenza: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
           </Field>
           <Field label="Tags (separati da virgola)">
-            <input
-              value={form.tags}
-              onChange={(e) => setForm({ ...form, tags: e.target.value })}
-              placeholder="sicurezza, manutenzione, linea-2"
-              className="w-full border rounded-lg px-3 py-2"
-            />
+            <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })}
+              placeholder="sicurezza, manutenzione, linea-2" className="w-full border rounded-lg px-3 py-2" />
           </Field>
         </div>
 
         <div className="flex justify-end gap-2 pt-3 border-t">
-          <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">
-            Annulla
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50"
-          >
+          <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
+          <button type="submit" disabled={saving} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50">
             {saving ? 'Salvataggio...' : (plan ? '💾 Salva modifiche' : '➕ Crea Action Plan')}
           </button>
         </div>
@@ -660,9 +533,7 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
   return (
     <Modal title="" onClose={onClose} wide noPadding>
       <div className="grid grid-cols-3 gap-0 h-[85vh]">
-        {/* MAIN COLUMN */}
         <div className="col-span-2 overflow-y-auto border-r">
-          {/* Header */}
           <div className="bg-gradient-to-r from-primary to-primary-light text-white p-4">
             <div className="flex items-center gap-2 text-sm opacity-90 mb-2">
               <TipoIcon size={16} />
@@ -676,7 +547,6 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Descrizione */}
             <Section title="📝 Descrizione">
               {detail.descrizione ? (
                 <div className="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">
@@ -687,14 +557,11 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
               )}
             </Section>
 
-            {/* Tags & Mentions */}
             {(detail.tags?.length > 0 || detail.mentions?.length > 0) && (
               <Section title="🏷️ Tags & Mentions">
                 <div className="flex flex-wrap gap-2">
                   {detail.tags?.map(t => (
-                    <span key={t} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
-                      #{t}
-                    </span>
+                    <span key={t} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">#{t}</span>
                   ))}
                   {detail.mentions?.map(m => (
                     <span key={m} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center gap-1">
@@ -705,7 +572,6 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
               </Section>
             )}
 
-            {/* Checklist */}
             <Section title={`✅ Checklist ${checklistTotali > 0 ? `(${checklistCompletati}/${checklistTotali})` : ''}`}>
               {checklistTotali > 0 && (
                 <div className="mb-2">
@@ -737,13 +603,10 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
                   placeholder="Aggiungi item..."
                   className="flex-1 border rounded px-3 py-1.5 text-sm"
                 />
-                <button onClick={addChecklistItem} className="px-3 py-1.5 bg-gray-200 rounded text-sm hover:bg-gray-300">
-                  + Item
-                </button>
+                <button onClick={addChecklistItem} className="px-3 py-1.5 bg-gray-200 rounded text-sm hover:bg-gray-300">+ Item</button>
               </div>
             </Section>
 
-            {/* Commenti */}
             <Section title={`💬 Commenti (${detail.commenti?.length || 0})`}>
               <div className="space-y-3 mb-3">
                 {(detail.commenti || []).slice().reverse().map(c => (
@@ -763,13 +626,9 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
                 )}
               </div>
               <div className="flex gap-2">
-                <textarea
-                  value={nuovoCommento}
-                  onChange={(e) => setNuovoCommento(e.target.value)}
+                <textarea value={nuovoCommento} onChange={(e) => setNuovoCommento(e.target.value)}
                   placeholder="Scrivi un commento... usa @nome per taggare e #argomento per categorizzare"
-                  rows={2}
-                  className="flex-1 border rounded-lg px-3 py-2 text-sm"
-                />
+                  rows={2} className="flex-1 border rounded-lg px-3 py-2 text-sm" />
                 <button onClick={addCommento} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light self-end">
                   <Send size={16} />
                 </button>
@@ -778,7 +637,6 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
           </div>
         </div>
 
-        {/* SIDEBAR */}
         <div className="overflow-y-auto bg-gray-50 p-4 space-y-4">
           <div className="flex justify-between items-center pb-2 border-b">
             <span className="text-sm font-medium">Dettagli</span>
@@ -793,19 +651,15 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
           </div>
 
           <SidebarRow label="Stato">
-            <select
-              value={detail.stato}
-              onChange={(e) => changeStato(e.target.value)}
-              className={`text-xs px-2 py-1 rounded border ${STATO_COLORS[detail.stato_visuale] || STATO_COLORS[detail.stato]}`}
-            >
+            <select value={detail.stato} onChange={(e) => changeStato(e.target.value)}
+              className={`text-xs px-2 py-1 rounded border ${STATO_COLORS[detail.stato_visuale] || STATO_COLORS[detail.stato]}`}>
               {STATI.map(s => <option key={s}>{s}</option>)}
             </select>
           </SidebarRow>
 
           <SidebarRow label="Priorità">
             <span className={`px-2 py-0.5 rounded text-xs ${PRIORITA_BG[detail.priorita]}`}>
-              {detail.priorita === 'Critical' && '🔥 '}
-              {detail.priorita}
+              {detail.priorita === 'Critical' && '🔥 '}{detail.priorita}
             </span>
           </SidebarRow>
 
@@ -860,7 +714,6 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
             </SidebarRow>
           )}
 
-          {/* Activity feed */}
           <div className="pt-3 border-t">
             <div className="text-xs font-medium mb-2">📜 Attività</div>
             <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -879,64 +732,7 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
 }
 
 // ──────────────────────────────────────────────────────────
-// UTILS
-// ──────────────────────────────────────────────────────────
-function Modal({ title, children, onClose, wide = false, noPadding = false }) {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className={`bg-white rounded-lg shadow-xl ${wide ? 'max-w-6xl' : 'max-w-3xl'} w-full max-h-[95vh] overflow-hidden`}>
-        {title && (
-          <div className="bg-primary text-white px-6 py-3 flex justify-between items-center">
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <button onClick={onClose} className="hover:bg-primary-light p-1 rounded">
-              <X size={20} />
-            </button>
-          </div>
-        )}
-        <div className={noPadding ? '' : 'p-6'}>{children}</div>
-      </div>
-    </div>
-  )
-}
-
-function Field({ label, children }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      {children}
-    </div>
-  )
-}
-
-function Section({ title, children }) {
-  return (
-    <div>
-      <h3 className="text-sm font-bold mb-2">{title}</h3>
-      {children}
-    </div>
-  )
-}
-
-function SidebarRow({ label, children }) {
-  return (
-    <div className="flex justify-between items-center text-sm">
-      <span className="text-gray-600 text-xs uppercase">{label}</span>
-      <div>{children}</div>
-    </div>
-  )
-}
-
-function renderWithMentionsTags(text) {
-  if (!text) return null
-  const parts = text.split(/(@[a-zA-Z0-9._-]+|#[a-zA-Z0-9_-]+)/g)
-  return parts.map((p, i) => {
-    if (p.startsWith('@')) return <span key={i} className="text-blue-600 font-medium">{p}</span>
-    if (p.startsWith('#')) return <span key={i} className="text-purple-600 font-medium">{p}</span>
-    return p
-  })
-}
-// ──────────────────────────────────────────────────────────
-// LIST VIEW (tabella estratta)
+// LIST VIEW
 // ──────────────────────────────────────────────────────────
 function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange }) {
   return (
@@ -986,14 +782,12 @@ function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange }) {
                 </td>
                 <td className="px-3 py-2">
                   <div className={`flex items-center gap-1 text-xs ${TIPO_COLORS[p.tipo]}`}>
-                    <TipoIcon size={14} />
-                    <span>{p.tipo}</span>
+                    <TipoIcon size={14} /><span>{p.tipo}</span>
                   </div>
                 </td>
                 <td className="px-3 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs ${PRIORITA_BG[p.priorita]}`}>
-                    {p.priorita === 'Critical' && '🔥 '}
-                    {p.priorita}
+                    {p.priorita === 'Critical' && '🔥 '}{p.priorita}
                   </span>
                 </td>
                 <td className="px-3 py-2">
@@ -1002,16 +796,11 @@ function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange }) {
                       <Avatar name={p.responsabile} size={20} />
                       <span className="text-xs truncate">{p.responsabile}</span>
                     </div>
-                  ) : (
-                    <span className="text-xs text-gray-400">— Non assegnato</span>
-                  )}
+                  ) : <span className="text-xs text-gray-400">— Non assegnato</span>}
                 </td>
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                  <select
-                    value={p.stato}
-                    onChange={(e) => onQuickStateChange(p._id, e.target.value)}
-                    className={`text-xs px-1.5 py-1 rounded border ${STATO_COLORS[p.stato_visuale] || STATO_COLORS[p.stato]}`}
-                  >
+                  <select value={p.stato} onChange={(e) => onQuickStateChange(p._id, e.target.value)}
+                    className={`text-xs px-1.5 py-1 rounded border ${STATO_COLORS[p.stato_visuale] || STATO_COLORS[p.stato]}`}>
                     {STATI.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </td>
@@ -1022,20 +811,12 @@ function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange }) {
                     </div>
                   ) : '—'}
                 </td>
-                <td className="px-3 py-2">
-                  <HealthBadge score={p.health_score || 0} />
-                </td>
+                <td className="px-3 py-2"><HealthBadge score={p.health_score || 0} /></td>
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-center gap-1">
-                    <button onClick={() => onSelect(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Dettaglio">
-                      <Eye size={14} />
-                    </button>
-                    <button onClick={() => onEdit(p)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica">
-                      <Edit2 size={14} />
-                    </button>
-                    <button onClick={() => onDelete(p._id)} className="p-1 hover:bg-red-100 rounded text-red-600" title="Elimina">
-                      <Trash2 size={14} />
-                    </button>
+                    <button onClick={() => onSelect(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Dettaglio"><Eye size={14} /></button>
+                    <button onClick={() => onEdit(p)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica"><Edit2 size={14} /></button>
+                    <button onClick={() => onDelete(p._id)} className="p-1 hover:bg-red-100 rounded text-red-600" title="Elimina"><Trash2 size={14} /></button>
                   </div>
                 </td>
               </tr>
@@ -1048,7 +829,7 @@ function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange }) {
 }
 
 // ──────────────────────────────────────────────────────────
-// KANBAN VIEW (drag&drop board)
+// KANBAN VIEW
 // ──────────────────────────────────────────────────────────
 const KANBAN_COLUMNS = [
   { id: 'Da Valutare', label: '📋 Da Valutare', color: 'bg-gray-50 border-gray-300', headerColor: 'bg-gray-200 text-gray-700' },
@@ -1060,7 +841,6 @@ const KANBAN_COLUMNS = [
 ]
 
 function KanbanView({ plans, onSelect, onStateChange, reload }) {
-  // Raggruppa i plans per stato
   const grouped = KANBAN_COLUMNS.reduce((acc, col) => {
     acc[col.id] = plans.filter(p => p.stato === col.id)
     return acc
@@ -1070,8 +850,6 @@ function KanbanView({ plans, onSelect, onStateChange, reload }) {
     const { source, destination, draggableId } = result
     if (!destination) return
     if (source.droppableId === destination.droppableId) return
-    
-    // Cambio stato
     await onStateChange(draggableId, destination.droppableId)
   }
 
@@ -1082,37 +860,24 @@ function KanbanView({ plans, onSelect, onStateChange, reload }) {
           <div key={col.id} className={`flex-shrink-0 w-72 rounded-lg border-2 ${col.color} flex flex-col`}>
             <div className={`${col.headerColor} px-3 py-2 rounded-t-md font-semibold text-sm flex justify-between items-center`}>
               <span>{col.label}</span>
-              <span className="bg-white bg-opacity-50 px-2 py-0.5 rounded-full text-xs">
-                {grouped[col.id].length}
-              </span>
+              <span className="bg-white bg-opacity-50 px-2 py-0.5 rounded-full text-xs">{grouped[col.id].length}</span>
             </div>
             <Droppable droppableId={col.id}>
               {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className={`flex-1 p-2 space-y-2 overflow-y-auto transition-colors ${
-                    snapshot.isDraggingOver ? 'bg-white bg-opacity-50' : ''
-                  }`}
-                  style={{ minHeight: '300px' }}
-                >
+                <div ref={provided.innerRef} {...provided.droppableProps}
+                  className={`flex-1 p-2 space-y-2 overflow-y-auto transition-colors ${snapshot.isDraggingOver ? 'bg-white bg-opacity-50' : ''}`}
+                  style={{ minHeight: '300px' }}>
                   {grouped[col.id].length === 0 && !snapshot.isDraggingOver && (
-                    <div className="text-center text-xs text-gray-400 py-8">
-                      Trascina qui
-                    </div>
+                    <div className="text-center text-xs text-gray-400 py-8">Trascina qui</div>
                   )}
                   {grouped[col.id].map((plan, index) => (
                     <Draggable key={plan._id} draggableId={plan._id} index={index}>
                       {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
+                        <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
                           onClick={() => !snapshot.isDragging && onSelect(plan)}
                           className={`bg-white rounded-md p-3 shadow-sm border cursor-pointer hover:shadow-md transition-all ${
                             snapshot.isDragging ? 'rotate-2 shadow-2xl ring-2 ring-primary' : ''
-                          }`}
-                        >
+                          }`}>
                           <KanbanCard plan={plan} />
                         </div>
                       )}
@@ -1135,10 +900,9 @@ function KanbanCard({ plan }) {
   const checklistTotali = plan.checklist?.length || 0
   const isOverdue = plan.stato_visuale === 'In Ritardo'
   const isScadenza = plan.stato_visuale === 'In Scadenza'
-  
+
   return (
     <>
-      {/* Top row: numero + priorità */}
       <div className="flex justify-between items-center mb-1">
         <span className="font-mono text-xs text-primary font-bold">{plan.numero}</span>
         <span className={`text-xs px-1.5 py-0.5 rounded ${PRIORITA_BG[plan.priorita]}`}>
@@ -1149,29 +913,18 @@ function KanbanCard({ plan }) {
           {plan.priorita === 'Lowest' && '⏬'}
         </span>
       </div>
-
-      {/* Titolo */}
       <div className="font-medium text-sm mb-2 line-clamp-2">{plan.titolo}</div>
-
-      {/* Tipo */}
       <div className={`flex items-center gap-1 text-xs mb-2 ${TIPO_COLORS[plan.tipo]}`}>
-        <TipoIcon size={12} />
-        <span>{plan.tipo}</span>
+        <TipoIcon size={12} /><span>{plan.tipo}</span>
       </div>
-
-      {/* Tags */}
       {plan.tags?.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {plan.tags.slice(0, 3).map(t => (
             <span key={t} className="text-xs bg-purple-50 text-purple-700 px-1.5 rounded">#{t}</span>
           ))}
-          {plan.tags.length > 3 && (
-            <span className="text-xs text-gray-400">+{plan.tags.length - 3}</span>
-          )}
+          {plan.tags.length > 3 && <span className="text-xs text-gray-400">+{plan.tags.length - 3}</span>}
         </div>
       )}
-
-      {/* Checklist progress */}
       {checklistTotali > 0 && (
         <div className="mb-2">
           <div className="flex justify-between text-xs text-gray-500 mb-0.5">
@@ -1179,64 +932,85 @@ function KanbanCard({ plan }) {
             <span>{Math.round((checklistCompletati / checklistTotali) * 100)}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-1">
-            <div
-              className="bg-green-500 h-1 rounded-full"
-              style={{ width: `${(checklistCompletati / checklistTotali) * 100}%` }}
-            />
+            <div className="bg-green-500 h-1 rounded-full" style={{ width: `${(checklistCompletati / checklistTotali) * 100}%` }} />
           </div>
         </div>
       )}
-
-      {/* Avanzamento */}
-      {plan.avanzamento > 0 && checklistTotali === 0 && (
-        <div className="mb-2">
-          <div className="flex justify-between text-xs text-gray-500 mb-0.5">
-            <span>Progresso</span>
-            <span>{plan.avanzamento}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-1">
-            <div className="bg-blue-500 h-1 rounded-full" style={{ width: `${plan.avanzamento}%` }} />
-          </div>
-        </div>
-      )}
-
-      {/* Footer: avatar + scadenza + counters */}
       <div className="flex justify-between items-center pt-2 border-t mt-2">
         <div className="flex items-center gap-1">
-          {plan.responsabile ? (
-            <Avatar name={plan.responsabile} size={20} />
-          ) : (
-            <span className="text-xs text-gray-400">—</span>
-          )}
+          {plan.responsabile ? <Avatar name={plan.responsabile} size={20} /> : <span className="text-xs text-gray-400">—</span>}
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
           {plan.commenti?.length > 0 && (
-            <span className="flex items-center gap-0.5">
-              <MessageSquare size={10} /> {plan.commenti.length}
-            </span>
+            <span className="flex items-center gap-0.5"><MessageSquare size={10} /> {plan.commenti.length}</span>
           )}
           {plan.links?.length > 0 && (
-            <span className="flex items-center gap-0.5">
-              <Link2 size={10} /> {plan.links.length}
-            </span>
+            <span className="flex items-center gap-0.5"><Link2 size={10} /> {plan.links.length}</span>
           )}
           {plan.data_scadenza && (
-            <span className={`flex items-center gap-0.5 ${
-              isOverdue ? 'text-red-600 font-bold' : isScadenza ? 'text-yellow-600' : ''
-            }`}>
+            <span className={`flex items-center gap-0.5 ${isOverdue ? 'text-red-600 font-bold' : isScadenza ? 'text-yellow-600' : ''}`}>
               <Calendar size={10} />
               {new Date(plan.data_scadenza).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
             </span>
           )}
         </div>
       </div>
-
-      {/* Health indicator (sottile) */}
-      {plan.health_score < 50 && (
-        <div className="mt-2 pt-2 border-t">
-          <HealthBadge score={plan.health_score} />
-        </div>
-      )}
     </>
   )
+}
+
+// ──────────────────────────────────────────────────────────
+// UTILS
+// ──────────────────────────────────────────────────────────
+function Modal({ title, children, onClose, wide = false, noPadding = false }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className={`bg-white rounded-lg shadow-xl ${wide ? 'max-w-6xl' : 'max-w-3xl'} w-full max-h-[95vh] overflow-hidden`}>
+        {title && (
+          <div className="bg-primary text-white px-6 py-3 flex justify-between items-center">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <button onClick={onClose} className="hover:bg-primary-light p-1 rounded"><X size={20} /></button>
+          </div>
+        )}
+        <div className={noPadding ? '' : 'p-6'}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      {children}
+    </div>
+  )
+}
+
+function Section({ title, children }) {
+  return (
+    <div>
+      <h3 className="text-sm font-bold mb-2">{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+function SidebarRow({ label, children }) {
+  return (
+    <div className="flex justify-between items-center text-sm">
+      <span className="text-gray-600 text-xs uppercase">{label}</span>
+      <div>{children}</div>
+    </div>
+  )
+}
+
+function renderWithMentionsTags(text) {
+  if (!text) return null
+  const parts = text.split(/(@[a-zA-Z0-9._-]+|#[a-zA-Z0-9_-]+)/g)
+  return parts.map((p, i) => {
+    if (p.startsWith('@')) return <span key={i} className="text-blue-600 font-medium">{p}</span>
+    if (p.startsWith('#')) return <span key={i} className="text-purple-600 font-medium">{p}</span>
+    return p
+  })
 }
