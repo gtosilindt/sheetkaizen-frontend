@@ -6,10 +6,14 @@ import api from '../services/api'
 // CONFIG: definisce i 7 tab disponibili
 // ──────────────────────────────────────────────────────────
 const TABS = [
+  { id: 'pillars', label: '🏛️ Pillars', icon: '🏛️', color: 'indigo',
+    hint: 'Pillar TPM Lindt (FI, AM, PM, QM, EM, T&E, S, E, E2E, LP, EEM, EPM)', isPillar: true },
   { id: 'tipi_kaizen', label: 'Tipologie Kaizen', icon: '📋', color: 'blue', 
     hint: 'Es: Quick Kaizen, Standard Kaizen, Major Kaizen' },
   { id: 'categorie_action_plan', label: 'Categorie Action Plan', icon: '🎯', color: 'green',
     hint: 'Es: Sicurezza, Qualità, Manutenzione, 5S' },
+  { id: 'tipi_action_plan', label: 'Tipi Action Plan', icon: '📌', color: 'green',
+    hint: 'Es: Task, Bug, Improvement, Audit, Manutenzione, Sicurezza' },
   { id: 'categorie_documento', label: 'Categorie Documenti', icon: '📚', color: 'purple',
     hint: 'Es: Operativa, Sicurezza, Manutenzione' },
   { id: 'tipi_perdita', label: 'Tipi Perdita', icon: '💥', color: 'red',
@@ -103,13 +107,17 @@ export default function SettingsPage() {
       </div>
 
       {/* CONTENUTO TAB */}
-      <ConfigManager
-        key={activeTab}
-        tipo={activeTab}
-        label={currentTab.label}
-        color={currentTab.color}
-        onChange={loadStats}
-      />
+      {currentTab.isPillar ? (
+        <PillarsManager onChange={loadStats} />
+      ) : (
+        <ConfigManager
+          key={activeTab}
+          tipo={activeTab}
+          label={currentTab.label}
+          color={currentTab.color}
+          onChange={loadStats}
+        />
+      )}
     </div>
   )
 }
@@ -429,6 +437,392 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
             >
               <Save size={16} />
               {saving ? 'Salvataggio...' : (item ? 'Salva' : 'Crea')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// PILLARS MANAGER (componente dedicato per Pillar TPM)
+// ──────────────────────────────────────────────────────────
+function PillarsManager({ onChange }) {
+  const [pillars, setPillars] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null)
+
+  useEffect(() => { load() }, [search])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (search) params.append('search', search)
+      const res = await api.get(`/pillars/?${params.toString()}`)
+      setPillars(res.data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDelete(pillar) {
+    const confirmMsg = `🗑️ Eliminare il Pillar "${pillar.sigla} - ${pillar.label}"?\n\n⚠️ I Kaizen collegati a questo pillar perderanno il riferimento (ma non saranno eliminati).`
+    if (!confirm(confirmMsg)) return
+    try {
+      const res = await api.delete(`/pillars/${pillar._id}`)
+      alert(`✅ Pillar eliminato. ${res.data?.kaizens_scollegati || 0} Kaizen scollegati.`)
+      load()
+      onChange?.()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  async function handleToggleActive(pillar) {
+    try {
+      await api.put(`/pillars/${pillar._id}`, { attivo: !pillar.attivo })
+      load()
+      onChange?.()
+    } catch (err) {
+      alert('Errore: ' + err.message)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm">
+      {/* Toolbar */}
+      <div className="p-4 border-b flex justify-between items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cerca pillar per sigla, nome o descrizione..."
+            className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
+          />
+        </div>
+        <button
+          onClick={() => { setEditing(null); setShowForm(true) }}
+          className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light text-sm font-medium"
+        >
+          <Plus size={16} /> Aggiungi Pillar
+        </button>
+      </div>
+
+      {/* Lista */}
+      {loading ? (
+        <div className="p-12 text-center text-gray-400">⏳ Caricamento...</div>
+      ) : pillars.length === 0 ? (
+        <div className="p-12 text-center">
+          <div className="text-6xl mb-2">🏛️</div>
+          <p className="text-gray-500 mb-3">
+            {search ? 'Nessun pillar trovato' : 'Nessun pillar configurato'}
+          </p>
+          {!search && (
+            <>
+              <p className="text-xs text-gray-400 mb-3">
+                💡 I Pillar sono le funzioni TPM (FI, AM, PM, ecc.) che organizzano i Kaizen e il 5 Step KPI Management
+              </p>
+              <button
+                onClick={() => { setEditing(null); setShowForm(true) }}
+                className="text-primary hover:underline"
+              >
+                + Aggiungi il primo Pillar
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
+            <tr>
+              <th className="px-3 py-2 text-left w-16">Icon</th>
+              <th className="px-3 py-2 text-left w-24">Sigla</th>
+              <th className="px-3 py-2 text-left">Nome</th>
+              <th className="px-3 py-2 text-left w-40">Leader</th>
+              <th className="px-3 py-2 text-left w-24">Anno</th>
+              <th className="px-3 py-2 text-left w-20">Stato</th>
+              <th className="px-3 py-2 text-center w-32">Azioni</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pillars.map(p => (
+              <tr key={p._id} className={`border-b hover:bg-gray-50 ${!p.attivo ? 'opacity-50' : ''}`}>
+                <td className="px-3 py-2 text-2xl">{p.icon || '🏛️'}</td>
+                <td className="px-3 py-2 font-mono font-bold text-primary">
+                  {p.color && (
+                    <span 
+                      className="inline-block w-2 h-2 rounded-full mr-1" 
+                      style={{ backgroundColor: p.color }}
+                    />
+                  )}
+                  {p.sigla}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="font-medium">{p.label}</div>
+                  {p.descrizione && (
+                    <div className="text-xs text-gray-500 truncate max-w-md">{p.descrizione}</div>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-xs">{p.leader || '—'}</td>
+                <td className="px-3 py-2 text-xs">{p.anno || '—'}</td>
+                <td className="px-3 py-2">
+                  <button
+                    onClick={() => handleToggleActive(p)}
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      p.attivo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                    }`}
+                  >
+                    {p.attivo ? '✅ Attivo' : '⏸️ Disattivo'}
+                  </button>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex justify-center gap-1">
+                    <button
+                      onClick={() => handleToggleActive(p)}
+                      className="p-1 hover:bg-gray-100 rounded"
+                      title={p.attivo ? 'Disattiva' : 'Attiva'}
+                    >
+                      {p.attivo ? <Eye size={14} /> : <EyeOff size={14} />}
+                    </button>
+                    <button
+                      onClick={() => { setEditing(p); setShowForm(true) }}
+                      className="p-1 hover:bg-yellow-100 rounded text-yellow-600"
+                      title="Modifica"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p)}
+                      className="p-1 hover:bg-red-100 rounded text-red-600"
+                      title="Elimina"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* Modal Form */}
+      {showForm && (
+        <PillarForm
+          pillar={editing}
+          onClose={() => { setShowForm(false); setEditing(null) }}
+          onSaved={() => { setShowForm(false); setEditing(null); load(); onChange?.() }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// PILLAR FORM (create/edit)
+// ──────────────────────────────────────────────────────────
+function PillarForm({ pillar, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    sigla: pillar?.sigla || '',
+    label: pillar?.label || '',
+    descrizione: pillar?.descrizione || '',
+    icon: pillar?.icon || '🏛️',
+    color: pillar?.color || '#6366f1',
+    leader: pillar?.leader || '',
+    leader_email: pillar?.leader_email || '',
+    members: pillar?.members?.join(', ') || '',
+    anno: pillar?.anno || new Date().getFullYear(),
+    note: pillar?.note || '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.sigla.trim()) return alert('Sigla obbligatoria')
+    if (!form.label.trim()) return alert('Nome obbligatorio')
+    setSaving(true)
+    try {
+      const payload = {
+        ...form,
+        sigla: form.sigla.trim().toUpperCase(),
+        members: form.members.split(',').map(m => m.trim()).filter(Boolean),
+        anno: parseInt(form.anno) || new Date().getFullYear(),
+      }
+      if (pillar?._id) {
+        await api.put(`/pillars/${pillar._id}`, payload)
+      } else {
+        await api.post('/pillars/', payload)
+      }
+      onSaved()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
+        <div className="bg-indigo-600 text-white px-5 py-3 flex justify-between items-center">
+          <h2 className="font-semibold flex items-center gap-2">
+            🏛️ {pillar ? `Modifica Pillar ${pillar.sigla}` : 'Nuovo Pillar'}
+          </h2>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Sigla <span className="text-red-500">*</span>
+                <span className="text-xs text-gray-500 font-normal ml-1">(2-4 lettere)</span>
+              </label>
+              <input
+                required
+                autoFocus
+                maxLength={6}
+                value={form.sigla}
+                onChange={(e) => setForm({ ...form, sigla: e.target.value.toUpperCase() })}
+                className="w-full border rounded-lg px-3 py-2 font-mono font-bold text-lg uppercase"
+                placeholder="FI"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Anno di riferimento
+              </label>
+              <input
+                type="number"
+                value={form.anno}
+                onChange={(e) => setForm({ ...form, anno: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2"
+                min="2020"
+                max="2050"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Nome completo <span className="text-red-500">*</span>
+            </label>
+            <input
+              required
+              value={form.label}
+              onChange={(e) => setForm({ ...form, label: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Focused Improvement"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Descrizione</label>
+            <textarea
+              value={form.descrizione}
+              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
+              rows={2}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="Es: Pilastro focalizzato sull'eliminazione delle perdite tramite progetti mirati"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Icon <span className="text-xs text-gray-500 font-normal">(emoji)</span>
+              </label>
+              <input
+                value={form.icon}
+                onChange={(e) => setForm({ ...form, icon: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-2xl text-center"
+                placeholder="🎯"
+                maxLength={4}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Colore</label>
+              <div className="flex gap-1">
+                <input
+                  type="color"
+                  value={form.color || '#6366f1'}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  className="w-12 h-10 border rounded cursor-pointer"
+                />
+                <input
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  className="flex-1 border rounded-lg px-2 py-2 text-sm font-mono"
+                  placeholder="#6366f1"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Leader</label>
+              <input
+                value={form.leader}
+                onChange={(e) => setForm({ ...form, leader: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="Maurizio Rota"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Email Leader</label>
+              <input
+                type="email"
+                value={form.leader_email}
+                onChange={(e) => setForm({ ...form, leader_email: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="mrota@lindt.com"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Membri del team
+              <span className="text-xs text-gray-500 font-normal ml-1">(separati da virgola)</span>
+            </label>
+            <input
+              value={form.members}
+              onChange={(e) => setForm({ ...form, members: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="Giovanni Tosi, Antonio Palma, Mirko De Simone"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Note</label>
+            <textarea
+              value={form.note}
+              onChange={(e) => setForm({ ...form, note: e.target.value })}
+              rows={2}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="Note opzionali..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">
+              Annulla
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Save size={16} />
+              {saving ? 'Salvataggio...' : (pillar ? 'Salva' : 'Crea Pillar')}
             </button>
           </div>
         </form>
