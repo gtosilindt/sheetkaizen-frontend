@@ -108,11 +108,82 @@ export default function KaizenDetailPage() {
     Major: { icon: '🏆', color: '#8b5cf6', label: 'Major Kaizen', desc: 'Iniziativa Pillar' },
   }
 
-  const tabs = [
-    { id: 'quickkaizen', label: 'Quick Kaizen' },
-    { id: 'lavagna', label: 'Lavagna' },
-    { id: 'feed', label: 'Feed' },
-  ]
+  // Tab adattive in base al livello (Quick/Standard/Major)
+  const buildTabs = () => {
+    const base = []
+    
+    // Tab specifica per Major: 5 Step KPI (prima di tutto)
+    if (livelloAttuale === 'Major') {
+      base.push({ 
+        id: 'step5kpi', 
+        label: '🎯 5 Step KPI', 
+        livelloMin: 'Major',
+        placeholder: true,
+        descrizione: 'Selection · Diagnostic · Definition · Implementation · Close the Loop',
+      })
+    }
+    
+    // Tab Problem Solving (sempre presente, etichetta cambia)
+    base.push({
+      id: 'quickkaizen',
+      label: livelloAttuale === 'Quick' ? 'Quick Kaizen' : '🔍 Problem Solving',
+    })
+    
+    // Standard Elements (Standard + Major)
+    if (livelloAttuale !== 'Quick') {
+      base.push({ 
+        id: 'stdelements', 
+        label: '📊 8 Standard Elements',
+        placeholder: true,
+        descrizione: 'Valutazione qualità del Quick Kaizen secondo gli 8 standard Lindt FI Pillar',
+      })
+    }
+    
+    // Countermeasure Ladder (Standard + Major)
+    if (livelloAttuale !== 'Quick') {
+      base.push({ 
+        id: 'cmladder', 
+        label: '🏔️ Countermeasure Ladder',
+        placeholder: true,
+        descrizione: 'Classificazione delle contromisure secondo i 6 livelli Lindt (dalla restoration alla re-engineering)',
+      })
+    }
+    
+    // Gantt (Standard + Major)
+    if (livelloAttuale !== 'Quick') {
+      base.push({ 
+        id: 'gantt', 
+        label: '📅 Gantt',
+        placeholder: true,
+        descrizione: 'Pianificazione visiva con task, dipendenze e critical path',
+      })
+    }
+    
+    // Cost & Benefit (solo Major)
+    if (livelloAttuale === 'Major') {
+      base.push({ 
+        id: 'costbenefit', 
+        label: '💰 Cost & Benefit',
+        placeholder: true,
+        descrizione: 'Calcolo ROI, payback period e business case completo',
+      })
+    }
+    
+    // Tab finali sempre presenti
+    base.push({ id: 'lavagna', label: 'Lavagna' })
+    base.push({ id: 'feed', label: 'Feed' })
+    
+    return base
+  }
+  
+  const tabs = buildTabs()
+  
+  // Se la tab attualmente selezionata non esiste più dopo trasformazione, torna alla prima
+  useEffect(() => {
+    if (!tabs.find(t => t.id === activeTab)) {
+      setActiveTab(tabs[0]?.id || 'quickkaizen')
+    }
+  }, [tabs, activeTab])
 
   return (
     <div>
@@ -483,6 +554,101 @@ export default function KaizenDetailPage() {
         </div>
       )}
 
+      {/* 🎯 5 STEP KPI Management Tab (placeholder Major) */}
+      {activeTab === 'step5kpi' && (
+        <PlaceholderTab
+          icon="🎯"
+          title="5 Step KPI Management"
+          subtitle="Metodologia ufficiale Lindt FI Pillar"
+          steps={[
+            { num: 1, label: 'KPI / KMI Definition', desc: 'Definizione KPI principale e indicatori secondari' },
+            { num: 2, label: 'Pareto Analysis & Loss Identification', desc: 'Analisi Pareto delle perdite per prioritizzare' },
+            { num: 3, label: 'Target Definition + Project Assignment', desc: 'Target SMART e assegnazione team/pillar' },
+            { num: 4, label: 'Project Implementation', desc: 'Esecuzione con Gantt + monitoring continuo' },
+            { num: 5, label: 'Gap Analysis & Close the Loop', desc: 'Bridge chart target vs actual, chiusura ciclo' },
+          ]}
+          phase="F7"
+        />
+      )}
+
+      {/* 📊 8 Standard Elements Tab (placeholder Standard+Major) */}
+      {activeTab === 'stdelements' && (
+        <PlaceholderTab
+          icon="📊"
+          title="8 Standard Elements"
+          subtitle="Valutazione qualità Quick Kaizen — Lindt FI Pillar"
+          steps={[
+            { num: '1.1', label: 'Clear description of phenomenon', desc: 'Descrizione chiara del fenomeno' },
+            { num: '1.2', label: 'Impact quantified with KPI', desc: 'Impatto quantificato con KPI di loss' },
+            { num: '2.1', label: 'Stratification: clear & understanding', desc: 'Stratificazione chiara e comprensibile' },
+            { num: '2.2', label: 'Usage of 5 Whys method', desc: 'Utilizzo metodo 5 Why per causa radice' },
+            { num: '2.3', label: 'Only relevant causes verified', desc: 'Verifica solo cause rilevanti' },
+            { num: '3.1', label: 'Action log filled properly', desc: 'Log azioni completo (responsabile, data, azione)' },
+            { num: '3.2', label: 'Horizontal/vertical expansion', desc: 'Espansione orizzontale/verticale del risultato' },
+            { num: '4.1', label: 'Loss eradication', desc: 'Eliminazione definitiva della perdita' },
+          ]}
+          phase="F5"
+          target="Target Lindt: 8/8"
+        />
+      )}
+
+      {/* 🏔️ Countermeasure Ladder Tab (placeholder Standard+Major) */}
+      {activeTab === 'cmladder' && (
+        <PlaceholderTab
+          icon="🏔️"
+          title="Countermeasure Ladder"
+          subtitle="Classificazione robustezza contromisure — 6 livelli Lindt"
+          steps={[
+            { num: 6, label: 'Innovation / Re-engineering', desc: 'Nuove tecnologie, redesign processo, investimenti' },
+            { num: 5, label: 'Technological / Process Improvement', desc: 'Meccanizzazione, automazione' },
+            { num: 4, label: 'Root Cause Elimination', desc: 'Miglioramento parametri oltre standard (Poka Yoke)' },
+            { num: 3, label: 'Visual Control / Management', desc: 'Contromisure stabili, eliminano causa tecnica' },
+            { num: 2, label: 'Restoration of Process Standards', desc: 'Cicli pulizia, ruoli/responsabilità chiari' },
+            { num: 1, label: 'Restoration of Basic Conditions', desc: 'Pulizia base, 5S, ricordare check' },
+          ]}
+          phase="F6"
+        />
+      )}
+
+      {/* 📅 Gantt Tab (placeholder Standard+Major) */}
+      {activeTab === 'gantt' && (
+        <PlaceholderTab
+          icon="📅"
+          title="Gantt Chart"
+          subtitle="Pianificazione visiva interattiva"
+          features={[
+            '📊 Timeline visuale con drag&drop su date',
+            '🔗 Dipendenze tra task ("blocks", "related to")',
+            '🔴 Critical Path evidenziato automaticamente',
+            '🎯 Milestones (diamanti)',
+            '👤 Avatar assignee sulle barre',
+            '⚡ Bidirezionalità con Action Plan (modifica AP = modifica Gantt)',
+            '📥 Export PNG/PDF brandizzato Lindt',
+            '🔍 Multi-vista: Giorno · Settimana · Mese · Trimestre',
+          ]}
+          phase="F8-F10"
+        />
+      )}
+
+      {/* 💰 Cost & Benefit Tab (placeholder Major) */}
+      {activeTab === 'costbenefit' && (
+        <PlaceholderTab
+          icon="💰"
+          title="Cost & Benefit"
+          subtitle="Business case e calcolo ROI automatico"
+          features={[
+            '💵 Calcolo costo totale (investimento + manodopera + materiali)',
+            '📈 Saving annuo stimato vs reale',
+            '🎯 ROI % e Payback period automatici',
+            '📊 Grafico proiezione 5 anni',
+            '💎 VAN (Valore Attuale Netto)',
+            '⚖️ Confronto stimato vs reale post-progetto',
+            '📋 Import template Excel Lindt',
+          ]}
+          phase="Futura"
+        />
+      )}
+      
       {/* Lavagna Tab */}
       {activeTab === 'lavagna' && (
         <div className="bg-white rounded-xl shadow p-6">
@@ -504,6 +670,81 @@ export default function KaizenDetailPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// COMPONENTE PLACEHOLDER per tab in costruzione
+// ──────────────────────────────────────────────────────────
+function PlaceholderTab({ icon, title, subtitle, steps, features, phase, target }) {
+  return (
+    <div className="bg-white rounded-xl shadow p-8">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <div className="text-6xl mb-3">{icon}</div>
+        <h2 className="text-2xl font-bold mb-1">{title}</h2>
+        <p className="text-sm text-gray-500">{subtitle}</p>
+        {target && (
+          <span className="inline-block mt-2 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
+            🎯 {target}
+          </span>
+        )}
+      </div>
+
+      {/* Coming soon banner */}
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-400 p-4 rounded-r-lg mb-6">
+        <div className="flex items-start gap-3">
+          <div className="text-2xl">🚧</div>
+          <div>
+            <div className="font-bold text-blue-900 mb-1">In costruzione</div>
+            <div className="text-sm text-blue-700">
+              Questa sezione verrà sbloccata nella <strong>Fase {phase}</strong> della roadmap SheetKaizen.
+            </div>
+            <div className="text-xs text-blue-600 mt-1">
+              💡 Per ora la struttura è visibile come anteprima.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Steps (per metodologie con step) */}
+      {steps && (
+        <div>
+          <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wider">
+            Struttura prevista
+          </h3>
+          <div className="space-y-2">
+            {steps.map((step, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border-l-2 border-gray-300 hover:border-primary transition-colors">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white border-2 border-primary text-primary flex items-center justify-center font-bold text-sm">
+                  {step.num}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-800">{step.label}</div>
+                  <div className="text-xs text-gray-600 mt-0.5">{step.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Features (per tab senza step strutturati) */}
+      {features && (
+        <div>
+          <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wider">
+            Funzionalità previste
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {features.map((feature, i) => (
+              <div key={i} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                <span className="text-sm">{feature}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
