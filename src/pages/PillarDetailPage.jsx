@@ -1176,20 +1176,6 @@ function Step5Content({ data, color, onUpdate }) {
   )
 }
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 uppercase mb-1">💡 Lezioni apprese</label>
-        <textarea
-          value={data.lezioni_apprese || ''}
-          onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })}
-          rows={4}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-          placeholder="Cosa abbiamo imparato? Cosa replicheremo? Cosa cambieremo per il prossimo ciclo?"
-        />
-      </div>
-    </div>
-  )
-}
-
 function KaizenList({ kaizens, pillar }) {
   if (kaizens.length === 0) {
     return (
