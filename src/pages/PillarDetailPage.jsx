@@ -1144,6 +1144,17 @@ function Step5Content({ data, color, onUpdate, allStepsData }) {
         </div>
       </div>
 
+{/* 📊 BRIDGE WATERFALL CHART (SVG) */}
+      <BridgeWaterfallChart
+        baseline={getValue('principale', 'baseline', kpiPrincipale.baseline) || 0}
+        step3Progetti={step3Progetti}
+        step4Actual={step4Actual}
+        color={color}
+        unit="€"
+      />
+
+      {/* ⚠️ Warning se Step 1 mancante */}
+      {!kpiPrincipale.label && (
       {/* ⚠️ Warning se Step 1 mancante */}
       {!kpiPrincipale.label && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
