@@ -8,6 +8,7 @@ import DashboardListPage from './pages/DashboardListPage'
 import DashboardDetailPage from './pages/DashboardDetailPage'
 import DocumentiPage from './pages/DocumentiPage'
 import SettingsPage from './pages/SettingsPage'
+import PillarListPage from './pages/PillarListPage'
 import AdminPage from './pages/AdminPage'
 
 
