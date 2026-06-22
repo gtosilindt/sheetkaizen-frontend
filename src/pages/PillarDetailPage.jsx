@@ -278,14 +278,15 @@ function KpiManagementTab({ pillar, color, onSaved }) {
 
   useEffect(() => { dataRef.current = stepsData }, [stepsData])
 
-  async function doSave(silent = false) {
+ async function doSave(silent = false) {
     if (!silent) setSaving(true)
     try {
       await api.put(`/pillars/${pillar._id}`, dataRef.current)
       if (!silent) {
         setLastSaved(new Date())
         setHasUnsavedChanges(false)
-        onSaved?.()
+        // NB: non chiamiamo onSaved qui per evitare il remount durante la scrittura
+        // I dati sono già sincronizzati lato server, lo stato locale è la fonte di verità
       }
     } catch (err) {
       console.error(err)
