@@ -1152,9 +1152,6 @@ function Step5Content({ data, color, onUpdate, allStepsData }) {
         color={color}
         unit="€"
       />
-
-      {/* ⚠️ Warning se Step 1 mancante */}
-      {!kpiPrincipale.label && (
       {/* ⚠️ Warning se Step 1 mancante */}
       {!kpiPrincipale.label && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
