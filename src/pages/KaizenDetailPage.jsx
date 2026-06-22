@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import api from '../services/api'
 import { Save, ChevronDown, X, History, RefreshCw } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
@@ -23,17 +23,13 @@ function getLivelloFromKaizen(kaizen) {
 
 function buildTabsForLivello(livello) {
   const base = []
-  if (livello === 'Major') {
-    base.push({ id: 'step5kpi', label: '🎯 5 Step KPI' })
-  }
+  // 🆕 5 Step KPI Management → ora è dentro i Pillar, NON nel Kaizen
   base.push({
     id: 'quickkaizen',
     label: livello === 'Quick' ? 'Quick Kaizen' : '🔍 Problem Solving',
   })
   base.push({ id: 'azioni', label: '📋 Azioni' })
-  // 🆕 8 Standard Elements anche per Quick (è la valutazione ufficiale Lindt)
   base.push({ id: 'stdelements', label: '📊 8 Standard Elements' })
-  // 🆕 Countermeasure Ladder per tutti i livelli (è la valutazione robustezza Lindt)
   base.push({ id: 'cmladder', label: '🏔️ Countermeasure Ladder' })
   if (livello !== 'Quick') {
     base.push({ id: 'figli', label: '⚡ Quick Kaizen' })
@@ -150,6 +146,15 @@ export default function KaizenDetailPage() {
               {kaizen.reparto && <span>🏭 {kaizen.reparto}</span>}
               {kaizen.linea && <span>📍 {kaizen.linea}</span>}
               {kaizen.macchina && <span>⚙️ {kaizen.macchina}</span>}
+              {kaizen.pillar_sigla && (
+                <Link
+                  to={`/pillars/${kaizen.pillar_id}`}
+                  className="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-0.5 rounded-full font-mono font-bold transition-colors"
+                  title={`Apri Pillar ${kaizen.pillar_sigla}`}
+                >
+                  🏛️ {kaizen.pillar_sigla}
+                </Link>
+              )}
             </div>
           </div>
           <button onClick={saveKaizen} disabled={saving}
@@ -309,6 +314,41 @@ export default function KaizenDetailPage() {
         </div>
       )}
 
+      {/* 🆕 Banner Pillar per Major Kaizen */}
+      {livelloAttuale === 'Major' && kaizen.pillar_id && (
+        <div className="bg-purple-50 border-l-4 border-purple-400 rounded-r-lg p-3 mb-4 text-sm flex items-center gap-3">
+          <span className="text-2xl">🏛️</span>
+          <div className="flex-1">
+            <div className="font-semibold text-purple-900">
+              Questo Major Kaizen fa parte del Pillar <strong>{kaizen.pillar_sigla}</strong>
+              {kaizen.pillar_label && ` — ${kaizen.pillar_label}`}
+            </div>
+            <div className="text-xs text-purple-700">
+              Per gestire i 5 Step KPI Management e il Master Plan annuale → vai al Pillar
+            </div>
+          </div>
+          <Link
+            to={`/pillars/${kaizen.pillar_id}`}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 flex items-center gap-2 shadow-sm"
+          >
+            🎯 Apri Pillar →
+          </Link>
+        </div>
+      )}
+      {livelloAttuale === 'Major' && !kaizen.pillar_id && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 mb-4 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⚠️</span>
+            <div className="flex-1">
+              <strong>Questo Major Kaizen non è collegato a nessun Pillar</strong>
+              <div className="text-xs text-yellow-700 mt-0.5">
+                Vai su <strong>Kaizen → Modifica</strong> per assegnarlo a un Pillar e gestire i 5 Step KPI.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-1 mb-6 border-b overflow-x-auto">
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -398,8 +438,9 @@ export default function KaizenDetailPage() {
               className="w-full border rounded-lg px-3 py-2 text-sm" rows={4} placeholder="Osservazioni" />
           </div>
         </div>
-      )} 
-{activeTab === 'azioni' && (
+      )}
+
+      {activeTab === 'azioni' && (
         <AzioniTab kaizenId={id} kaizenNumero={kaizen.numero} onUpdate={loadKaizen} />
       )}
 
@@ -414,27 +455,11 @@ export default function KaizenDetailPage() {
         />
       )}
 
-      {activeTab === 'step5kpi' && (
-        <PlaceholderTab icon="🎯" title="5 Step KPI Management" subtitle="Metodologia ufficiale Lindt FI Pillar"
-          steps={[
-            { num: 1, label: 'KPI / KMI Definition', desc: 'Definizione KPI principale e indicatori secondari' },
-            { num: 2, label: 'Pareto Analysis & Loss Identification', desc: 'Analisi Pareto delle perdite per prioritizzare' },
-            { num: 3, label: 'Target Definition + Project Assignment', desc: 'Target SMART e assegnazione team/pillar' },
-            { num: 4, label: 'Project Implementation', desc: 'Esecuzione con Gantt + monitoring continuo' },
-            { num: 5, label: 'Gap Analysis & Close the Loop', desc: 'Bridge chart target vs actual, chiusura ciclo' },
-          ]} phase="F7" />
-      )}
       {activeTab === 'stdelements' && (
-        <StandardElementsTab
-          kaizen={kaizen}
-          onSaved={loadKaizen}
-        />
+        <StandardElementsTab kaizen={kaizen} onSaved={loadKaizen} />
       )}
       {activeTab === 'cmladder' && (
-        <CountermeasureLadderTab
-          kaizen={kaizen}
-          onSaved={loadKaizen}
-        />
+        <CountermeasureLadderTab kaizen={kaizen} onSaved={loadKaizen} />
       )}
       {activeTab === 'gantt' && (
         <PlaceholderTab icon="📅" title="Gantt Chart" subtitle="Pianificazione visiva interattiva"
@@ -923,22 +948,19 @@ function StandardElementsTab({ kaizen, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  
-  // Refs per tenere lo stato aggiornato in cleanup
+
   const scoresRef = useRef(scores)
   const notesRef = useRef(notes)
   const kaizenIdRef = useRef(kaizen._id)
-  
+
   useEffect(() => { scoresRef.current = scores }, [scores])
   useEffect(() => { notesRef.current = notes }, [notes])
-  
-  // Calcolo score totale
+
   const totalScore = Object.values(scores).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
   const percent = (totalScore / MAX_SCORE) * 100
   const completedCount = Object.keys(scores).length
   const totalElements = STD_ELEMENTS.reduce((sum, area) => sum + area.items.length, 0)
 
-  // Pass/Fail indicator
   let passStatus = { label: 'Da Completare', color: 'bg-gray-100 text-gray-700', emoji: '📝' }
   if (completedCount === totalElements) {
     if (totalScore >= 8) passStatus = { label: 'PASS', color: 'bg-green-500 text-white', emoji: '🏆' }
@@ -946,7 +968,6 @@ function StandardElementsTab({ kaizen, onSaved }) {
     else passStatus = { label: 'FAIL', color: 'bg-red-500 text-white', emoji: '❌' }
   }
 
-  // Funzione di salvataggio (riusabile)
   const doSave = async (silent = false) => {
     if (!silent) setSaving(true)
     try {
@@ -954,14 +975,14 @@ function StandardElementsTab({ kaizen, onSaved }) {
       const currentNotes = notesRef.current
       const currentTotal = Object.values(currentScores).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
       const currentCount = Object.keys(currentScores).length
-      
+
       let currentStatus = 'Da Completare'
       if (currentCount === totalElements) {
         if (currentTotal >= 8) currentStatus = 'PASS'
         else if (currentTotal >= 5) currentStatus = 'PARTIAL PASS'
         else currentStatus = 'FAIL'
       }
-      
+
       await api.put(`/kaizens/${kaizenIdRef.current}`, {
         standard_elements: {
           scores: currentScores,
@@ -976,49 +997,38 @@ function StandardElementsTab({ kaizen, onSaved }) {
       if (!silent) {
         setLastSaved(new Date())
         setHasUnsavedChanges(false)
-        onSaved?.()
       }
       return true
     } catch (err) {
       console.error('Errore salvataggio Standard Elements:', err)
-      if (!silent) {
-        alert('❌ Errore salvataggio: ' + (err.response?.data?.detail || err.message))
-      }
+      if (!silent) alert('❌ Errore salvataggio: ' + (err.response?.data?.detail || err.message))
       return false
     } finally {
       if (!silent) setSaving(false)
     }
   }
 
-  // Auto-save con debounce 400ms
   useEffect(() => {
     if (Object.keys(scores).length === 0 && Object.keys(notes).length === 0) return
-    
     setHasUnsavedChanges(true)
     const timer = setTimeout(() => doSave(false), 400)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scores, notes])
 
-  // Force-save su unmount (cambio tab/pagina)
   useEffect(() => {
     return () => {
-      // Se ci sono modifiche pending, prova a salvare in background
       if (Object.keys(scoresRef.current).length > 0 || Object.keys(notesRef.current).length > 0) {
-        // Usa fetch nativo per essere sicuro che parte anche su unmount
         const currentScores = scoresRef.current
         const currentNotes = notesRef.current
         const currentTotal = Object.values(currentScores).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
         const currentCount = Object.keys(currentScores).length
-        
         let currentStatus = 'Da Completare'
         if (currentCount === totalElements) {
           if (currentTotal >= 8) currentStatus = 'PASS'
           else if (currentTotal >= 5) currentStatus = 'PARTIAL PASS'
           else currentStatus = 'FAIL'
         }
-        
-        // Save sincrono in background
         api.put(`/kaizens/${kaizenIdRef.current}`, {
           standard_elements: {
             scores: currentScores,
@@ -1035,7 +1045,6 @@ function StandardElementsTab({ kaizen, onSaved }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Warning se chiudi browser con modifiche pendenti
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (hasUnsavedChanges) {
@@ -1047,21 +1056,12 @@ function StandardElementsTab({ kaizen, onSaved }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  const setScore = (itemId, value) => {
-    setScores(prev => ({ ...prev, [itemId]: value }))
-  }
-
-  const setNote = (itemId, value) => {
-    setNotes(prev => ({ ...prev, [itemId]: value }))
-  }
-
-  const manualSave = async () => {
-    await doSave(false)
-  }
+  const setScore = (itemId, value) => setScores(prev => ({ ...prev, [itemId]: value }))
+  const setNote = (itemId, value) => setNotes(prev => ({ ...prev, [itemId]: value }))
+  const manualSave = async () => { await doSave(false) }
 
   return (
     <div className="space-y-4">
-      {/* Header con score totale */}
       <div className="bg-white rounded-xl shadow p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -1073,28 +1073,17 @@ function StandardElementsTab({ kaizen, onSaved }) {
               {passStatus.emoji} {passStatus.label}
             </div>
             <div className="text-xs mt-1 flex items-center justify-end gap-2">
-              {saving ? (
-                <span className="text-blue-600">⏳ Salvataggio...</span>
-              ) : hasUnsavedChanges ? (
-                <span className="text-orange-600 font-medium">⚠️ Modifiche non salvate</span>
-              ) : lastSaved ? (
-                <span className="text-green-600">💾 Salvato {lastSaved.toLocaleTimeString('it-IT')}</span>
-              ) : (
-                <span className="text-gray-400">In attesa</span>
-              )}
-              <button
-                onClick={manualSave}
-                disabled={saving}
-                className="bg-primary text-white px-3 py-1 rounded text-xs hover:bg-primary-light disabled:opacity-50"
-                title="Salva ora"
-              >
+              {saving ? <span className="text-blue-600">⏳ Salvataggio...</span> :
+               hasUnsavedChanges ? <span className="text-orange-600 font-medium">⚠️ Modifiche non salvate</span> :
+               lastSaved ? <span className="text-green-600">💾 Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> :
+               <span className="text-gray-400">In attesa</span>}
+              <button onClick={manualSave} disabled={saving} className="bg-primary text-white px-3 py-1 rounded text-xs hover:bg-primary-light disabled:opacity-50">
                 💾 Salva ora
               </button>
             </div>
           </div>
         </div>
 
-        {/* Score visivo */}
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">SCORE TOTALE</span>
@@ -1116,13 +1105,10 @@ function StandardElementsTab({ kaizen, onSaved }) {
               style={{ width: `${percent}%` }}
             />
           </div>
-          <div className="text-xs text-gray-500 mt-2">
-            {completedCount}/{totalElements} elementi valutati
-          </div>
+          <div className="text-xs text-gray-500 mt-2">{completedCount}/{totalElements} elementi valutati</div>
         </div>
       </div>
 
-      {/* Aree con elementi */}
       {STD_ELEMENTS.map(area => (
         <div key={area.area} className={`rounded-xl border-2 ${area.areaColor} overflow-hidden`}>
           <div className={`${area.areaHeaderColor} px-4 py-2.5 font-bold text-sm`}>
@@ -1143,8 +1129,6 @@ function StandardElementsTab({ kaizen, onSaved }) {
                       </div>
                       <p className="text-xs text-gray-600 mb-2">{item.desc}</p>
                     </div>
-                    
-                    {/* Score buttons */}
                     <div className="flex gap-1 flex-shrink-0">
                       {SCORE_OPTIONS.map(opt => (
                         <button
@@ -1162,8 +1146,6 @@ function StandardElementsTab({ kaizen, onSaved }) {
                       ))}
                     </div>
                   </div>
-                  
-                  {/* Note opzionali */}
                   <textarea
                     value={notes[item.id] || ''}
                     onChange={(e) => setNote(item.id, e.target.value)}
@@ -1178,7 +1160,6 @@ function StandardElementsTab({ kaizen, onSaved }) {
         </div>
       ))}
 
-      {/* Footer info */}
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-4 text-sm text-blue-700">
         <div className="font-semibold mb-1">ℹ️ Come compilare</div>
         <div className="text-xs space-y-1">
@@ -1198,60 +1179,12 @@ function StandardElementsTab({ kaizen, onSaved }) {
 // COUNTERMEASURE LADDER TAB — Lindt FI Pillar 6 livelli
 // ──────────────────────────────────────────────────────────
 const CM_LEVELS = [
-  {
-    level: 6,
-    label: 'Innovation / Re-engineering',
-    desc: 'Nuove tecnologie, redesign processo, investimenti strutturali',
-    color: 'bg-emerald-50 border-emerald-400',
-    headerColor: 'bg-emerald-100 text-emerald-900',
-    badge: 'bg-emerald-500 text-white',
-    emoji: '🚀',
-  },
-  {
-    level: 5,
-    label: 'Technological / Process Improvement',
-    desc: 'Meccanizzazione, automazione, modifica processo',
-    color: 'bg-green-50 border-green-400',
-    headerColor: 'bg-green-100 text-green-900',
-    badge: 'bg-green-500 text-white',
-    emoji: '⚙️',
-  },
-  {
-    level: 4,
-    label: 'Root Cause Elimination (Poka Yoke)',
-    desc: 'Miglioramento parametri oltre lo standard originale (errore impossibile)',
-    color: 'bg-lime-50 border-lime-400',
-    headerColor: 'bg-lime-100 text-lime-900',
-    badge: 'bg-lime-500 text-white',
-    emoji: '🛡️',
-  },
-  {
-    level: 3,
-    label: 'Visual Control / Management',
-    desc: 'Contromisure stabili che eliminano la causa tecnica (visual control)',
-    color: 'bg-yellow-50 border-yellow-400',
-    headerColor: 'bg-yellow-100 text-yellow-900',
-    badge: 'bg-yellow-500 text-white',
-    emoji: '👁️',
-  },
-  {
-    level: 2,
-    label: 'Restoration of Process Standards',
-    desc: 'Azioni che riportano il processo agli standard (cicli pulizia, ruoli chiari)',
-    color: 'bg-orange-50 border-orange-400',
-    headerColor: 'bg-orange-100 text-orange-900',
-    badge: 'bg-orange-500 text-white',
-    emoji: '📋',
-  },
-  {
-    level: 1,
-    label: 'Restoration of Basic Conditions',
-    desc: 'Pulizia base, 5S, ricordare check agli operatori',
-    color: 'bg-red-50 border-red-400',
-    headerColor: 'bg-red-100 text-red-900',
-    badge: 'bg-red-500 text-white',
-    emoji: '🧹',
-  },
+  { level: 6, label: 'Innovation / Re-engineering', desc: 'Nuove tecnologie, redesign processo, investimenti strutturali', color: 'bg-emerald-50 border-emerald-400', headerColor: 'bg-emerald-100 text-emerald-900', badge: 'bg-emerald-500 text-white', emoji: '🚀' },
+  { level: 5, label: 'Technological / Process Improvement', desc: 'Meccanizzazione, automazione, modifica processo', color: 'bg-green-50 border-green-400', headerColor: 'bg-green-100 text-green-900', badge: 'bg-green-500 text-white', emoji: '⚙️' },
+  { level: 4, label: 'Root Cause Elimination (Poka Yoke)', desc: 'Miglioramento parametri oltre lo standard originale (errore impossibile)', color: 'bg-lime-50 border-lime-400', headerColor: 'bg-lime-100 text-lime-900', badge: 'bg-lime-500 text-white', emoji: '🛡️' },
+  { level: 3, label: 'Visual Control / Management', desc: 'Contromisure stabili che eliminano la causa tecnica (visual control)', color: 'bg-yellow-50 border-yellow-400', headerColor: 'bg-yellow-100 text-yellow-900', badge: 'bg-yellow-500 text-white', emoji: '👁️' },
+  { level: 2, label: 'Restoration of Process Standards', desc: 'Azioni che riportano il processo agli standard (cicli pulizia, ruoli chiari)', color: 'bg-orange-50 border-orange-400', headerColor: 'bg-orange-100 text-orange-900', badge: 'bg-orange-500 text-white', emoji: '📋' },
+  { level: 1, label: 'Restoration of Basic Conditions', desc: 'Pulizia base, 5S, ricordare check agli operatori', color: 'bg-red-50 border-red-400', headerColor: 'bg-red-100 text-red-900', badge: 'bg-red-500 text-white', emoji: '🧹' },
 ]
 
 function CountermeasureLadderTab({ kaizen, onSaved }) {
@@ -1260,27 +1193,23 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
   const [lastSaved, setLastSaved] = useState(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [newInputs, setNewInputs] = useState({})
-  
-  // Refs per save su unmount
+
   const cmRef = useRef(countermeasures)
   const kaizenIdRef = useRef(kaizen._id)
   useEffect(() => { cmRef.current = countermeasures }, [countermeasures])
-  
-  // Calcolo livello MAX (la contromisura più robusta)
+
   const livelliPresenti = Object.keys(countermeasures)
     .filter(lvl => countermeasures[lvl]?.length > 0)
     .map(lvl => parseInt(lvl))
-  
+
   const maxLevel = livelliPresenti.length > 0 ? Math.max(...livelliPresenti) : 0
   const totalCount = Object.values(countermeasures).reduce((sum, arr) => sum + (arr?.length || 0), 0)
-  
-  // Indicatore robustezza basato sul max livello
+
   let robustness = { label: 'Da Compilare', color: 'bg-gray-100 text-gray-700', emoji: '📝' }
   if (maxLevel >= 4) robustness = { label: 'OTTIMO', color: 'bg-green-500 text-white', emoji: '🏆' }
   else if (maxLevel >= 3) robustness = { label: 'BUONO', color: 'bg-yellow-500 text-white', emoji: '✅' }
   else if (maxLevel >= 1) robustness = { label: 'DEBOLE', color: 'bg-red-500 text-white', emoji: '⚠️' }
 
-  // Funzione di salvataggio
   const doSave = async (silent = false) => {
     if (!silent) setSaving(true)
     try {
@@ -1288,12 +1217,11 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
       const currentLivelli = Object.keys(currentCM).filter(lvl => currentCM[lvl]?.length > 0).map(lvl => parseInt(lvl))
       const currentMax = currentLivelli.length > 0 ? Math.max(...currentLivelli) : 0
       const currentTotal = Object.values(currentCM).reduce((sum, arr) => sum + (arr?.length || 0), 0)
-      
       let currentRobust = 'Da Compilare'
       if (currentMax >= 4) currentRobust = 'OTTIMO'
       else if (currentMax >= 3) currentRobust = 'BUONO'
       else if (currentMax >= 1) currentRobust = 'DEBOLE'
-      
+
       await api.put(`/kaizens/${kaizenIdRef.current}`, {
         countermeasure_ladder: {
           items: currentCM,
@@ -1306,7 +1234,6 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
       if (!silent) {
         setLastSaved(new Date())
         setHasUnsavedChanges(false)
-        onSaved?.()
       }
     } catch (err) {
       console.error('Errore salvataggio Countermeasure Ladder:', err)
@@ -1316,7 +1243,6 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
     }
   }
 
-  // Auto-save con debounce
   useEffect(() => {
     if (Object.keys(countermeasures).length === 0) return
     setHasUnsavedChanges(true)
@@ -1325,7 +1251,6 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countermeasures])
 
-  // Save su unmount
   useEffect(() => {
     return () => {
       if (Object.keys(cmRef.current).length > 0) {
@@ -1337,7 +1262,7 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
         if (currentMax >= 4) currentRobust = 'OTTIMO'
         else if (currentMax >= 3) currentRobust = 'BUONO'
         else if (currentMax >= 1) currentRobust = 'DEBOLE'
-        
+
         api.put(`/kaizens/${kaizenIdRef.current}`, {
           countermeasure_ladder: {
             items: currentCM,
@@ -1352,7 +1277,6 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Warning chiusura browser
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (hasUnsavedChanges) {
@@ -1385,13 +1309,10 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
     }))
   }
 
-  const manualSave = async () => {
-    await doSave(false)
-  }
+  const manualSave = async () => { await doSave(false) }
 
   return (
     <div className="space-y-4">
-      {/* Header con score */}
       <div className="bg-white rounded-xl shadow p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -1403,15 +1324,10 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
               {robustness.emoji} {robustness.label}
             </div>
             <div className="text-xs mt-1 flex items-center justify-end gap-2">
-              {saving ? (
-                <span className="text-blue-600">⏳ Salvataggio...</span>
-              ) : hasUnsavedChanges ? (
-                <span className="text-orange-600 font-medium">⚠️ Modifiche non salvate</span>
-              ) : lastSaved ? (
-                <span className="text-green-600">💾 Salvato {lastSaved.toLocaleTimeString('it-IT')}</span>
-              ) : (
-                <span className="text-gray-400">In attesa</span>
-              )}
+              {saving ? <span className="text-blue-600">⏳ Salvataggio...</span> :
+               hasUnsavedChanges ? <span className="text-orange-600 font-medium">⚠️ Modifiche non salvate</span> :
+               lastSaved ? <span className="text-green-600">💾 Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> :
+               <span className="text-gray-400">In attesa</span>}
               <button onClick={manualSave} disabled={saving} className="bg-primary text-white px-3 py-1 rounded text-xs hover:bg-primary-light disabled:opacity-50">
                 💾 Salva ora
               </button>
@@ -1419,7 +1335,6 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
           </div>
         </div>
 
-        {/* Livello max */}
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">LIVELLO MASSIMO RAGGIUNTO</span>
@@ -1447,7 +1362,6 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
         </div>
       </div>
 
-      {/* Scala dei livelli (dall'alto al basso) */}
       {CM_LEVELS.map(lvl => {
         const items = countermeasures[lvl.level] || []
         return (
@@ -1469,9 +1383,8 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
                 </span>
               )}
             </div>
-            
+
             <div className="bg-white p-4 space-y-2">
-              {/* Lista contromisure di questo livello */}
               {items.length > 0 ? (
                 items.map(item => (
                   <div key={item.id} className="flex items-start justify-between gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
@@ -1491,8 +1404,7 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
               ) : (
                 <div className="text-xs text-gray-400 italic py-1">Nessuna contromisura a questo livello</div>
               )}
-              
-              {/* Input per aggiungere */}
+
               <div className="flex gap-2 pt-2 border-t">
                 <input
                   type="text"
@@ -1520,7 +1432,6 @@ function CountermeasureLadderTab({ kaizen, onSaved }) {
         )
       })}
 
-      {/* Footer info */}
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-4 text-sm text-blue-700">
         <div className="font-semibold mb-2">ℹ️ Come funziona</div>
         <div className="text-xs space-y-1">
