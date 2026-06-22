@@ -23,6 +23,7 @@ export default function App() {
         <Route path="dashboard" element={<DashboardListPage />} />
         <Route path="dashboard/:id" element={<DashboardDetailPage />} />
         <Route path="documenti" element={<DocumentiPage />} />
+        <Route path="pillars" element={<PillarListPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
