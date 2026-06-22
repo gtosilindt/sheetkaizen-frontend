@@ -1,15 +1,34 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../services/api'
-import { Save } from 'lucide-react'
+import { Save, ChevronDown, X, History, RefreshCw } from 'lucide-react'
 
 export default function KaizenDetailPage() {
   const { id } = useParams()
   const [kaizen, setKaizen] = useState(null)
   const [activeTab, setActiveTab] = useState('quickkaizen')
   const [saving, setSaving] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [showTransformModal, setShowTransformModal] = useState(false)
+  const [targetLivello, setTargetLivello] = useState(null)
+  const [motivoTrasforma, setMotivoTrasforma] = useState('')
+  const [showStoria, setShowStoria] = useState(false)
+  const [transforming, setTransforming] = useState(false)
 
   useEffect(() => { loadKaizen() }, [id])
+  
+  // Chiudi dropdown se clicchi fuori
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.transform-dropdown')) {
+        setShowDropdown(false)
+      }
+    }
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDropdown])
 
   const loadKaizen = async () => {
     try {
@@ -32,6 +51,37 @@ export default function KaizenDetailPage() {
       ...prev,
       [section]: { ...prev[section], [field]: value }
     }))
+  }
+  const openTransformModal = (livello) => {
+    setTargetLivello(livello)
+    setMotivoTrasforma('')
+    setShowDropdown(false)
+    setShowTransformModal(true)
+  }
+
+  const confirmTransform = async () => {
+    if (!targetLivello) return
+    setTransforming(true)
+    try {
+      const res = await api.patch(`/kaizens/${id}/change-methodology`, {
+        nuovo_livello: targetLivello,
+        motivo: motivoTrasforma || `Trasformato in ${targetLivello}`,
+      })
+      
+      // Refresh kaizen
+      await loadKaizen()
+      
+      setShowTransformModal(false)
+      setTargetLivello(null)
+      setMotivoTrasforma('')
+      
+      alert(`✅ Kaizen trasformato in ${targetLivello}!`)
+    } catch (err) {
+      console.error(err)
+      alert('❌ Errore trasformazione: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setTransforming(false)
+    }
   }
 
   if (!kaizen) return <div className="text-center py-8">Caricamento...</div>
@@ -146,6 +196,184 @@ export default function KaizenDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Pulsante Trasforma + Storia */}
+      <div className="flex items-center justify-between mb-6">
+        {/* Dropdown Trasforma */}
+        <div className="relative transform-dropdown">
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="bg-white border-2 border-primary text-primary px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary hover:text-white transition-colors shadow-sm"
+          >
+            <RefreshCw size={16} />
+            <span className="font-medium">Trasforma in...</span>
+            <ChevronDown size={16} className={`transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {showDropdown && (
+            <div className="absolute top-full left-0 mt-2 bg-white border rounded-lg shadow-xl z-50 min-w-[260px] overflow-hidden">
+              {LIVELLI.map(lvl => {
+                const cfg = livelloConfig[lvl]
+                const isCurrent = lvl === livelloAttuale
+                return (
+                  <button
+                    key={lvl}
+                    onClick={() => !isCurrent && openTransformModal(lvl)}
+                    disabled={isCurrent}
+                    className={`w-full text-left px-4 py-3 flex items-center gap-3 ${
+                      isCurrent ? 'bg-gray-50 cursor-not-allowed' : 'hover:bg-blue-50 cursor-pointer'
+                    } transition-colors border-b last:border-b-0`}
+                  >
+                    <span className="text-2xl">{cfg.icon}</span>
+                    <div className="flex-1">
+                      <div className={`font-semibold ${isCurrent ? 'text-gray-400' : 'text-gray-800'}`}>
+                        {cfg.label}
+                      </div>
+                      <div className={`text-xs ${isCurrent ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {cfg.desc}
+                      </div>
+                    </div>
+                    {isCurrent && (
+                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-medium">
+                        ✓ ATTUALE
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        
+        {/* Bottone Storia */}
+        {kaizen.livello_storia && kaizen.livello_storia.length > 0 && (
+          <button
+            onClick={() => setShowStoria(!showStoria)}
+            className="flex items-center gap-1 text-sm text-gray-600 hover:text-primary transition-colors"
+          >
+            <History size={16} />
+            <span>Storia metodologie ({kaizen.livello_storia.length})</span>
+            <ChevronDown size={14} className={`transition-transform ${showStoria ? 'rotate-180' : ''}`} />
+          </button>
+        )}
+      </div>
+      
+      {/* Storia metodologie espandibile */}
+      {showStoria && kaizen.livello_storia && (
+        <div className="bg-white rounded-xl shadow p-4 mb-6 border-l-4 border-primary">
+          <h3 className="font-bold mb-3 flex items-center gap-2">
+            <History size={16} />
+            Storia metodologie
+          </h3>
+          <div className="space-y-2">
+            {[...kaizen.livello_storia].reverse().map((entry, i) => {
+              const cfg = livelloConfig[entry.livello]
+              return (
+                <div key={i} className="flex items-start gap-3 py-2 border-b last:border-0">
+                  <div className="text-2xl flex-shrink-0">{cfg?.icon || '📋'}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm">
+                      <strong>{entry.livello}</strong>
+                      {entry.livello_precedente && (
+                        <span className="text-gray-500"> (da {entry.livello_precedente})</span>
+                      )}
+                    </div>
+                    {entry.motivo && (
+                      <div className="text-xs text-gray-600 italic mt-0.5">"{entry.motivo}"</div>
+                    )}
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {new Date(entry.quando).toLocaleString('it-IT')} · {entry.utente}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      
+      {/* Modal Trasforma in... */}
+      {showTransformModal && targetLivello && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl">
+            {/* Header colorato */}
+            <div 
+              className="text-white px-6 py-4 rounded-t-xl flex justify-between items-center"
+              style={{ backgroundColor: livelloConfig[targetLivello]?.color || '#3b82f6' }}
+            >
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <RefreshCw size={20} />
+                Trasforma in {targetLivello}
+              </h2>
+              <button onClick={() => setShowTransformModal(false)} className="hover:bg-white hover:bg-opacity-20 p-1 rounded">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {/* Visualizzazione transizione */}
+              <div className="flex items-center justify-center gap-3 bg-gray-50 p-4 rounded-lg">
+                <div className="text-center">
+                  <div className="text-3xl">{livelloConfig[livelloAttuale]?.icon}</div>
+                  <div className="text-xs text-gray-600 mt-1">{livelloAttuale}</div>
+                </div>
+                <div className="text-2xl text-gray-400">→</div>
+                <div className="text-center">
+                  <div className="text-3xl">{livelloConfig[targetLivello]?.icon}</div>
+                  <div className="text-xs font-bold mt-1" style={{ color: livelloConfig[targetLivello]?.color }}>
+                    {targetLivello}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Info contestuale */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                <strong className="text-blue-700">ℹ️ {livelloConfig[targetLivello]?.label}</strong>
+                <p className="text-blue-600 text-xs mt-1">{livelloConfig[targetLivello]?.desc}</p>
+              </div>
+              
+              {/* Motivo */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Motivo della trasformazione
+                  <span className="text-gray-400 font-normal ml-1">(opzionale ma consigliato)</span>
+                </label>
+                <textarea
+                  value={motivoTrasforma}
+                  onChange={(e) => setMotivoTrasforma(e.target.value)}
+                  rows={3}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="Es: Problema più complesso del previsto, richiede team inter-funzionale"
+                  autoFocus
+                />
+              </div>
+              
+              {/* Bottoni */}
+              <div className="flex gap-2 justify-end pt-3 border-t">
+                <button
+                  onClick={() => setShowTransformModal(false)}
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                  disabled={transforming}
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={confirmTransform}
+                  disabled={transforming}
+                  className="px-6 py-2 text-white rounded-lg shadow-sm disabled:opacity-50 flex items-center gap-2"
+                  style={{ backgroundColor: livelloConfig[targetLivello]?.color || '#3b82f6' }}
+                >
+                  {transforming ? (
+                    <>⏳ Trasformazione...</>
+                  ) : (
+                    <>✨ Conferma trasformazione</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b">
