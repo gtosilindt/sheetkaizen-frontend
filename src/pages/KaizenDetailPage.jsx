@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../services/api'
 import { Save, ChevronDown, X, History, RefreshCw } from 'lucide-react'
+import ActionPlanFormShared from '../components/ActionPlanFormShared'
 
 const LIVELLI = ['Quick', 'Standard', 'Major']
 
@@ -678,11 +679,8 @@ function AzioniTab({ kaizenId, kaizenNumero, onUpdate }) {
   const [azioni, setAzioni] = useState([])
   const [loading, setLoading] = useState(true)
   const [filtro, setFiltro] = useState('tutti')
-  const [showQuickForm, setShowQuickForm] = useState(false)
-  const [quickTitolo, setQuickTitolo] = useState('')
-  const [quickResponsabile, setQuickResponsabile] = useState('')
-  const [quickScadenza, setQuickScadenza] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editingAP, setEditingAP] = useState(null)
 
   useEffect(() => {
     loadAzioni()
@@ -697,44 +695,6 @@ function AzioniTab({ kaizenId, kaizenNumero, onUpdate }) {
       console.error(err)
     }
     setLoading(false)
-  }
-
-  const createQuickAP = async () => {
-    if (!quickTitolo.trim()) return alert('Inserisci un titolo')
-    setCreating(true)
-    try {
-      // Crea l'AP
-      const createRes = await api.post('/action-plans/', {
-        titolo: quickTitolo,
-        descrizione: `Action Plan generato da Kaizen ${kaizenNumero}`,
-        tipo: 'Task',
-        priorita: 'Medium',
-        stato: 'Aperto',
-        responsabile: quickResponsabile || null,
-        data_scadenza: quickScadenza ? new Date(quickScadenza).toISOString() : null,
-        tags: [`kaizen-${kaizenNumero}`],
-      })
-      
-      const newAP = createRes.data
-      
-      // Collega l'AP al Kaizen
-      await api.post(`/action-plans/${newAP._id}/link-kaizen`, {
-        kaizen_id: kaizenId,
-        kaizen_numero: kaizenNumero,
-      })
-      
-      // Reset form e reload
-      setQuickTitolo('')
-      setQuickResponsabile('')
-      setQuickScadenza('')
-      setShowQuickForm(false)
-      loadAzioni()
-      onUpdate?.()
-    } catch (err) {
-      console.error(err)
-      alert('Errore: ' + (err.response?.data?.detail || err.message))
-    }
-    setCreating(false)
   }
 
   const changeStato = async (apId, nuovoStato) => {
@@ -796,11 +756,11 @@ function AzioniTab({ kaizenId, kaizenNumero, onUpdate }) {
             <h3 className="font-bold text-lg">📋 Azioni del Kaizen {kaizenNumero}</h3>
             <p className="text-xs text-gray-500">Action Plan collegati a questo Kaizen</p>
           </div>
-          <button
-            onClick={() => setShowQuickForm(!showQuickForm)}
+         <button
+            onClick={() => { setEditingAP(null); setShowForm(true) }}
             className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-light text-sm font-medium"
           >
-            {showQuickForm ? '✕ Annulla' : '➕ Crea Action Plan'}
+            ➕ Crea Action Plan
           </button>
         </div>
 
@@ -825,64 +785,6 @@ function AzioniTab({ kaizenId, kaizenNumero, onUpdate }) {
           ))}
         </div>
       </div>
-
-      {/* Form rapido per crea AP */}
-      {showQuickForm && (
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-          <h4 className="font-bold mb-3">➕ Crea nuovo Action Plan</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Titolo <span className="text-red-500">*</span></label>
-              <input
-                value={quickTitolo}
-                onChange={(e) => setQuickTitolo(e.target.value)}
-                placeholder="Es: Sostituire filtro Bindler 11"
-                className="w-full border rounded-lg px-3 py-2"
-                autoFocus
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">Responsabile</label>
-                <input
-                  value={quickResponsabile}
-                  onChange={(e) => setQuickResponsabile(e.target.value)}
-                  placeholder="Es: Mario Rossi"
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Scadenza</label>
-                <input
-                  type="date"
-                  value={quickScadenza}
-                  onChange={(e) => setQuickScadenza(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowQuickForm(false)}
-                className="px-4 py-2 border rounded-lg"
-                disabled={creating}
-              >
-                Annulla
-              </button>
-              <button
-                onClick={createQuickAP}
-                disabled={creating}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50"
-              >
-                {creating ? '⏳ Creazione...' : '✨ Crea e collega'}
-              </button>
-            </div>
-            <div className="text-xs text-blue-700">
-              💡 Per Action Plan più completi (con descrizione, mentions, tag, ecc.) usa la pagina <strong>Action Plan</strong> dal menu.
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Lista azioni */}
       {loading ? (
@@ -947,15 +849,13 @@ function AzioniTab({ kaizenId, kaizenNumero, onUpdate }) {
                   </select>
 
                   <div className="flex gap-1">
-                    <a
-                      href={`/action-plan?ap=${ap._id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
-                      title="Apri in Action Plan"
+                    <button
+                      onClick={() => { setEditingAP(ap); setShowForm(true) }}
+                      className="text-xs px-3 py-1 bg-blue-50 hover:bg-blue-100 rounded text-blue-700"
+                      title="Modifica AP"
                     >
-                      👁 Dettaglio
-                    </a>
+                      ✏️ Modifica
+                    </button>
                     <button
                       onClick={() => unlinkAP(ap._id, ap.numero)}
                       className="text-xs px-3 py-1 bg-red-50 hover:bg-red-100 rounded text-red-600"
@@ -969,6 +869,20 @@ function AzioniTab({ kaizenId, kaizenNumero, onUpdate }) {
             )
           })}
         </div>
+      )}
+      {/* Form completo Action Plan (riusato dalla pagina Action Plan) */}
+      {showForm && (
+        <ActionPlanFormShared
+          plan={editingAP}
+          prefilledKaizen={{ kaizen_id: kaizenId, kaizen_numero: kaizenNumero }}
+          onClose={() => { setShowForm(false); setEditingAP(null) }}
+          onSaved={() => {
+            setShowForm(false)
+            setEditingAP(null)
+            loadAzioni()
+            onUpdate?.()
+          }}
+        />
       )}
     </div>
   )
