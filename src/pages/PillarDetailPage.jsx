@@ -224,6 +224,14 @@ const PROGETTO_STATUS = [
   { value: 'cancelled', label: 'Cancelled', icon: '🔴', color: 'bg-red-100 text-red-700 border-red-300' },
 ]
 
+const ACTUAL_STATUS = [
+  { value: 'not_started', label: 'Not started', icon: '⚪', color: 'bg-gray-100 text-gray-700 border-gray-300' },
+  { value: 'in_progress', label: 'In Progress', icon: '🟡', color: 'bg-yellow-100 text-yellow-700 border-yellow-400' },
+  { value: 'done', label: 'Done', icon: '🟢', color: 'bg-green-100 text-green-700 border-green-400' },
+  { value: 'blocked', label: 'Blocked', icon: '🚧', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+  { value: 'cancelled', label: 'Cancelled', icon: '🔴', color: 'bg-red-100 text-red-700 border-red-300' },
+]
+
 function KpiManagementTab({ pillar, color, onSaved }) {
   const [stepsData, setStepsData] = useState(() => {
     const initial = {}
@@ -658,33 +666,360 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
   )
 }
 
-function Step4Content({ data, color, onUpdate }) {
+function Step4Content({ data, color, onUpdate, allStepsData }) {
+  const step3Progetti = allStepsData?.step3_target_definition?.progetti || []
+  const progettiActual = data.progetti_actual || []
+
+  // 🔄 AUTO-SYNC: ogni volta che entri nel tab o cambia lo Step 3,
+  // crea automaticamente un tracking record per i progetti Step 3 nuovi (non-cancelled)
+  useEffect(() => {
+    const existingStep3Ids = new Set(
+      progettiActual.filter(p => p.source === 'step3').map(p => p.step3_project_id)
+    )
+    const newOnes = step3Progetti
+      .filter(p => p.status !== 'cancelled' && !existingStep3Ids.has(p.id))
+      .map(p => ({
+        id: `s4_${p.id}_${Date.now()}`,
+        source: 'step3',
+        step3_project_id: p.id,
+        // Campi per step4_new only (qui null perché lookup live):
+        label: '',
+        loss_target_label: '',
+        kaizen_numero: '',
+        saving_planned: '',
+        owner: '',
+        deadline: '',
+        // Campi actual (editabili):
+        actual_status: 'not_started',
+        actual_saving: '',
+        actual_completion_date: '',
+        notes_implementation: '',
+      }))
+    if (newOnes.length > 0) {
+      onUpdate({ progetti_actual: [...progettiActual, ...newOnes] })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step3Progetti.length])
+
+  function updateActual(id, updates) {
+    onUpdate({
+      progetti_actual: progettiActual.map(p => p.id === id ? { ...p, ...updates } : p)
+    })
+  }
+
+  function removeActual(id) {
+    if (!confirm('Rimuovere questo progetto dal tracking Step 4? (Se è collegato a Step 3 verrà ricreato alla riapertura)')) return
+    onUpdate({ progetti_actual: progettiActual.filter(p => p.id !== id) })
+  }
+
+  function addNewProject() {
+    onUpdate({
+      progetti_actual: [...progettiActual, {
+        id: `s4new_${Date.now()}`,
+        source: 'step4_new',
+        step3_project_id: null,
+        label: '',
+        loss_target_label: '',
+        kaizen_numero: '',
+        saving_planned: '',
+        owner: '',
+        deadline: '',
+        actual_status: 'not_started',
+        actual_saving: '',
+        actual_completion_date: '',
+        notes_implementation: '',
+      }]
+    })
+  }
+
+  // 🔍 Helper: per ogni progetto actual, recupera i dati planned (live da Step 3 o locali se step4_new)
+  function getPlannedData(p) {
+    if (p.source === 'step3') {
+      const step3p = step3Progetti.find(s => s.id === p.step3_project_id)
+      return {
+        label: step3p?.label || '(progetto Step 3 rimosso)',
+        loss_target_label: step3p?.loss_target_label || '',
+        kaizen_numero: step3p?.kaizen_numero || '',
+        saving_planned: step3p?.saving_planned || '',
+        owner: step3p?.owner || '',
+        deadline: step3p?.deadline || '',
+        step3_status: step3p?.status,
+        step3_exists: !!step3p,
+      }
+    }
+    return {
+      label: p.label,
+      loss_target_label: p.loss_target_label,
+      kaizen_numero: p.kaizen_numero,
+      saving_planned: p.saving_planned,
+      owner: p.owner,
+      deadline: p.deadline,
+      step3_status: null,
+      step3_exists: true,
+    }
+  }
+
+  // 📊 Calcolo summary
+  const summary = {
+    pianificati: progettiActual.filter(p => p.source === 'step3').length,
+    aggiunti: progettiActual.filter(p => p.source === 'step4_new').length,
+    completati: progettiActual.filter(p => p.actual_status === 'done').length,
+    in_corso: progettiActual.filter(p => p.actual_status === 'in_progress').length,
+    bloccati: progettiActual.filter(p => p.actual_status === 'blocked').length,
+    totalPlanned: progettiActual.reduce((sum, p) => sum + (parseFloat(getPlannedData(p).saving_planned) || 0), 0),
+    totalActual: progettiActual.reduce((sum, p) => sum + (parseFloat(p.actual_saving) || 0), 0),
+  }
+  const totalGap = summary.totalActual - summary.totalPlanned
+  const gapPercent = summary.totalPlanned > 0 ? (totalGap / summary.totalPlanned) * 100 : 0
+
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        ℹ️ <strong>Cosa fare:</strong> Monitora l'avanzamento globale dei progetti del pillar e annota issues/bloccanti.
+        ℹ️ <strong>Cosa fare:</strong> Monitora l'implementazione dei progetti pianificati nello Step 3. Aggiorna status, actual saving e note. Aggiungi nuovi progetti emersi durante l'anno con il bottone "Aggiungi progetto nuovo".
       </div>
-      <h4 className="font-semibold text-sm uppercase text-gray-700">🚧 Stato implementazione</h4>
-      <div className="bg-white p-4 rounded-lg border">
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">% Avanzamento globale</label>
-            <input type="number" min="0" max="100" value={data.avanzamento_globale || ''} onChange={(e) => onUpdate({ avanzamento_globale: e.target.value })} className="w-full border rounded px-2 py-1 text-sm" placeholder="0-100" />
+
+      {/* 📊 SUMMARY in alto */}
+      {progettiActual.length > 0 && (
+        <div className="bg-white rounded-lg border-2 p-4" style={{ borderColor: color }}>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+            <SummaryBlock label="📋 Pianificati" value={summary.pianificati} color="indigo" />
+            <SummaryBlock label="🆕 Aggiunti" value={summary.aggiunti} color="purple" />
+            <SummaryBlock label="🟡 In corso" value={summary.in_corso} color="yellow" />
+            <SummaryBlock label="🟢 Completati" value={summary.completati} color="green" />
+            <SummaryBlock label="🚧 Bloccati" value={summary.bloccati} color="orange" />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Progetti completati</label>
-            <input type="number" min="0" value={data.progetti_completati || ''} onChange={(e) => onUpdate({ progetti_completati: e.target.value })} className="w-full border rounded px-2 py-1 text-sm" placeholder="0" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Ultimo monitoraggio</label>
-            <input type="date" value={data.last_check || ''} onChange={(e) => onUpdate({ last_check: e.target.value })} className="w-full border rounded px-2 py-1 text-sm" />
+          <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+            <div className="text-center">
+              <div className="text-xs text-gray-500 uppercase">Total Planned €</div>
+              <div className="text-xl font-bold text-gray-700">{summary.totalPlanned.toLocaleString('it-IT')} €</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-gray-500 uppercase">Total Actual €</div>
+              <div className="text-xl font-bold" style={{ color }}>{summary.totalActual.toLocaleString('it-IT')} €</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-gray-500 uppercase">Gap</div>
+              <div className={`text-xl font-bold ${totalGap >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {totalGap >= 0 ? '+' : ''}{totalGap.toLocaleString('it-IT')} €
+                <span className="text-xs ml-1">({gapPercent >= 0 ? '+' : ''}{gapPercent.toFixed(1)}%)</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="mt-3">
-          <label className="block text-xs font-medium text-gray-600 mb-1">⚠️ Issues / Bloccanti</label>
-          <textarea value={data.issues || ''} onChange={(e) => onUpdate({ issues: e.target.value })} rows={3} className="w-full border rounded px-2 py-1 text-sm" placeholder="Es: Ritardo fornitore X, mancanza risorse Y..." />
+      )}
+
+      {step3Progetti.length === 0 && progettiActual.length === 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
+          ⚠️ Non hai ancora pianificato progetti nello <strong>Step 3</strong>. Vai allo Step 3 per pianificarli, poi torna qui per il tracking di implementazione.
         </div>
+      )}
+
+      <div className="flex justify-between items-center">
+        <h4 className="font-semibold text-sm uppercase text-gray-700">🚧 Tracking implementazione ({progettiActual.length})</h4>
+        <button onClick={addNewProject} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
+          + Aggiungi progetto nuovo
+        </button>
       </div>
+
+      {progettiActual.length === 0 ? (
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
+          Nessun progetto in tracking. I progetti dello Step 3 verranno sincronizzati automaticamente.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {progettiActual.map((p, idx) => {
+            const planned = getPlannedData(p)
+            const statusInfo = ACTUAL_STATUS.find(s => s.value === (p.actual_status || 'not_started')) || ACTUAL_STATUS[0]
+            const actualSaving = parseFloat(p.actual_saving) || 0
+            const plannedSaving = parseFloat(planned.saving_planned) || 0
+            const gap = actualSaving - plannedSaving
+            const isOrphan = p.source === 'step3' && !planned.step3_exists
+
+            return (
+              <div key={p.id} className="bg-white p-3 rounded-lg border-l-4 border" style={{ borderLeftColor: isOrphan ? '#ef4444' : color }}>
+                {/* Riga 1: badge origine + titolo (read-only o editable) + status + delete */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-bold text-gray-400 text-sm">#{idx + 1}</span>
+                  {p.source === 'step3' ? (
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold whitespace-nowrap">
+                      📋 Pianificato
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold whitespace-nowrap">
+                      🆕 Aggiunto in Step 4
+                    </span>
+                  )}
+                  {isOrphan && (
+                    <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold whitespace-nowrap">
+                      ⚠️ Step 3 rimosso
+                    </span>
+                  )}
+                  {p.source === 'step3' ? (
+                    <div className="flex-1 px-2 py-1 text-sm font-medium text-gray-700">
+                      {planned.label || '(senza titolo)'}
+                      {planned.kaizen_numero && <span className="ml-2 font-mono text-xs text-gray-500">[{planned.kaizen_numero}]</span>}
+                    </div>
+                  ) : (
+                    <input
+                      className="flex-1 border rounded px-2 py-1 text-sm font-medium"
+                      value={p.label}
+                      onChange={(e) => updateActual(p.id, { label: e.target.value })}
+                      placeholder="Titolo del progetto / Kaizen"
+                    />
+                  )}
+                  <span className={`px-2 py-1 rounded text-xs font-bold border ${statusInfo.color}`}>
+                    {statusInfo.icon} {statusInfo.label}
+                  </span>
+                  <button onClick={() => removeActual(p.id)} className="text-red-500 hover:bg-red-50 p-1 rounded">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+
+                {/* Riga 2: Info Planned (read-only da Step 3) */}
+                {p.source === 'step3' && !isOrphan && (
+                  <div className="grid grid-cols-12 gap-2 mb-2 text-xs bg-gray-50 rounded p-2">
+                    <div className="col-span-3">
+                      <span className="text-gray-500 uppercase text-[10px] block">Loss target</span>
+                      <span className="font-medium">{planned.loss_target_label || '—'}</span>
+                    </div>
+                    <div className="col-span-3">
+                      <span className="text-gray-500 uppercase text-[10px] block">Planned €</span>
+                      <span className="font-mono font-bold">{plannedSaving.toLocaleString('it-IT')} €</span>
+                    </div>
+                    <div className="col-span-3">
+                      <span className="text-gray-500 uppercase text-[10px] block">Owner</span>
+                      <span>{planned.owner || '—'}</span>
+                    </div>
+                    <div className="col-span-3">
+                      <span className="text-gray-500 uppercase text-[10px] block">Deadline</span>
+                      <span>{planned.deadline || '—'}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Riga 2bis (solo step4_new): campi planned editabili */}
+                {p.source === 'step4_new' && (
+                  <div className="grid grid-cols-12 gap-2 mb-2">
+                    <div className="col-span-3">
+                      <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Loss target (label libera)</label>
+                      <input
+                        className="w-full border rounded px-2 py-1 text-xs"
+                        value={p.loss_target_label}
+                        onChange={(e) => updateActual(p.id, { loss_target_label: e.target.value })}
+                        placeholder="Es: Microfermate"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Kaizen #</label>
+                      <input
+                        className="w-full border rounded px-2 py-1 text-xs font-mono"
+                        value={p.kaizen_numero}
+                        onChange={(e) => updateActual(p.id, { kaizen_numero: e.target.value })}
+                        placeholder="MAJ-001"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Planned €</label>
+                      <input
+                        type="number"
+                        className="w-full border rounded px-2 py-1 text-xs"
+                        value={p.saving_planned}
+                        onChange={(e) => updateActual(p.id, { saving_planned: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Deadline</label>
+                      <input
+                        type="date"
+                        className="w-full border rounded px-2 py-1 text-xs"
+                        value={p.deadline}
+                        onChange={(e) => updateActual(p.id, { deadline: e.target.value })}
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Owner</label>
+                      <input
+                        className="w-full border rounded px-2 py-1 text-xs"
+                        value={p.owner}
+                        onChange={(e) => updateActual(p.id, { owner: e.target.value })}
+                        placeholder="Responsabile"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Riga 3: ACTUAL — status + actual saving + completion date + gap */}
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-3">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Status</label>
+                    <select
+                      className="w-full border rounded px-2 py-1 text-xs"
+                      value={p.actual_status || 'not_started'}
+                      onChange={(e) => updateActual(p.id, { actual_status: e.target.value })}
+                    >
+                      {ACTUAL_STATUS.map(s => (
+                        <option key={s.value} value={s.value}>{s.icon} {s.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Saving €</label>
+                    <input
+                      type="number"
+                      className="w-full border rounded px-2 py-1 text-xs"
+                      value={p.actual_saving}
+                      onChange={(e) => updateActual(p.id, { actual_saving: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Gap vs Planned</label>
+                    <div className={`w-full border rounded px-2 py-1 text-xs font-bold text-center ${gap >= 0 ? 'bg-green-50 border-green-300 text-green-700' : 'bg-red-50 border-red-300 text-red-700'}`}>
+                      {gap >= 0 ? '+' : ''}{gap.toLocaleString('it-IT')} €
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Completion Date</label>
+                    <input
+                      type="date"
+                      className="w-full border rounded px-2 py-1 text-xs"
+                      value={p.actual_completion_date || ''}
+                      onChange={(e) => updateActual(p.id, { actual_completion_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Note implementazione</label>
+                    <input
+                      className="w-full border rounded px-2 py-1 text-xs"
+                      value={p.notes_implementation || ''}
+                      onChange={(e) => updateActual(p.id, { notes_implementation: e.target.value })}
+                      placeholder="Issues, contromisure..."
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SummaryBlock({ label, value, color = 'gray' }) {
+  const colors = {
+    gray: 'text-gray-700 bg-gray-50',
+    indigo: 'text-indigo-700 bg-indigo-50',
+    purple: 'text-purple-700 bg-purple-50',
+    yellow: 'text-yellow-700 bg-yellow-50',
+    green: 'text-green-700 bg-green-50',
+    orange: 'text-orange-700 bg-orange-50',
+  }
+  return (
+    <div className={`text-center rounded-lg py-2 ${colors[color]}`}>
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-[10px] uppercase font-medium">{label}</div>
     </div>
   )
 }
