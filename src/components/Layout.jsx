@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, FileText, ClipboardList, LayoutDashboard, Settings, Menu, X, BookOpen, Cog } from 'lucide-react'
+import { Home, FileText, ClipboardList, LayoutDashboard, Settings, Menu, X, BookOpen, Cog, Columns } from 'lucide-react'
 import { useState } from 'react'
 
 export default function Layout() {
@@ -11,6 +11,7 @@ export default function Layout() {
     { to: '/kaizen', icon: FileText, label: 'Kaizen' },
     { to: '/action-plan', icon: ClipboardList, label: 'Action Plan' },
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/pillars', icon: Columns, label: 'Pillars' },
     { to: '/documenti', icon: BookOpen, label: 'Documenti' },
     { to: '/settings', icon: Cog, label: 'Settings' },
     { to: '/admin', icon: Settings, label: 'Admin' },
