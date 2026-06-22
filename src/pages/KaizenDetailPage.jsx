@@ -29,6 +29,8 @@ function buildTabsForLivello(livello) {
     id: 'quickkaizen',
     label: livello === 'Quick' ? 'Quick Kaizen' : '🔍 Problem Solving',
   })
+  // 🆕 Tab Azioni sempre visibile
+  base.push({ id: 'azioni', label: '📋 Azioni' })
   if (livello !== 'Quick') {
     base.push({ id: 'stdelements', label: '📊 8 Standard Elements' })
     base.push({ id: 'cmladder', label: '🏔️ Countermeasure Ladder' })
@@ -477,6 +479,11 @@ export default function KaizenDetailPage() {
         </div>
       )}
 
+      {/* 📋 AZIONI Tab — lista AP collegati al kaizen */}
+      {activeTab === 'azioni' && (
+        <AzioniTab kaizenId={id} kaizenNumero={kaizen.numero} onUpdate={loadKaizen} />
+      )}
+
       {/* PLACEHOLDER TABS */}
       {activeTab === 'step5kpi' && (
         <PlaceholderTab
@@ -658,6 +665,309 @@ function PlaceholderTab({ icon, title, subtitle, steps, features, phase, target 
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// AZIONI TAB — Action Plan collegati al Kaizen
+// ──────────────────────────────────────────────────────────
+function AzioniTab({ kaizenId, kaizenNumero, onUpdate }) {
+  const [azioni, setAzioni] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filtro, setFiltro] = useState('tutti')
+  const [showQuickForm, setShowQuickForm] = useState(false)
+  const [quickTitolo, setQuickTitolo] = useState('')
+  const [quickResponsabile, setQuickResponsabile] = useState('')
+  const [quickScadenza, setQuickScadenza] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  useEffect(() => {
+    loadAzioni()
+  }, [kaizenId])
+
+  const loadAzioni = async () => {
+    setLoading(true)
+    try {
+      const res = await api.get(`/kaizens/${kaizenId}/action-plans`)
+      setAzioni(res.data || [])
+    } catch (err) {
+      console.error(err)
+    }
+    setLoading(false)
+  }
+
+  const createQuickAP = async () => {
+    if (!quickTitolo.trim()) return alert('Inserisci un titolo')
+    setCreating(true)
+    try {
+      // Crea l'AP
+      const createRes = await api.post('/action-plans/', {
+        titolo: quickTitolo,
+        descrizione: `Action Plan generato da Kaizen ${kaizenNumero}`,
+        tipo: 'Task',
+        priorita: 'Medium',
+        stato: 'Aperto',
+        responsabile: quickResponsabile || null,
+        data_scadenza: quickScadenza ? new Date(quickScadenza).toISOString() : null,
+        tags: [`kaizen-${kaizenNumero}`],
+      })
+      
+      const newAP = createRes.data
+      
+      // Collega l'AP al Kaizen
+      await api.post(`/action-plans/${newAP._id}/link-kaizen`, {
+        kaizen_id: kaizenId,
+        kaizen_numero: kaizenNumero,
+      })
+      
+      // Reset form e reload
+      setQuickTitolo('')
+      setQuickResponsabile('')
+      setQuickScadenza('')
+      setShowQuickForm(false)
+      loadAzioni()
+      onUpdate?.()
+    } catch (err) {
+      console.error(err)
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+    setCreating(false)
+  }
+
+  const changeStato = async (apId, nuovoStato) => {
+    try {
+      await api.patch(`/action-plans/${apId}/stato`, { stato: nuovoStato })
+      loadAzioni()
+    } catch (err) {
+      alert('Errore cambio stato: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  const unlinkAP = async (apId, apNumero) => {
+    if (!confirm(`🔓 Scollegare ${apNumero} dal Kaizen ${kaizenNumero}?\n\nL'Action Plan rimane in vita, ma non sarà più collegato a questo Kaizen.`)) return
+    try {
+      await api.delete(`/action-plans/${apId}/link-kaizen/${kaizenId}`)
+      loadAzioni()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  // Filtri rapidi
+  const azioniFiltrate = azioni.filter(ap => {
+    if (filtro === 'tutti') return true
+    if (filtro === 'aperti') return ['Da Valutare', 'Aperto'].includes(ap.stato)
+    if (filtro === 'incorso') return ap.stato === 'In Corso'
+    if (filtro === 'done') return ap.stato === 'Done'
+    if (filtro === 'overdue') return ap.stato_visuale === 'In Ritardo'
+    return true
+  })
+
+  // Statistiche veloci
+  const stats = {
+    totale: azioni.length,
+    aperti: azioni.filter(a => ['Da Valutare', 'Aperto'].includes(a.stato)).length,
+    incorso: azioni.filter(a => a.stato === 'In Corso').length,
+    done: azioni.filter(a => a.stato === 'Done').length,
+    overdue: azioni.filter(a => a.stato_visuale === 'In Ritardo').length,
+  }
+
+  const STATI_AP = ['Da Valutare', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
+  const STATO_COLORS = {
+    'Da Valutare': 'bg-gray-100 text-gray-700',
+    'Aperto': 'bg-blue-100 text-blue-700',
+    'In Corso': 'bg-indigo-100 text-indigo-700',
+    'In Verifica': 'bg-purple-100 text-purple-700',
+    'Done': 'bg-green-100 text-green-700',
+    'Cancelled': 'bg-gray-200 text-gray-500',
+    'In Ritardo': 'bg-red-100 text-red-700',
+    'In Scadenza': 'bg-yellow-100 text-yellow-700',
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header con stats */}
+      <div className="bg-white rounded-xl shadow p-4">
+        <div className="flex justify-between items-center mb-3">
+          <div>
+            <h3 className="font-bold text-lg">📋 Azioni del Kaizen {kaizenNumero}</h3>
+            <p className="text-xs text-gray-500">Action Plan collegati a questo Kaizen</p>
+          </div>
+          <button
+            onClick={() => setShowQuickForm(!showQuickForm)}
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-light text-sm font-medium"
+          >
+            {showQuickForm ? '✕ Annulla' : '➕ Crea Action Plan'}
+          </button>
+        </div>
+
+        {/* Stats badges cliccabili come filtri */}
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { id: 'tutti', label: 'Tutti', count: stats.totale, color: 'bg-gray-100 text-gray-700' },
+            { id: 'aperti', label: 'Aperti', count: stats.aperti, color: 'bg-blue-100 text-blue-700' },
+            { id: 'incorso', label: 'In Corso', count: stats.incorso, color: 'bg-indigo-100 text-indigo-700' },
+            { id: 'done', label: 'Done', count: stats.done, color: 'bg-green-100 text-green-700' },
+            ...(stats.overdue > 0 ? [{ id: 'overdue', label: '🔴 Overdue', count: stats.overdue, color: 'bg-red-100 text-red-700' }] : []),
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFiltro(f.id)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${f.color} ${
+                filtro === f.id ? 'ring-2 ring-primary ring-offset-1' : 'opacity-70 hover:opacity-100'
+              }`}
+            >
+              {f.label} <span className="font-bold ml-1">{f.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Form rapido per crea AP */}
+      {showQuickForm && (
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+          <h4 className="font-bold mb-3">➕ Crea nuovo Action Plan</h4>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Titolo <span className="text-red-500">*</span></label>
+              <input
+                value={quickTitolo}
+                onChange={(e) => setQuickTitolo(e.target.value)}
+                placeholder="Es: Sostituire filtro Bindler 11"
+                className="w-full border rounded-lg px-3 py-2"
+                autoFocus
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Responsabile</label>
+                <input
+                  value={quickResponsabile}
+                  onChange={(e) => setQuickResponsabile(e.target.value)}
+                  placeholder="Es: Mario Rossi"
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Scadenza</label>
+                <input
+                  type="date"
+                  value={quickScadenza}
+                  onChange={(e) => setQuickScadenza(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowQuickForm(false)}
+                className="px-4 py-2 border rounded-lg"
+                disabled={creating}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={createQuickAP}
+                disabled={creating}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50"
+              >
+                {creating ? '⏳ Creazione...' : '✨ Crea e collega'}
+              </button>
+            </div>
+            <div className="text-xs text-blue-700">
+              💡 Per Action Plan più completi (con descrizione, mentions, tag, ecc.) usa la pagina <strong>Action Plan</strong> dal menu.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lista azioni */}
+      {loading ? (
+        <div className="bg-white rounded-xl shadow p-8 text-center text-gray-400">⏳ Caricamento...</div>
+      ) : azioniFiltrate.length === 0 ? (
+        <div className="bg-white rounded-xl shadow p-12 text-center">
+          <div className="text-5xl mb-3">📋</div>
+          <h3 className="text-lg font-semibold mb-1">
+            {azioni.length === 0 ? 'Nessun Action Plan collegato' : 'Nessun risultato per questo filtro'}
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            {azioni.length === 0
+              ? 'Crea il primo Action Plan per questo Kaizen!'
+              : 'Cambia filtro per vedere altri Action Plan'}
+          </p>
+          {azioni.length === 0 && (
+            <button
+              onClick={() => setShowQuickForm(true)}
+              className="text-primary hover:underline"
+            >
+              ➕ Crea il primo Action Plan
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {azioniFiltrate.map(ap => {
+            const isOverdue = ap.stato_visuale === 'In Ritardo'
+            const isInScadenza = ap.stato_visuale === 'In Scadenza'
+            return (
+              <div key={ap._id} className={`bg-white rounded-xl shadow p-4 border-l-4 ${
+                isOverdue ? 'border-red-500' : isInScadenza ? 'border-yellow-500' : 'border-primary'
+              }`}>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono text-xs text-primary font-bold">{ap.numero}</span>
+                      <h4 className="font-semibold truncate">{ap.titolo}</h4>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      {ap.tipo && <span className="text-gray-600">📋 {ap.tipo}</span>}
+                      {ap.categoria && <span className="text-gray-600">🏷️ {ap.categoria}</span>}
+                      {ap.priorita && <span className="text-gray-600">⚠️ {ap.priorita}</span>}
+                      {ap.responsabile && <span className="text-gray-600">👤 {ap.responsabile}</span>}
+                      {ap.data_scadenza && (
+                        <span className={`${isOverdue ? 'text-red-600 font-bold' : isInScadenza ? 'text-yellow-700 font-bold' : 'text-gray-600'}`}>
+                          📅 {new Date(ap.data_scadenza).toLocaleDateString('it-IT')}
+                          {isOverdue && ' ⚠️'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-2 border-t mt-2">
+                  <select
+                    value={ap.stato}
+                    onChange={(e) => changeStato(ap._id, e.target.value)}
+                    className={`text-xs px-2 py-1 rounded border ${STATO_COLORS[ap.stato_visuale] || STATO_COLORS[ap.stato]}`}
+                  >
+                    {STATI_AP.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+
+                  <div className="flex gap-1">
+                    <a
+                      href={`/action-plan?ap=${ap._id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+                      title="Apri in Action Plan"
+                    >
+                      👁 Dettaglio
+                    </a>
+                    <button
+                      onClick={() => unlinkAP(ap._id, ap.numero)}
+                      className="text-xs px-3 py-1 bg-red-50 hover:bg-red-100 rounded text-red-600"
+                      title="Scollega dal Kaizen"
+                    >
+                      🔓 Scollega
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
