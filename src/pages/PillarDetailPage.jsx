@@ -1024,51 +1024,283 @@ function SummaryBlock({ label, value, color = 'gray' }) {
   )
 }
 
-function Step5Content({ data, color, onUpdate }) {
-  const bridges = data.bridge_data || []
-  function addBridge() { onUpdate({ bridge_data: [...bridges, { id: Date.now().toString(), kpi_label: '', baseline_year: '', planned_savings: '', actual_savings: '', gap_reason: '' }] }) }
-  function updateBridge(id, updates) { onUpdate({ bridge_data: bridges.map(b => b.id === id ? { ...b, ...updates } : b) }) }
-  function removeBridge(id) { onUpdate({ bridge_data: bridges.filter(b => b.id !== id) }) }
+function Step5Content({ data, color, onUpdate, allStepsData }) {
+  // 📥 Estrai dati dagli step precedenti
+  const kpiPrincipale = allStepsData?.step1_kpi_definition?.kpi_principale || {}
+  const kmis = allStepsData?.step1_kpi_definition?.kmis || []
+  const step3Progetti = allStepsData?.step3_target_definition?.progetti || []
+  const step4Actual = allStepsData?.step4_implementation?.progetti_actual || []
+
+  // 🔧 Override manuali salvati (per KPI/KMI singoli)
+  const overrides = data.bridge_overrides || {}
+  // Shape: { "principale": { baseline, planned, actual, gap_reason }, "kmi_<id>": {...} }
+
+  // 📊 Aggregazioni globali
+  const totalPlanned = step3Progetti
+    .filter(p => p.status !== 'cancelled')
+    .reduce((sum, p) => sum + (parseFloat(p.saving_planned) || 0), 0)
+
+  const totalActual = step4Actual
+    .filter(p => p.actual_status === 'done')
+    .reduce((sum, p) => sum + (parseFloat(p.actual_saving) || 0), 0)
+
+  // 🧮 Costruisci le righe del bridge (1 per KPI + 1 per ogni KMI)
+  const bridgeRows = [
+    {
+      key: 'principale',
+      label: kpiPrincipale.label || 'KPI Principale',
+      unit: kpiPrincipale.unit || '',
+      auto_baseline: kpiPrincipale.baseline || '',
+      auto_target: kpiPrincipale.target || '',
+      auto_planned_saving: totalPlanned,
+      auto_actual_saving: totalActual,
+      isMain: true,
+    },
+    ...kmis.map(k => ({
+      key: `kmi_${k.id}`,
+      label: k.label || 'KMI',
+      unit: k.unit || '',
+      auto_baseline: k.baseline || '',
+      auto_target: k.target || '',
+      // Per i KMI non aggreghiamo (sono indicatori secondari): default 0, l'utente può override
+      auto_planned_saving: 0,
+      auto_actual_saving: 0,
+      isMain: false,
+    })),
+  ]
+
+  function updateOverride(key, field, value) {
+    onUpdate({
+      bridge_overrides: {
+        ...overrides,
+        [key]: { ...(overrides[key] || {}), [field]: value },
+      },
+    })
+  }
+
+  function resetOverride(key, field) {
+    const rowOverride = { ...(overrides[key] || {}) }
+    delete rowOverride[field]
+    onUpdate({
+      bridge_overrides: { ...overrides, [key]: rowOverride },
+    })
+  }
+
+  // Helper: valore effettivo (override se presente, altrimenti auto)
+  function getValue(key, field, autoValue) {
+    const ov = overrides[key]?.[field]
+    return ov !== undefined && ov !== '' ? ov : autoValue
+  }
+  function isOverridden(key, field) {
+    const ov = overrides[key]?.[field]
+    return ov !== undefined && ov !== ''
+  }
+
+  // 📈 Summary globale (sul KPI principale)
+  const mainPlanned = parseFloat(getValue('principale', 'planned', totalPlanned)) || 0
+  const mainActual = parseFloat(getValue('principale', 'actual', totalActual)) || 0
+  const mainGap = mainActual - mainPlanned
+  const coveragePercent = mainPlanned > 0 ? (mainActual / mainPlanned) * 100 : 0
 
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        ℹ️ <strong>Cosa fare:</strong> Confronta baseline → planned → actual per ogni KPI. Compila il gap analysis e le lezioni apprese.
+        ℹ️ <strong>Cosa fare:</strong> Il Bridge chart si compila <strong>automaticamente</strong> dagli step precedenti:
+        Baseline (Step 1) + Σ planned (Step 3) = Target | Σ actual da progetti completati (Step 4) = Risultato.
+        Puoi sovrascrivere manualmente ogni cella se serve, e devi compilare i motivi del gap + le lezioni apprese.
       </div>
-      <div className="flex justify-between items-center">
-        <h4 className="font-semibold text-sm uppercase text-gray-700">🏁 Bridge Chart — Close the Loop</h4>
-        <button onClick={addBridge} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi KPI Bridge</button>
+
+      {/* 📊 SUMMARY in alto */}
+      <div className="bg-white rounded-lg border-2 p-4" style={{ borderColor: color }}>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-bold text-sm uppercase" style={{ color }}>🏁 Risultato globale — KPI {kpiPrincipale.label || 'Principale'}</h4>
+          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+            coveragePercent >= 100 ? 'bg-green-100 text-green-700' :
+            coveragePercent >= 80 ? 'bg-yellow-100 text-yellow-700' :
+            'bg-red-100 text-red-700'
+          }`}>
+            {coveragePercent >= 100 ? '✅ Target raggiunto' : coveragePercent >= 80 ? '⚠️ Vicino al target' : '🔴 Sotto target'}
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <div className="text-center bg-gray-50 rounded p-2">
+            <div className="text-[10px] uppercase text-gray-500">Planned</div>
+            <div className="text-xl font-bold text-gray-700">{mainPlanned.toLocaleString('it-IT')} €</div>
+          </div>
+          <div className="text-center bg-blue-50 rounded p-2">
+            <div className="text-[10px] uppercase text-blue-600">Actual (done)</div>
+            <div className="text-xl font-bold text-blue-700">{mainActual.toLocaleString('it-IT')} €</div>
+          </div>
+          <div className={`text-center rounded p-2 ${mainGap >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+            <div className={`text-[10px] uppercase ${mainGap >= 0 ? 'text-green-600' : 'text-red-600'}`}>Gap</div>
+            <div className={`text-xl font-bold ${mainGap >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+              {mainGap >= 0 ? '+' : ''}{mainGap.toLocaleString('it-IT')} €
+            </div>
+          </div>
+          <div className="text-center rounded p-2" style={{ backgroundColor: `${color}15` }}>
+            <div className="text-[10px] uppercase" style={{ color }}>Copertura</div>
+            <div className="text-xl font-bold" style={{ color }}>{coveragePercent.toFixed(1)}%</div>
+          </div>
+        </div>
       </div>
-      {bridges.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun bridge data. Aggiungi per ogni KPI: baseline → planned → actual → gap.</div>
+
+      {/* ⚠️ Warning se Step 1 mancante */}
+      {!kpiPrincipale.label && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
+          ⚠️ Non hai ancora definito il KPI principale nello <strong>Step 1</strong>. Compilalo prima per vedere il bridge completo.
+        </div>
+      )}
+
+      <h4 className="font-semibold text-sm uppercase text-gray-700 mt-4">📊 Bridge Chart per KPI / KMI</h4>
+
+      {bridgeRows.length === 0 ? (
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
+          Nessun KPI definito. Compila Step 1 per iniziare.
+        </div>
       ) : (
         <div className="space-y-2">
-          {bridges.map(b => {
-            const gap = (parseFloat(b.actual_savings) || 0) - (parseFloat(b.planned_savings) || 0)
+          {bridgeRows.map(row => {
+            const baseline = getValue(row.key, 'baseline', row.auto_baseline)
+            const planned = getValue(row.key, 'planned', row.auto_planned_saving)
+            const actual = getValue(row.key, 'actual', row.auto_actual_saving)
+            const gapReason = overrides[row.key]?.gap_reason || ''
+            const rowGap = (parseFloat(actual) || 0) - (parseFloat(planned) || 0)
+
             return (
-              <div key={b.id} className="bg-white p-3 rounded-lg border">
-                <div className="grid grid-cols-12 gap-2 items-center mb-2">
-                  <input className="col-span-4 border rounded px-2 py-1 text-sm font-medium" value={b.kpi_label} onChange={(e) => updateBridge(b.id, { kpi_label: e.target.value })} placeholder="Es: OEE" />
-                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={b.baseline_year} onChange={(e) => updateBridge(b.id, { baseline_year: e.target.value })} placeholder="Baseline" />
-                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={b.planned_savings} onChange={(e) => updateBridge(b.id, { planned_savings: e.target.value })} placeholder="Planned" />
-                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={b.actual_savings} onChange={(e) => updateBridge(b.id, { actual_savings: e.target.value })} placeholder="Actual" />
-                  <div className={`col-span-1 text-center text-xs font-bold px-2 py-1 rounded ${gap >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {gap >= 0 ? '+' : ''}{gap.toFixed(1)}
-                  </div>
-                  <button onClick={() => removeBridge(b.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
+              <div
+                key={row.key}
+                className="bg-white p-3 rounded-lg border-l-4"
+                style={{ borderLeftColor: row.isMain ? color : '#9ca3af' }}
+              >
+                {/* Riga 1: label + badge */}
+                <div className="flex items-center gap-2 mb-2">
+                  {row.isMain ? (
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold whitespace-nowrap">
+                      🎯 KPI Principale
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold whitespace-nowrap">
+                      📊 KMI
+                    </span>
+                  )}
+                  <span className="font-bold text-sm">{row.label}</span>
+                  {row.unit && <span className="text-xs text-gray-500">[{row.unit}]</span>}
                 </div>
-                {gap < 0 && (
-                  <input className="w-full border rounded px-2 py-1 text-xs" value={b.gap_reason || ''} onChange={(e) => updateBridge(b.id, { gap_reason: e.target.value })} placeholder="⚠️ Motivo del gap" />
+
+                {/* Riga 2: Bridge celle */}
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <BridgeCell
+                    label="Baseline"
+                    value={baseline}
+                    autoValue={row.auto_baseline}
+                    isOverridden={isOverridden(row.key, 'baseline')}
+                    onChange={(v) => updateOverride(row.key, 'baseline', v)}
+                    onReset={() => resetOverride(row.key, 'baseline')}
+                    colSpan="col-span-3"
+                  />
+                  <BridgeCell
+                    label={row.isMain ? 'Σ Planned (Step 3)' : 'Planned'}
+                    value={planned}
+                    autoValue={row.auto_planned_saving}
+                    isOverridden={isOverridden(row.key, 'planned')}
+                    onChange={(v) => updateOverride(row.key, 'planned', v)}
+                    onReset={() => resetOverride(row.key, 'planned')}
+                    colSpan="col-span-3"
+                    suffix={row.isMain ? '€' : ''}
+                  />
+                  <BridgeCell
+                    label={row.isMain ? 'Σ Actual (Step 4 done)' : 'Actual'}
+                    value={actual}
+                    autoValue={row.auto_actual_saving}
+                    isOverridden={isOverridden(row.key, 'actual')}
+                    onChange={(v) => updateOverride(row.key, 'actual', v)}
+                    onReset={() => resetOverride(row.key, 'actual')}
+                    colSpan="col-span-3"
+                    suffix={row.isMain ? '€' : ''}
+                  />
+                  <div className="col-span-3">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Gap</label>
+                    <div className={`w-full border rounded px-2 py-1 text-xs font-bold text-center ${
+                      rowGap >= 0 ? 'bg-green-50 border-green-300 text-green-700' : 'bg-red-50 border-red-300 text-red-700'
+                    }`}>
+                      {rowGap >= 0 ? '+' : ''}{rowGap.toLocaleString('it-IT')}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Riga 3: motivo del gap (solo se gap < 0) */}
+                {rowGap < 0 && (
+                  <div className="mt-2">
+                    <label className="block text-[10px] font-medium text-red-600 uppercase mb-0.5">⚠️ Motivo del gap</label>
+                    <input
+                      className="w-full border border-red-300 rounded px-2 py-1 text-xs"
+                      value={gapReason}
+                      onChange={(e) => updateOverride(row.key, 'gap_reason', e.target.value)}
+                      placeholder="Es: Ritardo fornitore, mancanza risorse, progetto bloccato..."
+                    />
+                  </div>
                 )}
               </div>
             )
           })}
         </div>
       )}
-      <div>
-        <label className="block text-xs font-medium text-gray-600 uppercase mb-1">💡 Lezioni apprese</label>
-        <textarea value={data.lezioni_apprese || ''} onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })} rows={4} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Cosa abbiamo imparato? Cosa replicheremo? Cosa cambieremo per il prossimo ciclo?" />
+
+      {/* 💡 Lezioni apprese */}
+      <div className="bg-white p-3 rounded-lg border mt-4">
+        <label className="block text-xs font-medium text-gray-600 uppercase mb-1">💡 Lezioni apprese (Close the Loop)</label>
+        <textarea
+          value={data.lezioni_apprese || ''}
+          onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })}
+          rows={4}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+          placeholder="Cosa abbiamo imparato? Cosa replicheremo? Cosa cambieremo per il prossimo ciclo? Quali contromisure sono state efficaci?"
+        />
       </div>
+
+      {/* Legenda */}
+      <div className="text-[10px] text-gray-500 italic flex items-center gap-3 flex-wrap">
+        <span><span className="inline-block w-3 h-3 bg-gray-50 border border-gray-300 rounded mr-1"></span> AUTO (calcolato dagli step)</span>
+        <span><span className="inline-block w-3 h-3 bg-yellow-50 border border-yellow-400 rounded mr-1"></span> OVERRIDE manuale</span>
+        <span>💡 Click sull'icona ↺ per ripristinare il valore automatico</span>
+      </div>
+    </div>
+  )
+}
+
+// 🧩 Helper component per le celle del bridge con auto/override
+function BridgeCell({ label, value, autoValue, isOverridden, onChange, onReset, colSpan = 'col-span-3', suffix = '' }) {
+  return (
+    <div className={colSpan}>
+      <div className="flex items-center justify-between mb-0.5">
+        <label className="block text-[10px] font-medium text-gray-500 uppercase">{label}</label>
+        {isOverridden && (
+          <button
+            onClick={onReset}
+            className="text-[10px] text-blue-600 hover:underline"
+            title="Ripristina valore automatico"
+          >
+            ↺ auto
+          </button>
+        )}
+      </div>
+      <div className="relative">
+        <input
+          type="number"
+          className={`w-full border rounded px-2 py-1 text-xs ${
+            isOverridden ? 'bg-yellow-50 border-yellow-400 font-bold' : 'bg-gray-50'
+          }`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={autoValue ? String(autoValue) : '0'}
+        />
+        {suffix && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">{suffix}</span>
+        )}
+      </div>
+      {!isOverridden && autoValue !== '' && autoValue !== 0 && (
+        <div className="text-[9px] text-gray-400 mt-0.5">auto: {Number(autoValue).toLocaleString('it-IT')}</div>
+      )}
     </div>
   )
 }
