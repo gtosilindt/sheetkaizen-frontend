@@ -33,9 +33,7 @@ export default function PillarDetailPage() {
     }
   }
 
-  if (loading) {
-    return <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">⏳ Caricamento pillar...</div>
-  }
+  if (loading) return <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">⏳ Caricamento pillar...</div>
   if (!pillar) {
     return (
       <div className="bg-white rounded-xl shadow p-12 text-center">
@@ -72,8 +70,7 @@ export default function PillarDetailPage() {
         <div className="px-6 py-5" style={{ backgroundColor: `${color}15` }}>
           <div className="flex justify-between items-start gap-4">
             <div className="flex items-start gap-4 flex-1 min-w-0">
-              <div className="w-20 h-20 rounded-xl flex items-center justify-center text-5xl flex-shrink-0 shadow-md"
-                style={{ backgroundColor: color, color: 'white' }}>
+              <div className="w-20 h-20 rounded-xl flex items-center justify-center text-5xl flex-shrink-0 shadow-md" style={{ backgroundColor: color, color: 'white' }}>
                 {pillar.icon || '🏛️'}
               </div>
               <div className="flex-1 min-w-0">
@@ -104,9 +101,7 @@ export default function PillarDetailPage() {
                 </div>
               </div>
             </div>
-            <button onClick={() => navigate('/settings')}
-              className="px-3 py-1.5 bg-white border-2 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1 flex-shrink-0"
-              style={{ borderColor: color, color }}>
+            <button onClick={() => navigate('/settings')} className="px-3 py-1.5 bg-white border-2 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1 flex-shrink-0" style={{ borderColor: color, color }}>
               <Edit2 size={14} /> Modifica
             </button>
           </div>
@@ -125,11 +120,7 @@ export default function PillarDetailPage() {
 
       <div className="flex gap-1 border-b overflow-x-auto">
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors ${
-              activeTab === tab.id ? 'border-b-2 text-primary' : 'text-gray-500 hover:text-gray-700'
-            }`}
-            style={activeTab === tab.id ? { borderColor: color, color } : {}}>
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === tab.id ? 'border-b-2 text-primary' : 'text-gray-500 hover:text-gray-700'}`} style={activeTab === tab.id ? { borderColor: color, color } : {}}>
             {tab.label}
           </button>
         ))}
@@ -145,10 +136,7 @@ export default function PillarDetailPage() {
 }
 
 function StatBlock({ label, value, icon, color = 'gray' }) {
-  const colors = {
-    gray: 'text-gray-700', indigo: 'text-indigo-700', green: 'text-emerald-700',
-    blue: 'text-blue-700', purple: 'text-purple-700', orange: 'text-orange-700',
-  }
+  const colors = { gray: 'text-gray-700', indigo: 'text-indigo-700', green: 'text-emerald-700', blue: 'text-blue-700', purple: 'text-purple-700', orange: 'text-orange-700' }
   return (
     <div className="text-center">
       {icon && <div className="text-xl mb-1">{icon}</div>}
@@ -221,9 +209,6 @@ function AnagraficaTab({ pillar }) {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// 🎯 5 STEP KPI MANAGEMENT — versione v2 chiara
-// ──────────────────────────────────────────────────────────
 const KPI_STEPS = [
   { id: 'step1_kpi_definition', num: 1, title: 'KPI / KMI Definition', icon: '📊', desc: 'Definisci il KPI principale del Pillar' },
   { id: 'step2_pareto_analysis', num: 2, title: 'Pareto Analysis & Loss Identification', icon: '📉', desc: 'Identifica e prioritizza le perdite' },
@@ -235,9 +220,7 @@ const KPI_STEPS = [
 function KpiManagementTab({ pillar, color, onSaved }) {
   const [stepsData, setStepsData] = useState(() => {
     const initial = {}
-    KPI_STEPS.forEach(s => {
-      initial[s.id] = pillar[s.id] || { completato: false, note: '' }
-    })
+    KPI_STEPS.forEach(s => { initial[s.id] = pillar[s.id] || { completato: false, note: '' } })
     return initial
   })
   const [expandedStep, setExpandedStep] = useState(KPI_STEPS[0].id)
@@ -252,10 +235,7 @@ function KpiManagementTab({ pillar, color, onSaved }) {
     if (!silent) setSaving(true)
     try {
       await api.put(`/pillars/${pillar._id}`, dataRef.current)
-      if (!silent) {
-        setLastSaved(new Date())
-        setHasUnsavedChanges(false)
-      }
+      if (!silent) { setLastSaved(new Date()); setHasUnsavedChanges(false) }
     } catch (err) {
       console.error(err)
       if (!silent) alert('Errore salvataggio: ' + (err.response?.data?.detail || err.message))
@@ -275,10 +255,11 @@ function KpiManagementTab({ pillar, color, onSaved }) {
   }, [stepsData])
 
   function updateStep(stepId, updates) {
-    setStepsData(prev => ({
-      ...prev,
-      { ...prev[stepId], ...updates },
-    }))
+    setStepsData(prev => {
+      const newData = { ...prev }
+      newData[stepId] = { ...prev[stepId], ...updates }
+      return newData
+    })
   }
 
   const completedCount = Object.values(stepsData).filter(s => s.completato).length
@@ -289,9 +270,7 @@ function KpiManagementTab({ pillar, color, onSaved }) {
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="text-xl font-bold mb-1">🎯 5 Step KPI Management</h3>
-            <p className="text-sm text-gray-500">
-              Metodologia ufficiale Lindt FI Pillar per il <strong>{pillar.sigla}</strong>
-            </p>
+            <p className="text-sm text-gray-500">Metodologia ufficiale Lindt FI Pillar per il <strong>{pillar.sigla}</strong></p>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold" style={{ color }}>{completedCount}/5</div>
@@ -304,32 +283,19 @@ function KpiManagementTab({ pillar, color, onSaved }) {
             </div>
           </div>
         </div>
-
         <div className="flex items-center gap-1">
           {KPI_STEPS.map((step, idx) => {
             const isCompleted = stepsData[step.id]?.completato
             const isExpanded = expandedStep === step.id
             return (
               <div key={step.id} className="flex-1 flex items-center">
-                <button
-                  onClick={() => setExpandedStep(isExpanded ? null : step.id)}
-                  className={`flex flex-col items-center flex-shrink-0 transition-all ${isExpanded ? 'scale-110' : ''}`}
-                >
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shadow ${
-                      isCompleted ? 'text-white' : 'bg-white border-2 text-gray-400'
-                    }`}
-                    style={isCompleted ? { backgroundColor: color } : { borderColor: color }}
-                  >
+                <button onClick={() => setExpandedStep(isExpanded ? null : step.id)} className={`flex flex-col items-center flex-shrink-0 transition-all ${isExpanded ? 'scale-110' : ''}`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shadow ${isCompleted ? 'text-white' : 'bg-white border-2 text-gray-400'}`} style={isCompleted ? { backgroundColor: color } : { borderColor: color }}>
                     {isCompleted ? '✓' : step.num}
                   </div>
-                  <div className={`text-xs mt-1 font-medium ${isExpanded ? '' : 'text-gray-500'}`} style={isExpanded ? { color } : {}}>
-                    Step {step.num}
-                  </div>
+                  <div className={`text-xs mt-1 font-medium ${isExpanded ? '' : 'text-gray-500'}`} style={isExpanded ? { color } : {}}>Step {step.num}</div>
                 </button>
-                {idx < KPI_STEPS.length - 1 && (
-                  <div className="flex-1 h-1 mx-1 rounded" style={{ backgroundColor: isCompleted ? color : '#e5e7eb' }} />
-                )}
+                {idx < KPI_STEPS.length - 1 && <div className="flex-1 h-1 mx-1 rounded" style={{ backgroundColor: isCompleted ? color : '#e5e7eb' }} />}
               </div>
             )
           })}
@@ -340,54 +306,35 @@ function KpiManagementTab({ pillar, color, onSaved }) {
         const data = stepsData[step.id]
         const isExpanded = expandedStep === step.id
         const isCompleted = data?.completato
-
         return (
-          <div key={step.id} className="bg-white rounded-xl shadow overflow-hidden transition-all"
-            style={{ borderLeft: `4px solid ${isCompleted ? color : '#e5e7eb'}` }}>
-            <button onClick={() => setExpandedStep(isExpanded ? null : step.id)}
-              className="w-full px-5 py-4 flex items-center gap-3 hover:bg-gray-50 transition-colors">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold flex-shrink-0 ${isCompleted ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
-                style={isCompleted ? { backgroundColor: color } : {}}>
+          <div key={step.id} className="bg-white rounded-xl shadow overflow-hidden transition-all" style={{ borderLeft: `4px solid ${isCompleted ? color : '#e5e7eb'}` }}>
+            <button onClick={() => setExpandedStep(isExpanded ? null : step.id)} className="w-full px-5 py-4 flex items-center gap-3 hover:bg-gray-50 transition-colors">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold flex-shrink-0 ${isCompleted ? 'text-white' : 'bg-gray-100 text-gray-500'}`} style={isCompleted ? { backgroundColor: color } : {}}>
                 {isCompleted ? '✓' : step.num}
               </div>
               <div className="flex-1 text-left">
                 <div className="font-semibold flex items-center gap-2">
                   <span className="text-lg">{step.icon}</span>
                   STEP {step.num} — {step.title}
-                  {isCompleted && (
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">✅ Completato</span>
-                  )}
+                  {isCompleted && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">✅ Completato</span>}
                 </div>
                 <div className="text-xs text-gray-500 mt-0.5">{step.desc}</div>
               </div>
               <div className="text-gray-400">{isExpanded ? '▲' : '▼'}</div>
             </button>
-
             {isExpanded && (
               <div className="px-5 pb-5 pt-2 border-t bg-gray-50">
                 <StepContent step={step} data={data} color={color} onUpdate={(updates) => updateStep(step.id, updates)} />
-
                 <div className="mt-4 pt-4 border-t space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 uppercase mb-1">📝 Note dello step</label>
-                    <textarea value={data.note || ''}
-                      onChange={(e) => updateStep(step.id, { note: e.target.value })}
-                      rows={3} className="w-full border rounded-lg px-3 py-2 text-sm"
-                      placeholder="Note, contesto, decisioni prese..." />
+                    <textarea value={data.note || ''} onChange={(e) => updateStep(step.id, { note: e.target.value })} rows={3} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Note, contesto, decisioni prese..." />
                   </div>
-
-                  <label className="flex items-center gap-3 p-3 bg-white border-2 rounded-lg cursor-pointer hover:bg-gray-50"
-                    style={{ borderColor: isCompleted ? color : '#e5e7eb' }}>
-                    <input type="checkbox" checked={isCompleted}
-                      onChange={(e) => updateStep(step.id, { completato: e.target.checked })}
-                      className="w-5 h-5" style={{ accentColor: color }} />
+                  <label className="flex items-center gap-3 p-3 bg-white border-2 rounded-lg cursor-pointer hover:bg-gray-50" style={{ borderColor: isCompleted ? color : '#e5e7eb' }}>
+                    <input type="checkbox" checked={isCompleted} onChange={(e) => updateStep(step.id, { completato: e.target.checked })} className="w-5 h-5" style={{ accentColor: color }} />
                     <div className="flex-1">
-                      <div className="font-medium text-sm">
-                        {isCompleted ? '✅ Step Completato' : '☐ Marca come completato'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {isCompleted ? 'Lo step è considerato concluso.' : 'Spunta quando hai finito le attività di questo step.'}
-                      </div>
+                      <div className="font-medium text-sm">{isCompleted ? '✅ Step Completato' : '☐ Marca come completato'}</div>
+                      <div className="text-xs text-gray-500">{isCompleted ? 'Lo step è considerato concluso.' : 'Spunta quando hai finito le attività di questo step.'}</div>
                     </div>
                   </label>
                 </div>
@@ -409,83 +356,54 @@ function StepContent({ step, data, color, onUpdate }) {
   return null
 }
 
-// ─── STEP 1: 1 KPI Principale + N KMI opzionali (NUOVO) ──
 function Step1Content({ data, color, onUpdate }) {
   const kpiPrincipale = data.kpi_principale || { label: '', baseline: '', target: '', unit: '%', owner: '', descrizione: '' }
   const kmis = data.kmis || []
-
   function updateKpiPrincipale(field, value) {
-    onUpdate({ kpi_principale: { ...kpiPrincipale, value } })
+    const newKpi = { ...kpiPrincipale }
+    newKpi[field] = value
+    onUpdate({ kpi_principale: newKpi })
   }
-
-  function addKmi() {
-    onUpdate({ kmis: [...kmis, { id: Date.now().toString(), label: '', baseline: '', target: '', unit: '%', owner: '' }] })
-  }
-  function updateKmi(id, updates) {
-    onUpdate({ kmis: kmis.map(k => k.id === id ? { ...k, ...updates } : k) })
-  }
-  function removeKmi(id) {
-    onUpdate({ kmis: kmis.filter(k => k.id !== id) })
-  }
+  function addKmi() { onUpdate({ kmis: [...kmis, { id: Date.now().toString(), label: '', baseline: '', target: '', unit: '%', owner: '' }] }) }
+  function updateKmi(id, updates) { onUpdate({ kmis: kmis.map(k => k.id === id ? { ...k, ...updates } : k) }) }
+  function removeKmi(id) { onUpdate({ kmis: kmis.filter(k => k.id !== id) }) }
 
   return (
     <div className="space-y-4 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
         ℹ️ <strong>Cosa fare:</strong> Definisci il KPI principale (es. OEE, MTBF) con baseline e target. I KMI sono indicatori secondari opzionali di supporto.
       </div>
-
       <div className="bg-white p-4 rounded-lg border-2" style={{ borderColor: color }}>
         <div className="flex items-center gap-2 mb-3">
           <span className="text-2xl">🎯</span>
           <h4 className="font-bold text-sm uppercase" style={{ color }}>KPI Principale (obbligatorio)</h4>
         </div>
-
         <div className="grid grid-cols-12 gap-2 mb-2">
           <div className="col-span-4">
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome KPI <span className="text-red-500">*</span></label>
-            <input className="w-full border rounded px-3 py-2 text-sm font-bold"
-              value={kpiPrincipale.label}
-              onChange={(e) => updateKpiPrincipale('label', e.target.value)}
-              placeholder="Es: OEE, MTBF, Scarti %" />
+            <input className="w-full border rounded px-3 py-2 text-sm font-bold" value={kpiPrincipale.label} onChange={(e) => updateKpiPrincipale('label', e.target.value)} placeholder="Es: OEE, MTBF, Scarti %" />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Baseline</label>
-            <input className="w-full border rounded px-3 py-2 text-sm"
-              value={kpiPrincipale.baseline}
-              onChange={(e) => updateKpiPrincipale('baseline', e.target.value)}
-              placeholder="65" />
+            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.baseline} onChange={(e) => updateKpiPrincipale('baseline', e.target.value)} placeholder="65" />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Target</label>
-            <input className="w-full border rounded px-3 py-2 text-sm"
-              value={kpiPrincipale.target}
-              onChange={(e) => updateKpiPrincipale('target', e.target.value)}
-              placeholder="75" />
+            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.target} onChange={(e) => updateKpiPrincipale('target', e.target.value)} placeholder="75" />
           </div>
           <div className="col-span-1">
             <label className="block text-xs font-medium text-gray-600 mb-1">Unità</label>
-            <input className="w-full border rounded px-3 py-2 text-sm"
-              value={kpiPrincipale.unit}
-              onChange={(e) => updateKpiPrincipale('unit', e.target.value)}
-              placeholder="%" />
+            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.unit} onChange={(e) => updateKpiPrincipale('unit', e.target.value)} placeholder="%" />
           </div>
           <div className="col-span-3">
             <label className="block text-xs font-medium text-gray-600 mb-1">Owner</label>
-            <input className="w-full border rounded px-3 py-2 text-sm"
-              value={kpiPrincipale.owner}
-              onChange={(e) => updateKpiPrincipale('owner', e.target.value)}
-              placeholder="Nome responsabile" />
+            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.owner} onChange={(e) => updateKpiPrincipale('owner', e.target.value)} placeholder="Nome responsabile" />
           </div>
         </div>
-
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Descrizione (opzionale)</label>
-          <input className="w-full border rounded px-3 py-2 text-sm"
-            value={kpiPrincipale.descrizione}
-            onChange={(e) => updateKpiPrincipale('descrizione', e.target.value)}
-            placeholder="Es: Overall Equipment Effectiveness linea Bindler 11" />
+          <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.descrizione} onChange={(e) => updateKpiPrincipale('descrizione', e.target.value)} placeholder="Es: Overall Equipment Effectiveness linea Bindler 11" />
         </div>
-
         {kpiPrincipale.baseline && kpiPrincipale.target && (
           <div className="mt-3 pt-3 border-t flex items-center gap-3 text-sm">
             <span className="text-gray-500">Gap da chiudere:</span>
@@ -498,7 +416,6 @@ function Step1Content({ data, color, onUpdate }) {
           </div>
         )}
       </div>
-
       <div className="bg-white p-4 rounded-lg border">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -508,39 +425,20 @@ function Step1Content({ data, color, onUpdate }) {
               <p className="text-xs text-gray-500">Indicatori secondari opzionali di supporto al KPI principale</p>
             </div>
           </div>
-          <button onClick={addKmi} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
-            + Aggiungi KMI
-          </button>
+          <button onClick={addKmi} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi KMI</button>
         </div>
-
         {kmis.length === 0 ? (
-          <div className="text-center text-xs text-gray-400 italic py-3">
-            Nessun KMI definito. Sono opzionali — aggiungi solo se servono.
-          </div>
+          <div className="text-center text-xs text-gray-400 italic py-3">Nessun KMI definito. Sono opzionali — aggiungi solo se servono.</div>
         ) : (
           <div className="space-y-2">
             {kmis.map((kmi, idx) => (
               <div key={kmi.id} className="grid grid-cols-12 gap-2 items-center">
                 <div className="col-span-1 text-center text-xs font-bold text-gray-400">#{idx + 1}</div>
-                <input className="col-span-4 border rounded px-2 py-1 text-sm"
-                  value={kmi.label}
-                  onChange={(e) => updateKmi(kmi.id, { label: e.target.value })}
-                  placeholder="Es: MTBF" />
-                <input className="col-span-2 border rounded px-2 py-1 text-sm"
-                  value={kmi.baseline}
-                  onChange={(e) => updateKmi(kmi.id, { baseline: e.target.value })}
-                  placeholder="Baseline" />
-                <input className="col-span-2 border rounded px-2 py-1 text-sm"
-                  value={kmi.target}
-                  onChange={(e) => updateKmi(kmi.id, { target: e.target.value })}
-                  placeholder="Target" />
-                <input className="col-span-2 border rounded px-2 py-1 text-sm"
-                  value={kmi.owner}
-                  onChange={(e) => updateKmi(kmi.id, { owner: e.target.value })}
-                  placeholder="Owner" />
-                <button onClick={() => removeKmi(kmi.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded">
-                  <Trash2 size={14} />
-                </button>
+                <input className="col-span-4 border rounded px-2 py-1 text-sm" value={kmi.label} onChange={(e) => updateKmi(kmi.id, { label: e.target.value })} placeholder="Es: MTBF" />
+                <input className="col-span-2 border rounded px-2 py-1 text-sm" value={kmi.baseline} onChange={(e) => updateKmi(kmi.id, { baseline: e.target.value })} placeholder="Baseline" />
+                <input className="col-span-2 border rounded px-2 py-1 text-sm" value={kmi.target} onChange={(e) => updateKmi(kmi.id, { target: e.target.value })} placeholder="Target" />
+                <input className="col-span-2 border rounded px-2 py-1 text-sm" value={kmi.owner} onChange={(e) => updateKmi(kmi.id, { owner: e.target.value })} placeholder="Owner" />
+                <button onClick={() => removeKmi(kmi.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
               </div>
             ))}
           </div>
@@ -549,20 +447,12 @@ function Step1Content({ data, color, onUpdate }) {
     </div>
   )
 }
-// ─── STEP 2: Pareto (versione semplice senza grafico) ────
+
 function Step2Content({ data, color, onUpdate }) {
   const losses = data.losses || []
-
-  function addLoss() {
-    onUpdate({ losses: [...losses, { id: Date.now().toString(), label: '', percent_impact: '', magnitude: 'medio' }] })
-  }
-  function updateLoss(id, updates) {
-    onUpdate({ losses: losses.map(l => l.id === id ? { ...l, ...updates } : l) })
-  }
-  function removeLoss(id) {
-    onUpdate({ losses: losses.filter(l => l.id !== id) })
-  }
-
+  function addLoss() { onUpdate({ losses: [...losses, { id: Date.now().toString(), label: '', percent_impact: '', magnitude: 'medio' }] }) }
+  function updateLoss(id, updates) { onUpdate({ losses: losses.map(l => l.id === id ? { ...l, ...updates } : l) }) }
+  function removeLoss(id) { onUpdate({ losses: losses.filter(l => l.id !== id) }) }
   const sortedLosses = [...losses].sort((a, b) => (parseFloat(b.percent_impact) || 0) - (parseFloat(a.percent_impact) || 0))
 
   return (
@@ -570,42 +460,26 @@ function Step2Content({ data, color, onUpdate }) {
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
         ℹ️ <strong>Cosa fare:</strong> Elenca le perdite che impattano il KPI con la loro % di impatto. Le perdite più alte sono il "vital few" su cui focalizzarti.
       </div>
-
       <div className="flex justify-between items-center">
         <h4 className="font-semibold text-sm uppercase text-gray-700">📉 Top Losses</h4>
-        <button onClick={addLoss} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
-          + Aggiungi Loss
-        </button>
+        <button onClick={addLoss} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi Loss</button>
       </div>
-
       {sortedLosses.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
-          Nessuna perdita identificata. Click "+ Aggiungi Loss" per iniziare.
-        </div>
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessuna perdita identificata. Click "+ Aggiungi Loss" per iniziare.</div>
       ) : (
         <div className="space-y-2">
           {sortedLosses.map((loss, idx) => (
             <div key={loss.id} className="bg-white p-3 rounded-lg border">
               <div className="grid grid-cols-12 gap-2 items-center">
                 <div className="col-span-1 text-center font-bold text-gray-400">#{idx + 1}</div>
-                <input className="col-span-5 border rounded px-2 py-1 text-sm font-medium"
-                  value={loss.label}
-                  onChange={(e) => updateLoss(loss.id, { label: e.target.value })}
-                  placeholder="Es: Microfermate" />
-                <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm"
-                  value={loss.percent_impact}
-                  onChange={(e) => updateLoss(loss.id, { percent_impact: e.target.value })}
-                  placeholder="%" />
-                <select className="col-span-3 border rounded px-2 py-1 text-sm"
-                  value={loss.magnitude}
-                  onChange={(e) => updateLoss(loss.id, { magnitude: e.target.value })}>
+                <input className="col-span-5 border rounded px-2 py-1 text-sm font-medium" value={loss.label} onChange={(e) => updateLoss(loss.id, { label: e.target.value })} placeholder="Es: Microfermate" />
+                <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={loss.percent_impact} onChange={(e) => updateLoss(loss.id, { percent_impact: e.target.value })} placeholder="%" />
+                <select className="col-span-3 border rounded px-2 py-1 text-sm" value={loss.magnitude} onChange={(e) => updateLoss(loss.id, { magnitude: e.target.value })}>
                   <option value="alto">🔴 Alto</option>
                   <option value="medio">🟡 Medio</option>
                   <option value="basso">🟢 Basso</option>
                 </select>
-                <button onClick={() => removeLoss(loss.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded">
-                  <Trash2 size={14} />
-                </button>
+                <button onClick={() => removeLoss(loss.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
               </div>
               {loss.percent_impact && (
                 <div className="mt-2 bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -619,62 +493,34 @@ function Step2Content({ data, color, onUpdate }) {
     </div>
   )
 }
-
-// ─── STEP 3: Projects ────────────────────────────────────
 function Step3Content({ data, color, onUpdate }) {
   const progetti = data.progetti || []
-
-  function addProject() {
-    onUpdate({ progetti: [...progetti, { id: Date.now().toString(), label: '', kaizen_numero: '', saving_atteso: '', deadline: '' }] })
-  }
-  function updateProject(id, updates) {
-    onUpdate({ progetti: progetti.map(p => p.id === id ? { ...p, ...updates } : p) })
-  }
-  function removeProject(id) {
-    onUpdate({ progetti: progetti.filter(p => p.id !== id) })
-  }
+  function addProject() { onUpdate({ progetti: [...progetti, { id: Date.now().toString(), label: '', kaizen_numero: '', saving_atteso: '', deadline: '' }] }) }
+  function updateProject(id, updates) { onUpdate({ progetti: progetti.map(p => p.id === id ? { ...p, ...updates } : p) }) }
+  function removeProject(id) { onUpdate({ progetti: progetti.filter(p => p.id !== id) }) }
 
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
         ℹ️ <strong>Cosa fare:</strong> Pianifica i progetti (Kaizen) che chiuderanno il gap del KPI. Specifica saving atteso, deadline, owner.
       </div>
-
       <div className="flex justify-between items-center">
         <h4 className="font-semibold text-sm uppercase text-gray-700">🎯 Progetti pianificati</h4>
-        <button onClick={addProject} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
-          + Aggiungi Progetto
-        </button>
+        <button onClick={addProject} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi Progetto</button>
       </div>
-
       {progetti.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
-          Nessun progetto pianificato. I progetti sono i Kaizen che chiuderanno il gap.
-        </div>
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun progetto pianificato. I progetti sono i Kaizen che chiuderanno il gap.</div>
       ) : (
         <div className="space-y-2">
           {progetti.map((p, idx) => (
             <div key={p.id} className="bg-white p-3 rounded-lg border">
               <div className="grid grid-cols-12 gap-2 items-center">
                 <div className="col-span-1 text-center font-bold text-gray-400">#{idx + 1}</div>
-                <input className="col-span-4 border rounded px-2 py-1 text-sm font-medium"
-                  value={p.label}
-                  onChange={(e) => updateProject(p.id, { label: e.target.value })}
-                  placeholder="Titolo progetto" />
-                <input className="col-span-2 border rounded px-2 py-1 text-sm font-mono"
-                  value={p.kaizen_numero}
-                  onChange={(e) => updateProject(p.id, { kaizen_numero: e.target.value })}
-                  placeholder="K-001" />
-                <input className="col-span-2 border rounded px-2 py-1 text-sm"
-                  value={p.saving_atteso}
-                  onChange={(e) => updateProject(p.id, { saving_atteso: e.target.value })}
-                  placeholder="Saving €" />
-                <input type="date" className="col-span-2 border rounded px-2 py-1 text-sm"
-                  value={p.deadline}
-                  onChange={(e) => updateProject(p.id, { deadline: e.target.value })} />
-                <button onClick={() => removeProject(p.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded">
-                  <Trash2 size={14} />
-                </button>
+                <input className="col-span-4 border rounded px-2 py-1 text-sm font-medium" value={p.label} onChange={(e) => updateProject(p.id, { label: e.target.value })} placeholder="Titolo progetto" />
+                <input className="col-span-2 border rounded px-2 py-1 text-sm font-mono" value={p.kaizen_numero} onChange={(e) => updateProject(p.id, { kaizen_numero: e.target.value })} placeholder="K-001" />
+                <input className="col-span-2 border rounded px-2 py-1 text-sm" value={p.saving_atteso} onChange={(e) => updateProject(p.id, { saving_atteso: e.target.value })} placeholder="Saving €" />
+                <input type="date" className="col-span-2 border rounded px-2 py-1 text-sm" value={p.deadline} onChange={(e) => updateProject(p.id, { deadline: e.target.value })} />
+                <button onClick={() => removeProject(p.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
               </div>
             </div>
           ))}
@@ -684,82 +530,54 @@ function Step3Content({ data, color, onUpdate }) {
   )
 }
 
-// ─── STEP 4: Implementation ──────────────────────────────
 function Step4Content({ data, color, onUpdate }) {
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
         ℹ️ <strong>Cosa fare:</strong> Monitora l'avanzamento globale dei progetti del pillar e annota issues/bloccanti.
       </div>
-
       <h4 className="font-semibold text-sm uppercase text-gray-700">🚧 Stato implementazione</h4>
       <div className="bg-white p-4 rounded-lg border">
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">% Avanzamento globale</label>
-            <input type="number" min="0" max="100"
-              value={data.avanzamento_globale || ''}
-              onChange={(e) => onUpdate({ avanzamento_globale: e.target.value })}
-              className="w-full border rounded px-2 py-1 text-sm" placeholder="0-100" />
+            <input type="number" min="0" max="100" value={data.avanzamento_globale || ''} onChange={(e) => onUpdate({ avanzamento_globale: e.target.value })} className="w-full border rounded px-2 py-1 text-sm" placeholder="0-100" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Progetti completati</label>
-            <input type="number" min="0"
-              value={data.progetti_completati || ''}
-              onChange={(e) => onUpdate({ progetti_completati: e.target.value })}
-              className="w-full border rounded px-2 py-1 text-sm" placeholder="0" />
+            <input type="number" min="0" value={data.progetti_completati || ''} onChange={(e) => onUpdate({ progetti_completati: e.target.value })} className="w-full border rounded px-2 py-1 text-sm" placeholder="0" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Ultimo monitoraggio</label>
-            <input type="date"
-              value={data.last_check || ''}
-              onChange={(e) => onUpdate({ last_check: e.target.value })}
-              className="w-full border rounded px-2 py-1 text-sm" />
+            <input type="date" value={data.last_check || ''} onChange={(e) => onUpdate({ last_check: e.target.value })} className="w-full border rounded px-2 py-1 text-sm" />
           </div>
         </div>
         <div className="mt-3">
           <label className="block text-xs font-medium text-gray-600 mb-1">⚠️ Issues / Bloccanti</label>
-          <textarea value={data.issues || ''}
-            onChange={(e) => onUpdate({ issues: e.target.value })}
-            rows={3} className="w-full border rounded px-2 py-1 text-sm"
-            placeholder="Es: Ritardo fornitore X, mancanza risorse Y..." />
+          <textarea value={data.issues || ''} onChange={(e) => onUpdate({ issues: e.target.value })} rows={3} className="w-full border rounded px-2 py-1 text-sm" placeholder="Es: Ritardo fornitore X, mancanza risorse Y..." />
         </div>
       </div>
     </div>
   )
 }
 
-// ─── STEP 5: Bridge + Lezioni ────────────────────────────
 function Step5Content({ data, color, onUpdate }) {
   const bridges = data.bridge_data || []
-
-  function addBridge() {
-    onUpdate({ bridge_data: [...bridges, { id: Date.now().toString(), kpi_label: '', baseline_year: '', planned_savings: '', actual_savings: '', gap_reason: '' }] })
-  }
-  function updateBridge(id, updates) {
-    onUpdate({ bridge_data: bridges.map(b => b.id === id ? { ...b, ...updates } : b) })
-  }
-  function removeBridge(id) {
-    onUpdate({ bridge_data: bridges.filter(b => b.id !== id) })
-  }
+  function addBridge() { onUpdate({ bridge_data: [...bridges, { id: Date.now().toString(), kpi_label: '', baseline_year: '', planned_savings: '', actual_savings: '', gap_reason: '' }] }) }
+  function updateBridge(id, updates) { onUpdate({ bridge_data: bridges.map(b => b.id === id ? { ...b, ...updates } : b) }) }
+  function removeBridge(id) { onUpdate({ bridge_data: bridges.filter(b => b.id !== id) }) }
 
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        ℹ️ <strong>Cosa fare:</strong> Confronta baseline → planned → actual per ogni KPI. Compila il gap analysis e le lezioni apprese per il prossimo ciclo.
+        ℹ️ <strong>Cosa fare:</strong> Confronta baseline → planned → actual per ogni KPI. Compila il gap analysis e le lezioni apprese.
       </div>
-
       <div className="flex justify-between items-center">
         <h4 className="font-semibold text-sm uppercase text-gray-700">🏁 Bridge Chart — Close the Loop</h4>
-        <button onClick={addBridge} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
-          + Aggiungi KPI Bridge
-        </button>
+        <button onClick={addBridge} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi KPI Bridge</button>
       </div>
-
       {bridges.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
-          Nessun bridge data. Aggiungi per ogni KPI: baseline → planned → actual → gap.
-        </div>
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun bridge data. Aggiungi per ogni KPI: baseline → planned → actual → gap.</div>
       ) : (
         <div className="space-y-2">
           {bridges.map(b => {
@@ -767,55 +585,31 @@ function Step5Content({ data, color, onUpdate }) {
             return (
               <div key={b.id} className="bg-white p-3 rounded-lg border">
                 <div className="grid grid-cols-12 gap-2 items-center mb-2">
-                  <input className="col-span-4 border rounded px-2 py-1 text-sm font-medium"
-                    value={b.kpi_label}
-                    onChange={(e) => updateBridge(b.id, { kpi_label: e.target.value })}
-                    placeholder="Es: OEE" />
-                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm"
-                    value={b.baseline_year}
-                    onChange={(e) => updateBridge(b.id, { baseline_year: e.target.value })}
-                    placeholder="Baseline" />
-                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm"
-                    value={b.planned_savings}
-                    onChange={(e) => updateBridge(b.id, { planned_savings: e.target.value })}
-                    placeholder="Planned" />
-                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm"
-                    value={b.actual_savings}
-                    onChange={(e) => updateBridge(b.id, { actual_savings: e.target.value })}
-                    placeholder="Actual" />
+                  <input className="col-span-4 border rounded px-2 py-1 text-sm font-medium" value={b.kpi_label} onChange={(e) => updateBridge(b.id, { kpi_label: e.target.value })} placeholder="Es: OEE" />
+                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={b.baseline_year} onChange={(e) => updateBridge(b.id, { baseline_year: e.target.value })} placeholder="Baseline" />
+                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={b.planned_savings} onChange={(e) => updateBridge(b.id, { planned_savings: e.target.value })} placeholder="Planned" />
+                  <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={b.actual_savings} onChange={(e) => updateBridge(b.id, { actual_savings: e.target.value })} placeholder="Actual" />
                   <div className={`col-span-1 text-center text-xs font-bold px-2 py-1 rounded ${gap >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                     {gap >= 0 ? '+' : ''}{gap.toFixed(1)}
                   </div>
-                  <button onClick={() => removeBridge(b.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded">
-                    <Trash2 size={14} />
-                  </button>
+                  <button onClick={() => removeBridge(b.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
                 </div>
                 {gap < 0 && (
-                  <input className="w-full border rounded px-2 py-1 text-xs"
-                    value={b.gap_reason || ''}
-                    onChange={(e) => updateBridge(b.id, { gap_reason: e.target.value })}
-                    placeholder="⚠️ Motivo del gap (perché non abbiamo raggiunto il target?)" />
+                  <input className="w-full border rounded px-2 py-1 text-xs" value={b.gap_reason || ''} onChange={(e) => updateBridge(b.id, { gap_reason: e.target.value })} placeholder="⚠️ Motivo del gap" />
                 )}
               </div>
             )
           })}
         </div>
       )}
-
       <div>
         <label className="block text-xs font-medium text-gray-600 uppercase mb-1">💡 Lezioni apprese</label>
-        <textarea value={data.lezioni_apprese || ''}
-          onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })}
-          rows={4} className="w-full border rounded-lg px-3 py-2 text-sm"
-          placeholder="Cosa abbiamo imparato? Cosa replicheremo? Cosa cambieremo per il prossimo ciclo?" />
+        <textarea value={data.lezioni_apprese || ''} onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })} rows={4} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Cosa abbiamo imparato? Cosa replicheremo? Cosa cambieremo per il prossimo ciclo?" />
       </div>
     </div>
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// KAIZEN LIST + MATURITY PLACEHOLDER
-// ──────────────────────────────────────────────────────────
 function KaizenList({ kaizens, pillar }) {
   if (kaizens.length === 0) {
     return (
@@ -879,9 +673,6 @@ function MaturityPlaceholder({ color }) {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// 📅 MASTER PLAN
-// ──────────────────────────────────────────────────────────
 const CELL_STATES = [
   { value: 0, label: 'Vuoto', color: '' },
   { value: 1, label: 'Pianificato', color: '#10b981' },
@@ -922,10 +713,7 @@ function MasterPlanTab({ pillar, color, onSaved }) {
       await api.put(`/pillars/${pillar._id}`, {
         gantt_items: [{ type: 'masterplan', data: dataRef.current }],
       })
-      if (!silent) {
-        setLastSaved(new Date())
-        setHasUnsavedChanges(false)
-      }
+      if (!silent) { setLastSaved(new Date()); setHasUnsavedChanges(false) }
     } catch (err) {
       console.error(err)
       if (!silent) alert('Errore salvataggio: ' + (err.response?.data?.detail || err.message))
@@ -945,57 +733,42 @@ function MasterPlanTab({ pillar, color, onSaved }) {
   function getCellValue(stepId, year, quarter) {
     return data.cells[`${stepId}_${year}_${quarter}`] || 0
   }
-
   function cycleCell(stepId, year, quarter) {
     const key = `${stepId}_${year}_${quarter}`
     const current = data.cells[key] || 0
     const next = (current + 1) % CELL_STATES.length
-    setData(prev => ({
-      ...prev,
-      cells: { ...prev.cells, next },
-    }))
+    setData(prev => {
+      const newCells = { ...prev.cells }
+      newCells[key] = next
+      return { ...prev, cells: newCells }
+    })
   }
-
   function clearRow(stepId) {
     if (!confirm('Pulire tutte le celle di questa riga?')) return
     setData(prev => {
       const newCells = { ...prev.cells }
-      Object.keys(newCells).forEach(k => {
-        if (k.startsWith(`${stepId}_`)) delete newCells[k]
-      })
+      Object.keys(newCells).forEach(k => { if (k.startsWith(`${stepId}_`)) delete newCells[k] })
       return { ...prev, cells: newCells }
     })
   }
-
   function updateStepLabel(stepId, newLabel) {
-    setData(prev => ({
-      ...prev,
-      steps: prev.steps.map(s => s.id === stepId ? { ...s, label: newLabel } : s),
-    }))
+    setData(prev => ({ ...prev, steps: prev.steps.map(s => s.id === stepId ? { ...s, label: newLabel } : s) }))
   }
-
   function addStep() {
     const newId = `s${Date.now()}`
     const newNum = data.steps.length + 1
-    setData(prev => ({
-      ...prev,
-      steps: [...prev.steps, { id: newId, num: newNum, label: `Step ${newNum} — Nuovo` }],
-    }))
+    setData(prev => ({ ...prev, steps: [...prev.steps, { id: newId, num: newNum, label: `Step ${newNum} — Nuovo` }] }))
   }
-
   function removeStep(stepId) {
     if (!confirm('Eliminare questo step e tutte le sue celle?')) return
     setData(prev => {
       const newCells = { ...prev.cells }
-      Object.keys(newCells).forEach(k => {
-        if (k.startsWith(`${stepId}_`)) delete newCells[k]
-      })
+      Object.keys(newCells).forEach(k => { if (k.startsWith(`${stepId}_`)) delete newCells[k] })
       const filteredSteps = prev.steps.filter(s => s.id !== stepId)
       const renumbered = filteredSteps.map((s, i) => ({ ...s, num: i + 1 }))
       return { ...prev, steps: renumbered, cells: newCells }
     })
   }
-
   function moveStep(stepId, direction) {
     setData(prev => {
       const idx = prev.steps.findIndex(s => s.id === stepId)
@@ -1003,16 +776,21 @@ function MasterPlanTab({ pillar, color, onSaved }) {
       const newIdx = direction === 'up' ? idx - 1 : idx + 1
       if (newIdx < 0 || newIdx >= prev.steps.length) return prev
       const newSteps = [...prev.steps]
-      ;[newSteps[idx], newSteps[newIdx]] = [newSteps[newIdx], newSteps[idx]]
+      const tmp = newSteps[idx]
+      newSteps[idx] = newSteps[newIdx]
+      newSteps[newIdx] = tmp
       const renumbered = newSteps.map((s, i) => ({ ...s, num: i + 1 }))
       return { ...prev, steps: renumbered }
     })
   }
-
   function updateYearRange(field, value) {
     const v = parseInt(value) || 0
     if (v < 2000 || v > 2100) return
-    setData(prev => ({ ...prev, v }))
+    setData(prev => {
+      const newData = { ...prev }
+      newData[field] = v
+      return newData
+    })
   }
 
   const years = []
@@ -1032,32 +810,20 @@ function MasterPlanTab({ pillar, color, onSaved }) {
              hasUnsavedChanges ? <span className="text-orange-600 font-medium">⚠️ Non salvato</span> :
              lastSaved ? <span className="text-green-600">💾 Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> :
              <span className="text-gray-400">Pronto</span>}
-            <button onClick={() => doSave(false)} disabled={saving} className="text-white px-3 py-1 rounded text-xs shadow" style={{ backgroundColor: color }}>
-              💾 Salva ora
-            </button>
+            <button onClick={() => doSave(false)} disabled={saving} className="text-white px-3 py-1 rounded text-xs shadow" style={{ backgroundColor: color }}>💾 Salva ora</button>
           </div>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end pt-3 border-t">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Anno inizio</label>
-            <input type="number" min="2000" max="2100"
-              value={data.start_year}
-              onChange={(e) => updateYearRange('start_year', e.target.value)}
-              className="w-full border rounded px-2 py-1 text-sm" />
+            <input type="number" min="2000" max="2100" value={data.start_year} onChange={(e) => updateYearRange('start_year', e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Anno fine</label>
-            <input type="number" min="2000" max="2100"
-              value={data.end_year}
-              onChange={(e) => updateYearRange('end_year', e.target.value)}
-              className="w-full border rounded px-2 py-1 text-sm" />
+            <input type="number" min="2000" max="2100" value={data.end_year} onChange={(e) => updateYearRange('end_year', e.target.value)} className="w-full border rounded px-2 py-1 text-sm" />
           </div>
-          <button onClick={addStep} className="text-white px-3 py-1.5 rounded text-sm font-medium flex items-center justify-center gap-1 shadow" style={{ backgroundColor: color }}>
-            <Plus size={14} /> Aggiungi Step
-          </button>
+          <button onClick={addStep} className="text-white px-3 py-1.5 rounded text-sm font-medium flex items-center justify-center gap-1 shadow" style={{ backgroundColor: color }}><Plus size={14} /> Aggiungi Step</button>
         </div>
-
         <div className="flex gap-3 mt-3 pt-3 border-t text-xs items-center flex-wrap">
           <span className="font-medium text-gray-600">Stati cella:</span>
           {CELL_STATES.map(s => (
@@ -1069,7 +835,6 @@ function MasterPlanTab({ pillar, color, onSaved }) {
           <span className="ml-auto text-gray-500 italic">💡 Click su cella per cambiare stato</span>
         </div>
       </div>
-
       <div className="bg-white rounded-xl shadow overflow-x-auto">
         <div style={{ minWidth: years.length * 80 + 412 }}>
           <div className="flex border-b bg-gray-100 sticky top-0 z-10">
@@ -1078,9 +843,7 @@ function MasterPlanTab({ pillar, color, onSaved }) {
             <div className="w-20 px-1 py-2 text-xs font-bold text-center border-r">Azioni</div>
             {years.map(year => (
               <div key={year} className="flex-1 min-w-[80px] border-r last:border-r-0">
-                <div className="text-center font-bold text-xs py-1 border-b" style={{ backgroundColor: `${color}15`, color }}>
-                  {year}
-                </div>
+                <div className="text-center font-bold text-xs py-1 border-b" style={{ backgroundColor: `${color}15`, color }}>{year}</div>
                 <div className="flex">
                   {quarters.map(q => (
                     <div key={q} className="flex-1 text-center text-[10px] font-medium text-gray-500 py-0.5 border-r last:border-r-0">{q}</div>
@@ -1089,60 +852,35 @@ function MasterPlanTab({ pillar, color, onSaved }) {
               </div>
             ))}
           </div>
-
           {data.steps.map((step, idx) => (
             <div key={step.id} className="flex border-b hover:bg-gray-50">
-              <div className="w-12 px-2 py-2 text-sm font-bold text-center border-r flex items-center justify-center"
-                style={{ backgroundColor: `${color}25`, color }}>
-                {step.num}
-              </div>
-
+              <div className="w-12 px-2 py-2 text-sm font-bold text-center border-r flex items-center justify-center" style={{ backgroundColor: `${color}25`, color }}>{step.num}</div>
               <div className="w-80 px-2 py-1 border-r flex items-center">
                 {editingStepId === step.id ? (
-                  <input autoFocus value={step.label}
-                    onChange={(e) => updateStepLabel(step.id, e.target.value)}
-                    onBlur={() => setEditingStepId(null)}
-                    onKeyDown={(e) => e.key === 'Enter' && setEditingStepId(null)}
-                    className="w-full border rounded px-2 py-1 text-xs" />
+                  <input autoFocus value={step.label} onChange={(e) => updateStepLabel(step.id, e.target.value)} onBlur={() => setEditingStepId(null)} onKeyDown={(e) => e.key === 'Enter' && setEditingStepId(null)} className="w-full border rounded px-2 py-1 text-xs" />
                 ) : (
-                  <div onClick={() => setEditingStepId(step.id)}
-                    className="text-xs cursor-pointer hover:bg-yellow-50 px-2 py-1 rounded w-full"
-                    title="Click per modificare">
-                    {step.label}
-                  </div>
+                  <div onClick={() => setEditingStepId(step.id)} className="text-xs cursor-pointer hover:bg-yellow-50 px-2 py-1 rounded w-full" title="Click per modificare">{step.label}</div>
                 )}
               </div>
-
               <div className="w-20 px-1 border-r flex items-center justify-center gap-0.5">
-                <button onClick={() => moveStep(step.id, 'up')} disabled={idx === 0}
-                  className="text-xs px-1 hover:bg-gray-200 rounded disabled:opacity-30" title="Sposta su">▲</button>
-                <button onClick={() => moveStep(step.id, 'down')} disabled={idx === data.steps.length - 1}
-                  className="text-xs px-1 hover:bg-gray-200 rounded disabled:opacity-30" title="Sposta giù">▼</button>
-                <button onClick={() => clearRow(step.id)}
-                  className="text-xs px-1 hover:bg-yellow-100 rounded text-yellow-600" title="Pulisci riga">⌫</button>
-                <button onClick={() => removeStep(step.id)}
-                  className="p-0.5 hover:bg-red-100 rounded text-red-600" title="Elimina step">
-                  <Trash2 size={11} />
-                </button>
+                <button onClick={() => moveStep(step.id, 'up')} disabled={idx === 0} className="text-xs px-1 hover:bg-gray-200 rounded disabled:opacity-30" title="Sposta su">▲</button>
+                <button onClick={() => moveStep(step.id, 'down')} disabled={idx === data.steps.length - 1} className="text-xs px-1 hover:bg-gray-200 rounded disabled:opacity-30" title="Sposta giù">▼</button>
+                <button onClick={() => clearRow(step.id)} className="text-xs px-1 hover:bg-yellow-100 rounded text-yellow-600" title="Pulisci riga">⌫</button>
+                <button onClick={() => removeStep(step.id)} className="p-0.5 hover:bg-red-100 rounded text-red-600" title="Elimina step"><Trash2 size={11} /></button>
               </div>
-
               {years.map(year => (
                 <div key={year} className="flex-1 min-w-[80px] border-r last:border-r-0 flex">
                   {quarters.map((q, qIdx) => {
                     const val = getCellValue(step.id, year, qIdx + 1)
                     const state = CELL_STATES[val]
                     return (
-                      <button key={q} onClick={() => cycleCell(step.id, year, qIdx + 1)}
-                        className="flex-1 border-r last:border-r-0 hover:opacity-75 transition-opacity"
-                        style={{ backgroundColor: state.color || 'transparent', minHeight: '32px' }}
-                        title={`${year} ${q}: ${state.label}`} />
+                      <button key={q} onClick={() => cycleCell(step.id, year, qIdx + 1)} className="flex-1 border-r last:border-r-0 hover:opacity-75 transition-opacity" style={{ backgroundColor: state.color || 'transparent', minHeight: '32px' }} title={`${year} ${q}: ${state.label}`} />
                     )
                   })}
                 </div>
               ))}
             </div>
           ))}
-
           {data.steps.length === 0 && (
             <div className="text-center py-12 text-gray-400">
               <div className="text-4xl mb-2">📅</div>
