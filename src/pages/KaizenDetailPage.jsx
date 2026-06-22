@@ -1196,18 +1196,3 @@ function StandardElementsTab({ kaizen, onSaved }) {
     </div>
   )
 }
-      {/* Footer info */}
-      <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-4 text-sm text-blue-700">
-        <div className="font-semibold mb-1">ℹ️ Come compilare</div>
-        <div className="text-xs space-y-1">
-          <div>• <strong>✓ OK (1)</strong> → Elemento pienamente soddisfatto</div>
-          <div>• <strong>⚠️ Parziale (0.5)</strong> → Soddisfatto ma migliorabile</div>
-          <div>• <strong>❌ Non OK (0)</strong> → Elemento mancante o non sufficiente</div>
-          <div className="mt-2 pt-2 border-t border-blue-200">
-            <strong>Soglie Lindt:</strong> 🏆 PASS = 8 · ⚠️ PARTIAL = 5-7 · ❌ FAIL = &lt; 5
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
