@@ -6,16 +6,6 @@ import { useAllConfigurations } from '../hooks/useConfigurations'
 const STATI = ['Da Valutare', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
 const PRIORITA = ['Lowest', 'Low', 'Medium', 'High', 'Critical']
 
-/**
- * Componente condiviso per creare/modificare un Action Plan.
- * Usato sia in ActionPlanPage (pagina principale) sia in KaizenDetailPage (tab Azioni).
- * 
- * Props:
- * - plan: l'AP da modificare (null per nuovo)
- * - onClose: funzione chiamata alla chiusura
- * - onSaved: callback con (savedPlan) dopo salvataggio
- * - prefilledKaizen: { kaizen_id, kaizen_numero } per pre-collegare a un Kaizen
- */
 export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilledKaizen = null }) {
   const [form, setForm] = useState({
     titolo: plan?.titolo || '',
@@ -40,33 +30,30 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
     setSaving(true)
     try {
       const tagsArray = form.tags.split(',').map(t => t.trim()).filter(Boolean)
-      
-      // Se abbiamo un Kaizen pre-collegato, aggiungiamo un tag automatico
+
       if (prefilledKaizen?.kaizen_numero) {
         const kaizenTag = `kaizen-${prefilledKaizen.kaizen_numero}`
         if (!tagsArray.includes(kaizenTag)) {
           tagsArray.push(kaizenTag)
         }
       }
-      
-      // Pulisce campi vuoti per evitare errori di validazione
+
       const cleanForm = Object.fromEntries(
         Object.entries(form).filter(([k, v]) => v !== '' && v !== null && v !== undefined)
       )
-      
+
       const payload = {
         ...cleanForm,
         tags: tagsArray,
         data_scadenza: form.data_scadenza ? new Date(form.data_scadenza).toISOString() : null,
       }
-      
+
       let res
       if (plan?._id) {
         res = await api.put(`/action-plans/${plan._id}`, payload)
       } else {
         res = await api.post('/action-plans/', payload)
-        
-        // Se è un nuovo AP e abbiamo un Kaizen pre-collegato, lo linkiamo subito
+
         if (prefilledKaizen?.kaizen_id && res.data?._id) {
           try {
             await api.post(`/action-plans/${res.data._id}/link-kaizen`, {
@@ -78,17 +65,15 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
           }
         }
       }
-      
+
       onSaved(res.data)
     } catch (err) {
       console.error(err)
-      // Parser migliorato per errori Pydantic
       let msg = 'Errore sconosciuto'
       const detail = err.response?.data?.detail
       if (typeof detail === 'string') {
         msg = detail
       } else if (Array.isArray(detail)) {
-        // Errori di validazione Pydantic: array di oggetti
         msg = detail.map(d => {
           const field = d.loc ? d.loc.slice(1).join('.') : 'campo'
           return `${field}: ${d.msg}`
@@ -100,6 +85,8 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
     } finally {
       setSaving(false)
     }
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[95vh] overflow-y-auto">
@@ -298,7 +285,7 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
       </div>
     </div>
   )
-} 
+}
 
 function Field({ label, children }) {
   return (
