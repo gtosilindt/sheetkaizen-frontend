@@ -3,22 +3,25 @@ import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { Plus, Search, Trash2 } from 'lucide-react'
 import { useAllConfigurations } from '../hooks/useConfigurations'
+import { usePillars } from '../hooks/usePillars'
 
 export default function KaizenListPage() {
   const [kaizens, setKaizens] = useState([])
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
-  const [newKaizen, setNewKaizen] = useState({
+ const [newKaizen, setNewKaizen] = useState({
     titolo: '',
     tipo: '',
     reparto: '',
     linea: '',
     macchina: '',
     tipo_perdita: '',
+    pillar_id: '',
   })
   const [filterTipo, setFilterTipo] = useState('')
+  const [filterPillar, setFilterPillar] = useState('')
   const { configs } = useAllConfigurations()
-
+  const { pillars } = usePillars()
   useEffect(() => { loadKaizens() }, [])
 
   const loadKaizens = async () => {
@@ -34,7 +37,7 @@ export default function KaizenListPage() {
     try {
       await api.post('/kaizens', newKaizen)
       setShowModal(false)
-      setNewKaizen({ titolo: '', tipo: '', reparto: '', linea: '', macchina: '', tipo_perdita: '' })
+      setNewKaizen({ titolo: '', tipo: '', reparto: '', linea: '', macchina: '', tipo_perdita: '', pillar_id: '' })
       loadKaizens()
     } catch (err) {
       console.error(err)
@@ -79,7 +82,8 @@ export default function KaizenListPage() {
     const matchSearch = k.titolo?.toLowerCase().includes(search.toLowerCase()) ||
                         k.numero?.toLowerCase().includes(search.toLowerCase())
     const matchTipo = !filterTipo || k.tipo === filterTipo
-    return matchSearch && matchTipo
+    const matchPillar = !filterPillar || k.pillar_id === filterPillar
+    return matchSearch && matchTipo && matchPillar
   })
 
   const getTipoBadge = (tipo) => {
@@ -104,7 +108,7 @@ export default function KaizenListPage() {
       </div>
 
       {/* FILTERS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-3 text-gray-400" size={18} />
           <input
@@ -126,8 +130,20 @@ export default function KaizenListPage() {
             </option>
           ))}
         </select>
+        <select
+          value={filterPillar}
+          onChange={(e) => setFilterPillar(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Tutti i pillar</option>
+          {pillars.map(p => (
+            <option key={p._id} value={p._id}>
+              {p.icon ? `${p.icon} ` : ''}{p.sigla} — {p.label}
+            </option>
+          ))}
+        </select>
         <div className="text-sm text-gray-500 self-center">
-          📊 {filtered.length} kaizen{filtered.length !== 1 ? '' : ''}
+          📊 {filtered.length} kaizen
         </div>
       </div>
 
