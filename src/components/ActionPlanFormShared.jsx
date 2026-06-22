@@ -49,8 +49,13 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
         }
       }
       
+      // Pulisce campi vuoti per evitare errori di validazione
+      const cleanForm = Object.fromEntries(
+        Object.entries(form).filter(([k, v]) => v !== '' && v !== null && v !== undefined)
+      )
+      
       const payload = {
-        ...form,
+        ...cleanForm,
         tags: tagsArray,
         data_scadenza: form.data_scadenza ? new Date(form.data_scadenza).toISOString() : null,
       }
@@ -77,12 +82,24 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
       onSaved(res.data)
     } catch (err) {
       console.error(err)
-      alert('Errore: ' + (err.response?.data?.detail || err.message))
+      // Parser migliorato per errori Pydantic
+      let msg = 'Errore sconosciuto'
+      const detail = err.response?.data?.detail
+      if (typeof detail === 'string') {
+        msg = detail
+      } else if (Array.isArray(detail)) {
+        // Errori di validazione Pydantic: array di oggetti
+        msg = detail.map(d => {
+          const field = d.loc ? d.loc.slice(1).join('.') : 'campo'
+          return `${field}: ${d.msg}`
+        }).join('\n')
+      } else if (err.message) {
+        msg = err.message
+      }
+      alert('❌ Errore salvataggio:\n\n' + msg)
     } finally {
       setSaving(false)
     }
-  }
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[95vh] overflow-y-auto">
