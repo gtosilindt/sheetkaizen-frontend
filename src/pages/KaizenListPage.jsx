@@ -9,7 +9,7 @@ export default function KaizenListPage() {
   const [kaizens, setKaizens] = useState([])
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
- const [newKaizen, setNewKaizen] = useState({
+  const [newKaizen, setNewKaizen] = useState({
     titolo: '',
     tipo: '',
     reparto: '',
@@ -22,6 +22,7 @@ export default function KaizenListPage() {
   const [filterPillar, setFilterPillar] = useState('')
   const { configs } = useAllConfigurations()
   const { pillars } = usePillars()
+
   useEffect(() => { loadKaizens() }, [])
 
   const loadKaizens = async () => {
@@ -35,7 +36,21 @@ export default function KaizenListPage() {
     if (!newKaizen.titolo.trim()) return alert('Inserisci un titolo')
     if (!newKaizen.tipo) return alert('Seleziona una tipologia Kaizen')
     try {
-      await api.post('/kaizens', newKaizen)
+      const res = await api.post('/kaizens', newKaizen)
+
+      // Se è stato selezionato un pillar, chiamiamo link-kaizen per denormalizzare sigla+label
+      if (newKaizen.pillar_id && res.data?.id) {
+        try {
+          await api.post(`/pillars/${newKaizen.pillar_id}/link-kaizen`, {
+            kaizen_id: res.data.id,
+            kaizen_numero: res.data.numero,
+            kaizen_titolo: newKaizen.titolo,
+          })
+        } catch (linkErr) {
+          console.warn('Link pillar fallito (ma kaizen creato):', linkErr)
+        }
+      }
+
       setShowModal(false)
       setNewKaizen({ titolo: '', tipo: '', reparto: '', linea: '', macchina: '', tipo_perdita: '', pillar_id: '' })
       loadKaizens()
@@ -48,27 +63,27 @@ export default function KaizenListPage() {
   const deleteKaizen = async (kaizen, e) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     try {
       const apRes = await api.get(`/kaizens/${kaizen._id}/action-plans`)
       const apCount = apRes.data?.length || 0
-      
+
       const childrenRes = await api.get(`/kaizens/${kaizen._id}/children`)
       const childrenCount = childrenRes.data?.length || 0
-      
+
       let confirmMsg = `🗑️ Eliminare "${kaizen.numero} - ${kaizen.titolo}"?`
-      
+
       if (apCount > 0 || childrenCount > 0) {
         confirmMsg += `\n\n⚠️ ATTENZIONE:`
         if (apCount > 0) confirmMsg += `\n• ${apCount} Action Plan collegati`
         if (childrenCount > 0) confirmMsg += `\n• ${childrenCount} Kaizen figli`
         confirmMsg += `\n\nGli AP rimarranno ma perderanno il link.\nI Kaizen figli diventeranno top-level.`
       }
-      
+
       confirmMsg += `\n\nProcedere?`
-      
+
       if (!confirm(confirmMsg)) return
-      
+
       await api.delete(`/kaizens/${kaizen._id}`)
       alert(`✅ Kaizen ${kaizen.numero} eliminato`)
       loadKaizens()
@@ -175,9 +190,9 @@ export default function KaizenListPage() {
                   </td>
                   <td className="p-4 font-medium">{k.titolo}</td>
                   <td className="p-4">
-                    <span 
+                    <span
                       className="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1"
-                      style={{ 
+                      style={{
                         backgroundColor: tipoBadge.color ? `${tipoBadge.color}20` : '#f3f4f6',
                         color: tipoBadge.color || '#6b7280',
                       }}
@@ -187,11 +202,11 @@ export default function KaizenListPage() {
                   </td>
                   <td className="p-4">
                     {k.pillar_sigla ? (
-                      <span 
+                      <span
                         className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono font-bold"
                         style={{
-                          backgroundColor: pillars.find(p => p._id === k.pillar_id)?.color 
-                            ? `${pillars.find(p => p._id === k.pillar_id).color}20` 
+                          backgroundColor: pillars.find(p => p._id === k.pillar_id)?.color
+                            ? `${pillars.find(p => p._id === k.pillar_id).color}20`
                             : '#e0e7ff',
                           color: pillars.find(p => p._id === k.pillar_id)?.color || '#4f46e5',
                         }}
@@ -201,6 +216,13 @@ export default function KaizenListPage() {
                     ) : (
                       <span className="text-xs text-gray-400">—</span>
                     )}
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      k.stato === 'Aperto' ? 'bg-blue-100 text-blue-700' :
+                      k.stato === 'In Corso' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>{k.stato}</span>
                   </td>
                   <td className="p-4 text-xs">{k.reparto || '—'}</td>
                   <td className="p-4 text-xs">{k.linea || '—'}</td>
@@ -246,7 +268,7 @@ export default function KaizenListPage() {
                 </label>
                 <input
                   value={newKaizen.titolo}
-                  onChange={(e) => setNewKaizen({...newKaizen, titolo: e.target.value})}
+                  onChange={(e) => setNewKaizen({ ...newKaizen, titolo: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2"
                   placeholder="Es: Riduzione microfermate linea 2"
                   autoFocus
@@ -259,7 +281,7 @@ export default function KaizenListPage() {
                 </label>
                 <select
                   value={newKaizen.tipo}
-                  onChange={(e) => setNewKaizen({...newKaizen, tipo: e.target.value})}
+                  onChange={(e) => setNewKaizen({ ...newKaizen, tipo: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2"
                 >
                   <option value="">— Seleziona —</option>
@@ -281,7 +303,7 @@ export default function KaizenListPage() {
                   <label className="block text-sm font-medium mb-1">Reparto</label>
                   <select
                     value={newKaizen.reparto}
-                    onChange={(e) => setNewKaizen({...newKaizen, reparto: e.target.value})}
+                    onChange={(e) => setNewKaizen({ ...newKaizen, reparto: e.target.value })}
                     className="w-full border rounded-lg px-2 py-2 text-sm"
                   >
                     <option value="">—</option>
@@ -296,7 +318,7 @@ export default function KaizenListPage() {
                   <label className="block text-sm font-medium mb-1">Linea</label>
                   <select
                     value={newKaizen.linea}
-                    onChange={(e) => setNewKaizen({...newKaizen, linea: e.target.value})}
+                    onChange={(e) => setNewKaizen({ ...newKaizen, linea: e.target.value })}
                     className="w-full border rounded-lg px-2 py-2 text-sm"
                   >
                     <option value="">—</option>
@@ -311,7 +333,7 @@ export default function KaizenListPage() {
                   <label className="block text-sm font-medium mb-1">Macchina</label>
                   <select
                     value={newKaizen.macchina}
-                    onChange={(e) => setNewKaizen({...newKaizen, macchina: e.target.value})}
+                    onChange={(e) => setNewKaizen({ ...newKaizen, macchina: e.target.value })}
                     className="w-full border rounded-lg px-2 py-2 text-sm"
                   >
                     <option value="">—</option>
@@ -325,13 +347,31 @@ export default function KaizenListPage() {
               </div>
 
               <div>
-                <div>
+                <label className="block text-sm font-medium mb-1">Tipo Perdita (TPM)</label>
+                <select
+                  value={newKaizen.tipo_perdita}
+                  onChange={(e) => setNewKaizen({ ...newKaizen, tipo_perdita: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2"
+                >
+                  <option value="">— Nessuna —</option>
+                  {(configs.tipi_perdita || []).map(p => (
+                    <option key={p._id} value={p.label}>
+                      {p.icon ? `${p.icon} ` : ''}{p.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-gray-500 mt-1">
+                  💡 Collega il kaizen a una perdita TPM per le analytics OEE
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium mb-1">
                   🏛️ Pillar di appartenenza
                 </label>
                 <select
                   value={newKaizen.pillar_id}
-                  onChange={(e) => setNewKaizen({...newKaizen, pillar_id: e.target.value})}
+                  onChange={(e) => setNewKaizen({ ...newKaizen, pillar_id: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2"
                 >
                   <option value="">— Nessuno (kaizen autonomo) —</option>
