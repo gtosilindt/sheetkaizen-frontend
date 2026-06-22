@@ -9,6 +9,7 @@ import DashboardDetailPage from './pages/DashboardDetailPage'
 import DocumentiPage from './pages/DocumentiPage'
 import SettingsPage from './pages/SettingsPage'
 import PillarListPage from './pages/PillarListPage'
+import PillarDetailPage from './pages/PillarDetailPage'
 import AdminPage from './pages/AdminPage'
 
 
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="dashboard/:id" element={<DashboardDetailPage />} />
         <Route path="documenti" element={<DocumentiPage />} />
         <Route path="pillars" element={<PillarListPage />} />
+        <Route path="pillars/:id" element={<PillarDetailPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
