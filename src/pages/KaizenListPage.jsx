@@ -43,16 +43,13 @@ export default function KaizenListPage() {
   }
 
   const deleteKaizen = async (kaizen, e) => {
-    // Stop propagazione per evitare di navigare al detail quando clicchi sul cestino
     e.preventDefault()
     e.stopPropagation()
     
-    // Prima controllo se ha Action Plan collegati
     try {
       const apRes = await api.get(`/kaizens/${kaizen._id}/action-plans`)
       const apCount = apRes.data?.length || 0
       
-      // Controllo anche se ha figli (per kaizen polimorfici)
       const childrenRes = await api.get(`/kaizens/${kaizen._id}/children`)
       const childrenCount = childrenRes.data?.length || 0
       
@@ -78,7 +75,13 @@ export default function KaizenListPage() {
     }
   }
 
-  // Color/icon helper per i tipi kaizen
+  const filtered = kaizens.filter(k => {
+    const matchSearch = k.titolo?.toLowerCase().includes(search.toLowerCase()) ||
+                        k.numero?.toLowerCase().includes(search.toLowerCase())
+    const matchTipo = !filterTipo || k.tipo === filterTipo
+    return matchSearch && matchTipo
+  })
+
   const getTipoBadge = (tipo) => {
     const conf = (configs.tipi_kaizen || []).find(t => t.label === tipo)
     if (conf) {
@@ -184,7 +187,6 @@ export default function KaizenListPage() {
                       <Trash2 size={16} />
                     </button>
                   </td>
-                  </tr>
                 </tr>
               )
             })}
