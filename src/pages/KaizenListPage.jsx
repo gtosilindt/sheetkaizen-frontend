@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import { useAllConfigurations } from '../hooks/useConfigurations'
 
 export default function KaizenListPage() {
@@ -42,12 +42,41 @@ export default function KaizenListPage() {
     }
   }
 
-  const filtered = kaizens.filter(k => {
-    const matchSearch = k.titolo?.toLowerCase().includes(search.toLowerCase()) ||
-                        k.numero?.toLowerCase().includes(search.toLowerCase())
-    const matchTipo = !filterTipo || k.tipo === filterTipo
-    return matchSearch && matchTipo
-  })
+  const deleteKaizen = async (kaizen, e) => {
+    // Stop propagazione per evitare di navigare al detail quando clicchi sul cestino
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Prima controllo se ha Action Plan collegati
+    try {
+      const apRes = await api.get(`/kaizens/${kaizen._id}/action-plans`)
+      const apCount = apRes.data?.length || 0
+      
+      // Controllo anche se ha figli (per kaizen polimorfici)
+      const childrenRes = await api.get(`/kaizens/${kaizen._id}/children`)
+      const childrenCount = childrenRes.data?.length || 0
+      
+      let confirmMsg = `🗑️ Eliminare "${kaizen.numero} - ${kaizen.titolo}"?`
+      
+      if (apCount > 0 || childrenCount > 0) {
+        confirmMsg += `\n\n⚠️ ATTENZIONE:`
+        if (apCount > 0) confirmMsg += `\n• ${apCount} Action Plan collegati`
+        if (childrenCount > 0) confirmMsg += `\n• ${childrenCount} Kaizen figli`
+        confirmMsg += `\n\nGli AP rimarranno ma perderanno il link.\nI Kaizen figli diventeranno top-level.`
+      }
+      
+      confirmMsg += `\n\nProcedere?`
+      
+      if (!confirm(confirmMsg)) return
+      
+      await api.delete(`/kaizens/${kaizen._id}`)
+      alert(`✅ Kaizen ${kaizen.numero} eliminato`)
+      loadKaizens()
+    } catch (err) {
+      console.error(err)
+      alert('❌ Errore eliminazione: ' + (err.response?.data?.detail || err.message))
+    }
+  }
 
   // Color/icon helper per i tipi kaizen
   const getTipoBadge = (tipo) => {
@@ -111,6 +140,7 @@ export default function KaizenListPage() {
               <th className="p-4">Reparto</th>
               <th className="p-4">Linea</th>
               <th className="p-4">Data</th>
+              <th className="p-4 text-center w-20">Azioni</th>
             </tr>
           </thead>
           <tbody>
@@ -145,6 +175,16 @@ export default function KaizenListPage() {
                   <td className="p-4 text-xs">{k.reparto || '—'}</td>
                   <td className="p-4 text-xs">{k.linea || '—'}</td>
                   <td className="p-4 text-gray-500 text-xs">{k.data_apertura?.slice(0, 10)}</td>
+<td className="p-4 text-center">
+  <button
+    onClick={(e) => deleteKaizen(k, e)}
+    className="text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors"
+    title="Elimina Kaizen"
+  >
+    <Trash2 size={16} />
+  </button>
+</td>
+</tr>
                 </tr>
               )
             })}
