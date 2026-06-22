@@ -36,6 +36,28 @@ export default function KaizenDetailPage() {
 
   if (!kaizen) return <div className="text-center py-8">Caricamento...</div>
 
+  // Determina il livello attuale (Quick/Standard/Major)
+  // Compatibile sia con i nuovi kaizen (campo `livello`) sia con i vecchi (campo `tipo`)
+  const getLivello = () => {
+    if (kaizen.livello && ['Quick', 'Standard', 'Major'].includes(kaizen.livello)) {
+      return kaizen.livello
+    }
+    if (kaizen.tipo?.includes('Quick')) return 'Quick'
+    if (kaizen.tipo?.includes('Standard')) return 'Standard'
+    if (kaizen.tipo?.includes('Major')) return 'Major'
+    return 'Quick'
+  }
+
+  const livelloAttuale = getLivello()
+  const LIVELLI = ['Quick', 'Standard', 'Major']
+  const indiceLivello = LIVELLI.indexOf(livelloAttuale)
+
+  const livelloConfig = {
+    Quick: { icon: '⚡', color: '#10b981', label: 'Quick Kaizen', desc: 'Risoluzione rapida' },
+    Standard: { icon: '📊', color: '#3b82f6', label: 'Standard Kaizen', desc: 'Progetto strutturato' },
+    Major: { icon: '🏆', color: '#8b5cf6', label: 'Major Kaizen', desc: 'Iniziativa Pillar' },
+  }
+
   const tabs = [
     { id: 'quickkaizen', label: 'Quick Kaizen' },
     { id: 'lavagna', label: 'Lavagna' },
@@ -44,23 +66,84 @@ export default function KaizenDetailPage() {
 
   return (
     <div>
-      {/* Header */}
+      {/* Header con stepper polimorfico */}
       <div className="bg-primary text-white rounded-xl p-6 mb-6">
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start mb-5">
           <div>
-            <h1 className="text-2xl font-bold">{kaizen.titolo || 'Quick Kaizen'}</h1>
-            <div className="flex gap-6 mt-2 text-sm text-gray-300">
+            <h1 className="text-2xl font-bold">{kaizen.titolo || 'Kaizen'}</h1>
+            <div className="flex gap-4 mt-2 text-sm text-gray-200 flex-wrap">
               <span>📋 {kaizen.numero}</span>
               <span>📊 {kaizen.stato}</span>
-              <span>🏷️ {kaizen.tipo}</span>
               <span>👤 {kaizen.creatore_nome}</span>
-              <span>🏭 {kaizen.reparto}</span>
+              {kaizen.reparto && <span>🏭 {kaizen.reparto}</span>}
+              {kaizen.linea && <span>📍 {kaizen.linea}</span>}
+              {kaizen.macchina && <span>⚙️ {kaizen.macchina}</span>}
             </div>
           </div>
           <button onClick={saveKaizen} disabled={saving}
             className="bg-white text-primary px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-100">
             <Save size={18} /> {saving ? 'Salvataggio...' : 'Salva'}
           </button>
+        </div>
+
+        {/* STEPPER POLIMORFO */}
+        <div className="bg-white bg-opacity-10 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-200 uppercase tracking-wider">Livello Kaizen</span>
+            <span className="text-xs text-gray-200">
+              {indiceLivello + 1}/3
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {LIVELLI.map((lvl, idx) => {
+              const isActive = idx === indiceLivello
+              const isCompleted = idx < indiceLivello
+              const isFuture = idx > indiceLivello
+              const cfg = livelloConfig[lvl]
+
+              return (
+                <div key={lvl} className="flex-1 flex items-center">
+                  {/* Cerchio */}
+                  <div className="flex flex-col items-center flex-shrink-0">
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all ${
+                        isActive ? 'bg-white shadow-lg scale-110 ring-4 ring-white ring-opacity-30' :
+                        isCompleted ? 'bg-white bg-opacity-90' :
+                        'bg-white bg-opacity-20'
+                      }`}
+                    >
+                      {cfg.icon}
+                    </div>
+                    <div className={`text-xs mt-1 font-medium ${
+                      isActive ? 'text-white' : 'text-gray-300'
+                    }`}>
+                      {cfg.label}
+                    </div>
+                    {isActive && (
+                      <div className="text-xs text-yellow-300 font-bold mt-0.5">
+                        ATTUALE
+                      </div>
+                    )}
+                    {isFuture && (
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        🔒 Bloccato
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Linea di collegamento (tranne ultimo) */}
+                  {idx < LIVELLI.length - 1 && (
+                    <div
+                      className={`flex-1 h-1 mx-2 rounded ${
+                        idx < indiceLivello ? 'bg-white bg-opacity-90' : 'bg-white bg-opacity-20'
+                      }`}
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
