@@ -423,17 +423,10 @@ export default function KaizenDetailPage() {
           ]} phase="F7" />
       )}
       {activeTab === 'stdelements' && (
-        <PlaceholderTab icon="📊" title="8 Standard Elements" subtitle="Valutazione qualità Quick Kaizen — Lindt FI Pillar"
-          steps={[
-            { num: '1.1', label: 'Clear description of phenomenon', desc: 'Descrizione chiara del fenomeno' },
-            { num: '1.2', label: 'Impact quantified with KPI', desc: 'Impatto quantificato con KPI di loss' },
-            { num: '2.1', label: 'Stratification: clear & understanding', desc: 'Stratificazione chiara e comprensibile' },
-            { num: '2.2', label: 'Usage of 5 Whys method', desc: 'Utilizzo metodo 5 Why per causa radice' },
-            { num: '2.3', label: 'Only relevant causes verified', desc: 'Verifica solo cause rilevanti' },
-            { num: '3.1', label: 'Action log filled properly', desc: 'Log azioni completo (responsabile, data, azione)' },
-            { num: '3.2', label: 'Horizontal/vertical expansion', desc: 'Espansione orizzontale/verticale del risultato' },
-            { num: '4.1', label: 'Loss eradication', desc: 'Eliminazione definitiva della perdita' },
-          ]} phase="F5" target="Target Lindt: 8/8" />
+        <StandardElementsTab
+          kaizen={kaizen}
+          onSaved={loadKaizen}
+        />
       )}
       {activeTab === 'cmladder' && (
         <PlaceholderTab icon="🏔️" title="Countermeasure Ladder" subtitle="Classificazione robustezza contromisure — 6 livelli Lindt"
@@ -869,6 +862,237 @@ function FigliTab({ kaizenId, kaizenNumero, kaizenLivello, kaizenReparto, kaizen
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// 8 STANDARD ELEMENTS TAB — Lindt FI Pillar
+// ──────────────────────────────────────────────────────────
+const STD_ELEMENTS = [
+  {
+    area: 1,
+    areaLabel: 'Problem Description',
+    areaColor: 'bg-blue-50 border-blue-300',
+    areaHeaderColor: 'bg-blue-100 text-blue-800',
+    items: [
+      { id: '1.1', label: 'Clear description of phenomenon', desc: 'Descrizione chiara del fenomeno (cosa, dove, quando, chi, quale, come)' },
+      { id: '1.2', label: 'Impact quantified with KPI', desc: 'Impatto quantificato con KPI di loss (es: % scarti, tempo perso, costo)' },
+    ],
+  },
+  {
+    area: 2,
+    areaLabel: 'Root Cause Analysis',
+    areaColor: 'bg-purple-50 border-purple-300',
+    areaHeaderColor: 'bg-purple-100 text-purple-800',
+    items: [
+      { id: '2.1', label: 'Stratification: clear & understanding', desc: 'Stratificazione del problema chiara e comprensibile' },
+      { id: '2.2', label: 'Usage of 5 Whys method', desc: 'Utilizzo del metodo 5 Why per arrivare alla causa radice' },
+      { id: '2.3', label: 'Only relevant causes verified', desc: 'Verificate solo cause realmente rilevanti (no analisi inutili)' },
+    ],
+  },
+  {
+    area: 3,
+    areaLabel: 'Implementation',
+    areaColor: 'bg-green-50 border-green-300',
+    areaHeaderColor: 'bg-green-100 text-green-800',
+    items: [
+      { id: '3.1', label: 'Action log filled properly', desc: 'Log azioni completo con responsabile, data e azione chiara' },
+      { id: '3.2', label: 'Horizontal/vertical expansion', desc: 'Espansione orizzontale (altre linee) o verticale (altri stabilimenti)' },
+    ],
+  },
+  {
+    area: 4,
+    areaLabel: 'Standardization',
+    areaColor: 'bg-orange-50 border-orange-300',
+    areaHeaderColor: 'bg-orange-100 text-orange-800',
+    items: [
+      { id: '4.1', label: 'Loss eradication', desc: 'Eliminazione definitiva della perdita (verificata nel tempo)' },
+    ],
+  },
+]
+
+const SCORE_OPTIONS = [
+  { value: 0, label: 'Non OK', icon: '❌', color: 'bg-red-100 text-red-700 border-red-400' },
+  { value: 0.5, label: 'Parziale', icon: '⚠️', color: 'bg-yellow-100 text-yellow-700 border-yellow-400' },
+  { value: 1, label: 'OK', icon: '✓', color: 'bg-green-100 text-green-700 border-green-400' },
+]
+
+const MAX_SCORE = 8
+
+function StandardElementsTab({ kaizen, onSaved }) {
+  const [scores, setScores] = useState(kaizen.standard_elements?.scores || {})
+  const [notes, setNotes] = useState(kaizen.standard_elements?.notes || {})
+  const [saving, setSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState(null)
+
+  // Calcolo score totale
+  const totalScore = Object.values(scores).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
+  const percent = (totalScore / MAX_SCORE) * 100
+  const completedCount = Object.keys(scores).length
+  const totalElements = STD_ELEMENTS.reduce((sum, area) => sum + area.items.length, 0)
+
+  // Pass/Fail indicator
+  let passStatus = { label: 'Da Completare', color: 'bg-gray-100 text-gray-700', emoji: '📝' }
+  if (completedCount === totalElements) {
+    if (totalScore >= 8) passStatus = { label: 'PASS', color: 'bg-green-500 text-white', emoji: '🏆' }
+    else if (totalScore >= 5) passStatus = { label: 'PARTIAL PASS', color: 'bg-yellow-500 text-white', emoji: '⚠️' }
+    else passStatus = { label: 'FAIL', color: 'bg-red-500 text-white', emoji: '❌' }
+  }
+
+  // Auto-save con debounce
+  useEffect(() => {
+    if (Object.keys(scores).length === 0 && Object.keys(notes).length === 0) return
+    
+    const timer = setTimeout(async () => {
+      setSaving(true)
+      try {
+        await api.put(`/kaizens/${kaizen._id}`, {
+          standard_elements: {
+            scores,
+            notes,
+            total_score: totalScore,
+            max_score: MAX_SCORE,
+            percent: percent,
+            pass_status: passStatus.label,
+            last_evaluated_at: new Date().toISOString(),
+          },
+        })
+        setLastSaved(new Date())
+      } catch (err) {
+        console.error('Errore auto-save:', err)
+      } finally {
+        setSaving(false)
+      }
+    }, 800) // debounce 800ms
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scores, notes])
+
+  const setScore = (itemId, value) => {
+    setScores(prev => ({ ...prev, [itemId]: value }))
+  }
+
+  const setNote = (itemId, value) => {
+    setNotes(prev => ({ ...prev, [itemId]: value }))
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header con score totale */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-xl font-bold mb-1">📊 8 Standard Elements</h3>
+            <p className="text-sm text-gray-500">Valutazione qualità Quick Kaizen — Lindt FI Pillar</p>
+          </div>
+          <div className="text-right">
+            <div className={`inline-block px-3 py-1.5 rounded-lg font-bold text-sm ${passStatus.color}`}>
+              {passStatus.emoji} {passStatus.label}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {saving ? '⏳ Salvataggio...' : lastSaved ? `💾 Salvato ${lastSaved.toLocaleTimeString('it-IT')}` : ''}
+            </div>
+          </div>
+        </div>
+
+        {/* Score visivo */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-600">SCORE TOTALE</span>
+            <span className="text-sm text-gray-500">🎯 Target Lindt: 8/8</span>
+          </div>
+          <div className="flex items-baseline gap-2 mb-3">
+            <span className="text-4xl font-bold text-primary">{totalScore.toFixed(1)}</span>
+            <span className="text-xl text-gray-400">/ {MAX_SCORE}</span>
+            <span className="ml-auto text-lg font-semibold text-gray-600">{percent.toFixed(0)}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+            <div
+              className={`h-full transition-all duration-500 ${
+                totalScore >= 8 ? 'bg-green-500' :
+                totalScore >= 5 ? 'bg-yellow-500' :
+                totalScore > 0 ? 'bg-orange-500' :
+                'bg-gray-300'
+              }`}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <div className="text-xs text-gray-500 mt-2">
+            {completedCount}/{totalElements} elementi valutati
+          </div>
+        </div>
+      </div>
+
+      {/* Aree con elementi */}
+      {STD_ELEMENTS.map(area => (
+        <div key={area.area} className={`rounded-xl border-2 ${area.areaColor} overflow-hidden`}>
+          <div className={`${area.areaHeaderColor} px-4 py-2.5 font-bold text-sm`}>
+            AREA {area.area} — {area.areaLabel}
+          </div>
+          <div className="bg-white">
+            {area.items.map((item, idx) => {
+              const currentScore = scores[item.id]
+              return (
+                <div key={item.id} className={`p-4 ${idx < area.items.length - 1 ? 'border-b' : ''}`}>
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                          {item.id}
+                        </span>
+                        <span className="font-semibold text-sm">{item.label}</span>
+                      </div>
+                      <p className="text-xs text-gray-600 mb-2">{item.desc}</p>
+                    </div>
+                    
+                    {/* Score buttons */}
+                    <div className="flex gap-1 flex-shrink-0">
+                      {SCORE_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setScore(item.id, opt.value)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all ${
+                            currentScore === opt.value
+                              ? opt.color + ' shadow-md scale-105'
+                              : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                          }`}
+                          title={opt.label}
+                        >
+                          {opt.icon} {opt.value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Note opzionali */}
+                  <textarea
+                    value={notes[item.id] || ''}
+                    onChange={(e) => setNote(item.id, e.target.value)}
+                    placeholder="📝 Note opzionali (giustificazione, evidenze, riferimenti)..."
+                    rows={2}
+                    className="w-full text-xs border rounded-lg px-3 py-2 mt-1 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Footer info */}
+      <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-4 text-sm text-blue-700">
+        <div className="font-semibold mb-1">ℹ️ Come compilare</div>
+        <div className="text-xs space-y-1">
+          <div>• <strong>✓ OK (1)</strong> → Elemento pienamente soddisfatto</div>
+          <div>• <strong>⚠️ Parziale (0.5)</strong> → Soddisfatto ma migliorabile</div>
+          <div>• <strong>❌ Non OK (0)</strong> → Elemento mancante o non sufficiente</div>
+          <div className="mt-2 pt-2 border-t border-blue-200">
+            <strong>Soglie Lindt:</strong> 🏆 PASS = 8 · ⚠️ PARTIAL = 5-7 · ❌ FAIL = &lt; 5
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
