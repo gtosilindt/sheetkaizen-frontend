@@ -155,6 +155,7 @@ export default function KaizenListPage() {
               <th className="p-4">Numero</th>
               <th className="p-4">Titolo</th>
               <th className="p-4">Tipo</th>
+              <th className="p-4">Pillar</th>
               <th className="p-4">Stato</th>
               <th className="p-4">Reparto</th>
               <th className="p-4">Linea</th>
@@ -185,11 +186,21 @@ export default function KaizenListPage() {
                     </span>
                   </td>
                   <td className="p-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      k.stato === 'Aperto' ? 'bg-blue-100 text-blue-700' :
-                      k.stato === 'In Corso' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-green-100 text-green-700'
-                    }`}>{k.stato}</span>
+                    {k.pillar_sigla ? (
+                      <span 
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono font-bold"
+                        style={{
+                          backgroundColor: pillars.find(p => p._id === k.pillar_id)?.color 
+                            ? `${pillars.find(p => p._id === k.pillar_id).color}20` 
+                            : '#e0e7ff',
+                          color: pillars.find(p => p._id === k.pillar_id)?.color || '#4f46e5',
+                        }}
+                      >
+                        🏛️ {k.pillar_sigla}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="p-4 text-xs">{k.reparto || '—'}</td>
                   <td className="p-4 text-xs">{k.linea || '—'}</td>
@@ -314,21 +325,30 @@ export default function KaizenListPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Tipo Perdita (TPM)</label>
+                <div>
+                <label className="block text-sm font-medium mb-1">
+                  🏛️ Pillar di appartenenza
+                </label>
                 <select
-                  value={newKaizen.tipo_perdita}
-                  onChange={(e) => setNewKaizen({...newKaizen, tipo_perdita: e.target.value})}
+                  value={newKaizen.pillar_id}
+                  onChange={(e) => setNewKaizen({...newKaizen, pillar_id: e.target.value})}
                   className="w-full border rounded-lg px-3 py-2"
                 >
-                  <option value="">— Nessuna —</option>
-                  {(configs.tipi_perdita || []).map(p => (
-                    <option key={p._id} value={p.label}>
-                      {p.icon ? `${p.icon} ` : ''}{p.label}
+                  <option value="">— Nessuno (kaizen autonomo) —</option>
+                  {pillars.map(p => (
+                    <option key={p._id} value={p._id}>
+                      {p.icon ? `${p.icon} ` : ''}{p.sigla} — {p.label}
+                      {p.leader ? ` (${p.leader})` : ''}
                     </option>
                   ))}
                 </select>
+                {pillars.length === 0 && (
+                  <div className="text-xs text-orange-600 mt-1">
+                    ⚠️ Nessun Pillar configurato. Vai su <strong>Settings → 🏛️ Pillars</strong> per crearli.
+                  </div>
+                )}
                 <div className="text-xs text-gray-500 mt-1">
-                  💡 Collega il kaizen a una perdita TPM per le analytics OEE
+                  💡 Il Pillar gestisce il 5 Step KPI Management che include questo Kaizen
                 </div>
               </div>
 
