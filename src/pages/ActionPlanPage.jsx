@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import api from '../services/api'
 import { useAllConfigurations } from '../hooks/useConfigurations'
+import ActionPlanFormShared from '../components/ActionPlanFormShared'
 
 const STATI = ['Da Valutare', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
 const PRIORITA = ['Lowest', 'Low', 'Medium', 'High', 'Critical']
@@ -172,9 +173,11 @@ export default function ActionPlanPage() {
       )}
 
       {showForm && (
-        <ActionPlanForm plan={editingPlan}
+        <ActionPlanFormShared
+          plan={editingPlan}
           onClose={() => { setShowForm(false); setEditingPlan(null) }}
-          onSaved={(saved) => { setShowForm(false); setEditingPlan(null); loadData(); if (saved) setSelectedPlan(saved) }} />
+          onSaved={(saved) => { setShowForm(false); setEditingPlan(null); loadData(); if (saved) setSelectedPlan(saved) }}
+        />
       )}
       {selectedPlan && (
         <ActionPlanDetail plan={selectedPlan}
