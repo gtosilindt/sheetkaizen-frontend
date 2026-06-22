@@ -136,7 +136,7 @@ export default function PillarDetailPage() {
       </div>
 
       {activeTab === 'anagrafica' && <AnagraficaTab pillar={pillar} />}
-      {activeTab === 'kpi' && <KpiPlaceholder pillar={pillar} color={color} />}
+      {activeTab === 'kpi' && <KpiManagementTab pillar={pillar} color={color} onSaved={loadAll} />}
       {activeTab === 'masterplan' && <MasterPlanTab pillar={pillar} color={color} onSaved={loadAll} />}
       {activeTab === 'kaizen' && <KaizenList kaizens={kaizens} pillar={pillar} />}
       {activeTab === 'maturity' && <MaturityPlaceholder color={color} />}
@@ -221,42 +221,673 @@ function AnagraficaTab({ pillar }) {
   )
 }
 
-function KpiPlaceholder({ pillar, color }) {
-  const steps = [
-    { num: 1, label: 'KPI / KMI Definition', desc: 'Definizione KPI principale e indicatori secondari per il pillar' },
-    { num: 2, label: 'Pareto Analysis & Loss Identification', desc: 'Analisi Pareto delle perdite per prioritizzare i progetti' },
-    { num: 3, label: 'Target Definition + Project Assignment', desc: 'Target SMART e assegnazione progetti al team del pillar' },
-    { num: 4, label: 'Project Implementation', desc: 'Esecuzione progetti + monitoring continuo' },
-    { num: 5, label: 'Gap Analysis & Close the Loop', desc: 'Bridge chart target vs actual, chiusura ciclo annuale' },
-  ]
+// ──────────────────────────────────────────────────────────
+// 🎯 5 STEP KPI MANAGEMENT (Lindt FI Pillar)
+// ──────────────────────────────────────────────────────────
+const KPI_STEPS = [
+  {
+    id: 'step1_kpi_definition',
+    num: 1,
+    title: 'KPI / KMI Definition',
+    icon: '📊',
+    desc: 'Definizione KPI principale e indicatori secondari per il pillar',
+  },
+  {
+    id: 'step2_pareto_analysis',
+    num: 2,
+    title: 'Pareto Analysis & Loss Identification',
+    icon: '📉',
+    desc: 'Analisi Pareto delle perdite per prioritizzare i progetti',
+  },
+  {
+    id: 'step3_target_definition',
+    num: 3,
+    title: 'Target Definition + Project Assignment',
+    icon: '🎯',
+    desc: 'Target SMART e assegnazione progetti al team del pillar',
+  },
+  {
+    id: 'step4_implementation',
+    num: 4,
+    title: 'Project Implementation',
+    icon: '🚧',
+    desc: 'Esecuzione progetti + monitoring continuo',
+  },
+  {
+    id: 'step5_close_the_loop',
+    num: 5,
+    title: 'Gap Analysis & Close the Loop',
+    icon: '🏁',
+    desc: 'Bridge chart target vs actual, chiusura ciclo annuale',
+  },
+]
+
+function KpiManagementTab({ pillar, color, onSaved }) {
+  const [stepsData, setStepsData] = useState(() => {
+    const initial = {}
+    KPI_STEPS.forEach(s => {
+      initial[s.id] = pillar[s.id] || { completato: false, note: '' }
+    })
+    return initial
+  })
+  const [expandedStep, setExpandedStep] = useState(KPI_STEPS[0].id)
+  const [saving, setSaving] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [lastSaved, setLastSaved] = useState(null)
+  const dataRef = useRef(stepsData)
+
+  useEffect(() => { dataRef.current = stepsData }, [stepsData])
+
+  async function doSave(silent = false) {
+    if (!silent) setSaving(true)
+    try {
+      await api.put(`/pillars/${pillar._id}`, dataRef.current)
+      if (!silent) {
+        setLastSaved(new Date())
+        setHasUnsavedChanges(false)
+        onSaved?.()
+      }
+    } catch (err) {
+      console.error(err)
+      if (!silent) alert('Errore salvataggio: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      if (!silent) setSaving(false)
+    }
+  }
+
+  // Auto-save debounce
+  useEffect(() => {
+    const original = {}
+    KPI_STEPS.forEach(s => { original[s.id] = pillar[s.id] || { completato: false, note: '' } })
+    if (JSON.stringify(stepsData) === JSON.stringify(original)) return
+    setHasUnsavedChanges(true)
+    const timer = setTimeout(() => doSave(false), 600)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepsData])
+
+  function updateStep(stepId, updates) {
+    setStepsData(prev => ({
+      ...prev,
+      [stepId]: { ...prev[stepId], ...updates },
+    }))
+  }
+
+  const completedCount = Object.values(stepsData).filter(s => s.completato).length
+
   return (
-    <div className="bg-white rounded-xl shadow p-8">
-      <div className="text-center mb-6">
-        <div className="text-6xl mb-3">🎯</div>
-        <h2 className="text-2xl font-bold mb-1">5 Step KPI Management</h2>
-        <p className="text-sm text-gray-500">Metodologia ufficiale Lindt FI Pillar per il <strong>{pillar.sigla}</strong></p>
-      </div>
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-400 p-4 rounded-r-lg mb-6">
-        <div className="flex items-start gap-3">
-          <div className="text-2xl">🚧</div>
+    <div className="space-y-4">
+      {/* Header con mini stepper */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <div className="flex justify-between items-start mb-4">
           <div>
-            <div className="font-bold text-blue-900 mb-1">In costruzione</div>
-            <div className="text-sm text-blue-700">Questa sezione verrà completata nella <strong>Fase F7.6</strong>.</div>
+            <h3 className="text-xl font-bold mb-1">🎯 5 Step KPI Management</h3>
+            <p className="text-sm text-gray-500">
+              Metodologia ufficiale Lindt FI Pillar per il <strong>{pillar.sigla}</strong>
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold" style={{ color }}>{completedCount}/5</div>
+            <div className="text-xs text-gray-500 uppercase">Step Completati</div>
+            <div className="text-xs mt-1">
+              {saving ? <span className="text-blue-600">⏳ Salvataggio...</span> :
+               hasUnsavedChanges ? <span className="text-orange-600">⚠️ Non salvato</span> :
+               lastSaved ? <span className="text-green-600">💾 Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> :
+               <span className="text-gray-400">Pronto</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Mini Stepper visuale */}
+        <div className="flex items-center gap-1">
+          {KPI_STEPS.map((step, idx) => {
+            const isCompleted = stepsData[step.id]?.completato
+            const isExpanded = expandedStep === step.id
+            return (
+              <div key={step.id} className="flex-1 flex items-center">
+                <button
+                  onClick={() => setExpandedStep(isExpanded ? null : step.id)}
+                  className={`flex flex-col items-center flex-shrink-0 transition-all ${isExpanded ? 'scale-110' : ''}`}
+                >
+                  <div
+                    className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shadow ${
+                      isCompleted ? 'text-white' : 'bg-white border-2 text-gray-400'
+                    }`}
+                    style={isCompleted ? { backgroundColor: color } : { borderColor: color }}
+                  >
+                    {isCompleted ? '✓' : step.num}
+                  </div>
+                  <div className={`text-xs mt-1 font-medium ${isExpanded ? '' : 'text-gray-500'}`} style={isExpanded ? { color } : {}}>
+                    Step {step.num}
+                  </div>
+                </button>
+                {idx < KPI_STEPS.length - 1 && (
+                  <div
+                    className="flex-1 h-1 mx-1 rounded"
+                    style={{ backgroundColor: isCompleted ? color : '#e5e7eb' }}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Accordion degli step */}
+      {KPI_STEPS.map(step => {
+        const data = stepsData[step.id]
+        const isExpanded = expandedStep === step.id
+        const isCompleted = data?.completato
+
+        return (
+          <div
+            key={step.id}
+            className="bg-white rounded-xl shadow overflow-hidden transition-all"
+            style={{ borderLeft: `4px solid ${isCompleted ? color : '#e5e7eb'}` }}
+          >
+            {/* Header step (cliccabile) */}
+            <button
+              onClick={() => setExpandedStep(isExpanded ? null : step.id)}
+              className="w-full px-5 py-4 flex items-center gap-3 hover:bg-gray-50 transition-colors"
+            >
+              <div
+                className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold flex-shrink-0 ${
+                  isCompleted ? 'text-white' : 'bg-gray-100 text-gray-500'
+                }`}
+                style={isCompleted ? { backgroundColor: color } : {}}
+              >
+                {isCompleted ? '✓' : step.num}
+              </div>
+              <div className="flex-1 text-left">
+                <div className="font-semibold flex items-center gap-2">
+                  <span className="text-lg">{step.icon}</span>
+                  STEP {step.num} — {step.title}
+                  {isCompleted && (
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                      ✅ Completato
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">{step.desc}</div>
+              </div>
+              <div className="text-gray-400">{isExpanded ? '▲' : '▼'}</div>
+            </button>
+
+            {/* Body step (espandibile) */}
+            {isExpanded && (
+              <div className="px-5 pb-5 pt-2 border-t bg-gray-50">
+                <StepContent
+                  step={step}
+                  data={data}
+                  color={color}
+                  onUpdate={(updates) => updateStep(step.id, updates)}
+                />
+
+                {/* Toggle completato + note (presenti in tutti gli step) */}
+                <div className="mt-4 pt-4 border-t space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 uppercase mb-1">
+                      📝 Note dello step
+                    </label>
+                    <textarea
+                      value={data.note || ''}
+                      onChange={(e) => updateStep(step.id, { note: e.target.value })}
+                      rows={3}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      placeholder="Note, contesto, decisioni prese..."
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-3 p-3 bg-white border-2 rounded-lg cursor-pointer hover:bg-gray-50"
+                    style={{ borderColor: isCompleted ? color : '#e5e7eb' }}>
+                    <input
+                      type="checkbox"
+                      checked={isCompleted}
+                      onChange={(e) => updateStep(step.id, { completato: e.target.checked })}
+                      className="w-5 h-5"
+                      style={{ accentColor: color }}
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">
+                        {isCompleted ? '✅ Step Completato' : '☐ Marca come completato'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {isCompleted ? 'Lo step è considerato concluso. Procedi al successivo.' : 'Spunta quando hai finito le attività di questo step.'}
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Footer info */}
+      <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-4 text-sm text-blue-700">
+        <div className="font-semibold mb-1">ℹ️ Come funziona il 5 Step KPI Management</div>
+        <div className="text-xs space-y-1">
+          <div>📌 <strong>Click su step</strong> → espandi/comprimi sezione</div>
+          <div>📌 Compila i campi specifici di ogni step (KPI, perdite, progetti, bridge chart)</div>
+          <div>📌 Spunta <strong>"Marca come completato"</strong> per indicare avanzamento</div>
+          <div>📌 Auto-save dopo 600ms</div>
+          <div className="mt-2 pt-2 border-t border-blue-200 italic">
+            💡 Il framework Lindt prevede ciclo annuale: Step 1 (Gen) → Step 5 (Dic) per ogni Pillar
           </div>
         </div>
       </div>
-      <div className="space-y-2">
-        {steps.map(step => (
-          <div key={step.num} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border-l-2" style={{ borderColor: color }}>
-            <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white shadow-sm" style={{ backgroundColor: color }}>
-              {step.num}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// CONTENUTO SPECIFICO PER OGNI STEP
+// ──────────────────────────────────────────────────────────
+function StepContent({ step, data, color, onUpdate }) {
+  if (step.id === 'step1_kpi_definition') return <Step1Content data={data} color={color} onUpdate={onUpdate} />
+  if (step.id === 'step2_pareto_analysis') return <Step2Content data={data} color={color} onUpdate={onUpdate} />
+  if (step.id === 'step3_target_definition') return <Step3Content data={data} color={color} onUpdate={onUpdate} />
+  if (step.id === 'step4_implementation') return <Step4Content data={data} color={color} onUpdate={onUpdate} />
+  if (step.id === 'step5_close_the_loop') return <Step5Content data={data} color={color} onUpdate={onUpdate} />
+  return null
+}
+
+// ─── STEP 1: KPI / KMI Definition ─────────────────────────
+function Step1Content({ data, color, onUpdate }) {
+  const kpis = data.kpis || []
+
+  function addKpi() {
+    const newKpi = {
+      id: Date.now().toString(),
+      label: '',
+      baseline: '',
+      target: '',
+      unit: '%',
+      owner: '',
+      note: '',
+    }
+    onUpdate({ kpis: [...kpis, newKpi] })
+  }
+
+  function updateKpi(id, updates) {
+    onUpdate({ kpis: kpis.map(k => k.id === id ? { ...k, ...updates } : k) })
+  }
+
+  function removeKpi(id) {
+    onUpdate({ kpis: kpis.filter(k => k.id !== id) })
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center mt-3">
+        <h4 className="font-semibold text-sm uppercase text-gray-700">📊 KPI / KMI del Pillar</h4>
+        <button onClick={addKpi} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
+          + Aggiungi KPI
+        </button>
+      </div>
+
+      {kpis.length === 0 ? (
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
+          Nessun KPI definito. Click "+ Aggiungi KPI" per iniziare.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {kpis.map((kpi, idx) => (
+            <div key={kpi.id} className="bg-white p-3 rounded-lg border">
+              <div className="grid grid-cols-12 gap-2 items-start">
+                <div className="col-span-1 flex items-center justify-center text-xs font-bold text-gray-400 pt-2">
+                  #{idx + 1}
+                </div>
+                <input
+                  className="col-span-3 border rounded px-2 py-1 text-sm font-medium"
+                  value={kpi.label}
+                  onChange={(e) => updateKpi(kpi.id, { label: e.target.value })}
+                  placeholder="Es: OEE"
+                />
+                <input
+                  className="col-span-2 border rounded px-2 py-1 text-sm"
+                  value={kpi.baseline}
+                  onChange={(e) => updateKpi(kpi.id, { baseline: e.target.value })}
+                  placeholder="Baseline"
+                />
+                <input
+                  className="col-span-2 border rounded px-2 py-1 text-sm"
+                  value={kpi.target}
+                  onChange={(e) => updateKpi(kpi.id, { target: e.target.value })}
+                  placeholder="Target"
+                />
+                <input
+                  className="col-span-1 border rounded px-2 py-1 text-sm"
+                  value={kpi.unit}
+                  onChange={(e) => updateKpi(kpi.id, { unit: e.target.value })}
+                  placeholder="%"
+                />
+                <input
+                  className="col-span-2 border rounded px-2 py-1 text-sm"
+                  value={kpi.owner}
+                  onChange={(e) => updateKpi(kpi.id, { owner: e.target.value })}
+                  placeholder="Owner"
+                />
+                <button
+                  onClick={() => removeKpi(kpi.id)}
+                  className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded"
+                  title="Elimina"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              <input
+                className="w-full mt-2 border rounded px-2 py-1 text-xs"
+                value={kpi.note || ''}
+                onChange={(e) => updateKpi(kpi.id, { note: e.target.value })}
+                placeholder="Note KPI (opzionale)"
+              />
             </div>
-            <div className="flex-1">
-              <div className="font-semibold text-gray-800">{step.label}</div>
-              <div className="text-xs text-gray-600 mt-0.5">{step.desc}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── STEP 2: Pareto Analysis ─────────────────────────────
+function Step2Content({ data, color, onUpdate }) {
+  const losses = data.losses || []
+
+  function addLoss() {
+    onUpdate({ losses: [...losses, { id: Date.now().toString(), label: '', percent_impact: '', magnitude: 'medio', note: '' }] })
+  }
+
+  function updateLoss(id, updates) {
+    onUpdate({ losses: losses.map(l => l.id === id ? { ...l, ...updates } : l) })
+  }
+
+  function removeLoss(id) {
+    onUpdate({ losses: losses.filter(l => l.id !== id) })
+  }
+
+  // Sort by impact desc
+  const sortedLosses = [...losses].sort((a, b) => (parseFloat(b.percent_impact) || 0) - (parseFloat(a.percent_impact) || 0))
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center mt-3">
+        <h4 className="font-semibold text-sm uppercase text-gray-700">📉 Top Losses (Pareto)</h4>
+        <button onClick={addLoss} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
+          + Aggiungi Loss
+        </button>
+      </div>
+
+      {sortedLosses.length === 0 ? (
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
+          Nessuna perdita identificata. Click "+ Aggiungi Loss" per iniziare l'analisi Pareto.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sortedLosses.map((loss, idx) => (
+            <div key={loss.id} className="bg-white p-3 rounded-lg border">
+              <div className="grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-1 text-center font-bold text-gray-400">#{idx + 1}</div>
+                <input
+                  className="col-span-5 border rounded px-2 py-1 text-sm font-medium"
+                  value={loss.label}
+                  onChange={(e) => updateLoss(loss.id, { label: e.target.value })}
+                  placeholder="Es: Microfermate"
+                />
+                <div className="col-span-2 relative">
+                  <input
+                    type="number"
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    value={loss.percent_impact}
+                    onChange={(e) => updateLoss(loss.id, { percent_impact: e.target.value })}
+                    placeholder="%"
+                  />
+                </div>
+                <select
+                  className="col-span-3 border rounded px-2 py-1 text-sm"
+                  value={loss.magnitude}
+                  onChange={(e) => updateLoss(loss.id, { magnitude: e.target.value })}
+                >
+                  <option value="alto">🔴 Alto</option>
+                  <option value="medio">🟡 Medio</option>
+                  <option value="basso">🟢 Basso</option>
+                </select>
+                <button onClick={() => removeLoss(loss.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded" title="Elimina">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {/* Barra visiva impatto */}
+              {loss.percent_impact && (
+                <div className="mt-2 bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div className="h-full" style={{ width: `${Math.min(100, parseFloat(loss.percent_impact) || 0)}%`, backgroundColor: color }} />
+                </div>
+              )}
             </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── STEP 3: Target Definition + Projects ─────────────────
+function Step3Content({ data, color, onUpdate }) {
+  const progetti = data.progetti || []
+
+  function addProject() {
+    onUpdate({ progetti: [...progetti, { id: Date.now().toString(), label: '', kaizen_numero: '', saving_atteso: '', deadline: '' }] })
+  }
+
+  function updateProject(id, updates) {
+    onUpdate({ progetti: progetti.map(p => p.id === id ? { ...p, ...updates } : p) })
+  }
+
+  function removeProject(id) {
+    onUpdate({ progetti: progetti.filter(p => p.id !== id) })
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center mt-3">
+        <h4 className="font-semibold text-sm uppercase text-gray-700">🎯 Progetti pianificati</h4>
+        <button onClick={addProject} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
+          + Aggiungi Progetto
+        </button>
+      </div>
+
+      {progetti.length === 0 ? (
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
+          Nessun progetto pianificato. I progetti sono i Kaizen che chiuderanno il gap.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {progetti.map((p, idx) => (
+            <div key={p.id} className="bg-white p-3 rounded-lg border">
+              <div className="grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-1 text-center font-bold text-gray-400">#{idx + 1}</div>
+                <input
+                  className="col-span-4 border rounded px-2 py-1 text-sm font-medium"
+                  value={p.label}
+                  onChange={(e) => updateProject(p.id, { label: e.target.value })}
+                  placeholder="Titolo progetto"
+                />
+                <input
+                  className="col-span-2 border rounded px-2 py-1 text-sm font-mono"
+                  value={p.kaizen_numero}
+                  onChange={(e) => updateProject(p.id, { kaizen_numero: e.target.value })}
+                  placeholder="K-001"
+                />
+                <input
+                  className="col-span-2 border rounded px-2 py-1 text-sm"
+                  value={p.saving_atteso}
+                  onChange={(e) => updateProject(p.id, { saving_atteso: e.target.value })}
+                  placeholder="Saving €"
+                />
+                <input
+                  type="date"
+                  className="col-span-2 border rounded px-2 py-1 text-sm"
+                  value={p.deadline}
+                  onChange={(e) => updateProject(p.id, { deadline: e.target.value })}
+                />
+                <button onClick={() => removeProject(p.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded" title="Elimina">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── STEP 4: Implementation ──────────────────────────────
+function Step4Content({ data, color, onUpdate }) {
+  return (
+    <div className="space-y-3 mt-3">
+      <h4 className="font-semibold text-sm uppercase text-gray-700">🚧 Stato implementazione</h4>
+      <div className="bg-white p-4 rounded-lg border">
+        <div className="text-sm text-gray-600 mb-3">
+          💡 Tieni traccia dell'avanzamento globale dei progetti del pillar. Per il dettaglio Gantt utilizza la tab <strong>📅 Master Plan</strong>.
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">% Avanzamento globale</label>
+            <input
+              type="number"
+              min="0" max="100"
+              value={data.avanzamento_globale || ''}
+              onChange={(e) => onUpdate({ avanzamento_globale: e.target.value })}
+              className="w-full border rounded px-2 py-1 text-sm"
+              placeholder="0-100"
+            />
           </div>
-        ))}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Progetti completati</label>
+            <input
+              type="number"
+              min="0"
+              value={data.progetti_completati || ''}
+              onChange={(e) => onUpdate({ progetti_completati: e.target.value })}
+              className="w-full border rounded px-2 py-1 text-sm"
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Ultimo monitoraggio</label>
+            <input
+              type="date"
+              value={data.last_check || ''}
+              onChange={(e) => onUpdate({ last_check: e.target.value })}
+              className="w-full border rounded px-2 py-1 text-sm"
+            />
+          </div>
+        </div>
+        <div className="mt-3">
+          <label className="block text-xs font-medium text-gray-600 mb-1">⚠️ Issues / Bloccanti</label>
+          <textarea
+            value={data.issues || ''}
+            onChange={(e) => onUpdate({ issues: e.target.value })}
+            rows={3}
+            className="w-full border rounded px-2 py-1 text-sm"
+            placeholder="Es: Ritardo fornitore X, mancanza risorse Y..."
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── STEP 5: Close the Loop ──────────────────────────────
+function Step5Content({ data, color, onUpdate }) {
+  const bridges = data.bridge_data || []
+
+  function addBridge() {
+    onUpdate({ bridge_data: [...bridges, { id: Date.now().toString(), kpi_label: '', baseline_year: '', planned_savings: '', actual_savings: '', gap_reason: '' }] })
+  }
+
+  function updateBridge(id, updates) {
+    onUpdate({ bridge_data: bridges.map(b => b.id === id ? { ...b, ...updates } : b) })
+  }
+
+  function removeBridge(id) {
+    onUpdate({ bridge_data: bridges.filter(b => b.id !== id) })
+  }
+
+  return (
+    <div className="space-y-3 mt-3">
+      <div className="flex justify-between items-center">
+        <h4 className="font-semibold text-sm uppercase text-gray-700">🏁 Bridge Chart (Target vs Actual)</h4>
+        <button onClick={addBridge} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>
+          + Aggiungi KPI Bridge
+        </button>
+      </div>
+
+      {bridges.length === 0 ? (
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
+          Nessun bridge data. Aggiungi per ogni KPI baseline → planned → actual → gap.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {bridges.map(b => {
+            const gap = (parseFloat(b.actual_savings) || 0) - (parseFloat(b.planned_savings) || 0)
+            return (
+              <div key={b.id} className="bg-white p-3 rounded-lg border">
+                <div className="grid grid-cols-12 gap-2 items-center mb-2">
+                  <input
+                    className="col-span-4 border rounded px-2 py-1 text-sm font-medium"
+                    value={b.kpi_label}
+                    onChange={(e) => updateBridge(b.id, { kpi_label: e.target.value })}
+                    placeholder="Es: OEE"
+                  />
+                  <input
+                    className="col-span-2 border rounded px-2 py-1 text-sm"
+                    value={b.baseline_year}
+                    onChange={(e) => updateBridge(b.id, { baseline_year: e.target.value })}
+                    placeholder="Baseline"
+                  />
+                  <input
+                    className="col-span-2 border rounded px-2 py-1 text-sm"
+                    value={b.planned_savings}
+                    onChange={(e) => updateBridge(b.id, { planned_savings: e.target.value })}
+                    placeholder="Planned"
+                  />
+                  <input
+                    className="col-span-2 border rounded px-2 py-1 text-sm"
+                    value={b.actual_savings}
+                    onChange={(e) => updateBridge(b.id, { actual_savings: e.target.value })}
+                    placeholder="Actual"
+                  />
+                  <div className={`col-span-1 text-center text-xs font-bold px-2 py-1 rounded ${gap >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {gap >= 0 ? '+' : ''}{gap}
+                  </div>
+                  <button onClick={() => removeBridge(b.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded" title="Elimina">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                {gap < 0 && (
+                  <input
+                    className="w-full border rounded px-2 py-1 text-xs"
+                    value={b.gap_reason || ''}
+                    onChange={(e) => updateBridge(b.id, { gap_reason: e.target.value })}
+                    placeholder="⚠️ Motivo del gap (perché non abbiamo raggiunto il target?)"
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 uppercase mb-1">💡 Lezioni apprese</label>
+        <textarea
+          value={data.lezioni_apprese || ''}
+          onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })}
+          rows={4}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+          placeholder="Cosa abbiamo imparato? Cosa replicheremo? Cosa cambieremo per il prossimo ciclo?"
+        />
       </div>
     </div>
   )
