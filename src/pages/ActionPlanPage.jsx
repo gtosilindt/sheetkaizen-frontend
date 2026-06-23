@@ -54,6 +54,8 @@ export default function ActionPlanPage() {
   const [filters, setFilters] = useState({
     search: '', stato: '', tipo: '', priorita: '', categoria: '',
     responsabile: '', reparto: '', tag: '', overdue: false,
+    include_cancelled: false,  // 🆕 mostra anche gli annullati nella lista
+    only_cancelled: false,     // 🆕 vista "solo annullati"
   })
   // 🆕 Configurazioni dinamiche da Settings
   const { configs } = useAllConfigurations()
@@ -82,9 +84,38 @@ export default function ActionPlanPage() {
   }
 
   async function handleDelete(id) {
-    if (!confirm('Eliminare questo Action Plan?')) return
+    if (!confirm('🗑️ Eliminare definitivamente questo Action Plan?\n\n(Sparisce dalla UI ma resta in DB per audit)')) return
     await api.delete(`/action-plans/${id}`)
     loadData()
+  }
+
+  // 🆕 Annullamento con motivo obbligatorio
+  async function handleCancel(plan) {
+    const reason = prompt(
+      `🚫 Annullare l'Action Plan "${plan.numero} - ${plan.titolo}"?\n\n` +
+      `Inserisci il motivo (obbligatorio):`
+    )
+    if (!reason || !reason.trim()) return
+    try {
+      await api.post(`/action-plans/${plan._id}/cancel`, {
+        reason: reason.trim(),
+        user: 'Default User',
+      })
+      loadData()
+    } catch (err) {
+      alert('Errore annullamento: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  // 🆕 Ripristino di un AP annullato
+  async function handleRestore(plan) {
+    if (!confirm(`♻️ Ripristinare l'Action Plan "${plan.numero}"?\n\nTornerà tra gli attivi.`)) return
+    try {
+      await api.post(`/action-plans/${plan._id}/restore`)
+      loadData()
+    } catch (err) {
+      alert('Errore ripristino: ' + (err.response?.data?.detail || err.message))
+    }
   }
 
   async function quickStateChange(planId, newStato) {
@@ -100,6 +131,30 @@ export default function ActionPlanPage() {
           <p className="text-gray-500 text-sm">Gestione piani d'azione trasversali</p>
         </div>
         <div className="flex gap-2 items-center">
+          {/* 🆕 Toggle vista annullati */}
+          <div className="bg-white border rounded-lg p-1 flex gap-1 shadow-sm">
+            <button
+              onClick={() => setFilters({ ...filters, only_cancelled: false, include_cancelled: false })}
+              className={`px-3 py-1.5 rounded text-xs flex items-center gap-1 ${!filters.only_cancelled && !filters.include_cancelled ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              title="Solo Action Plan attivi"
+            >
+              ✅ Attivi
+            </button>
+            <button
+              onClick={() => setFilters({ ...filters, only_cancelled: false, include_cancelled: true })}
+              className={`px-3 py-1.5 rounded text-xs flex items-center gap-1 ${filters.include_cancelled && !filters.only_cancelled ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              title="Mostra anche gli annullati"
+            >
+              👁️ Mostra annullati
+            </button>
+            <button
+              onClick={() => setFilters({ ...filters, only_cancelled: true, include_cancelled: false })}
+              className={`px-3 py-1.5 rounded text-xs flex items-center gap-1 ${filters.only_cancelled ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              title="Solo Action Plan annullati"
+            >
+              🚫 Solo annullati
+            </button>
+          </div>
           <div className="bg-white border rounded-lg p-1 flex gap-1 shadow-sm">
             <button onClick={() => setViewMode('list')}
               className={`px-3 py-1.5 rounded text-sm flex items-center gap-1 transition-all ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>📋 Lista</button>
@@ -188,11 +243,16 @@ export default function ActionPlanPage() {
       ) : viewMode === 'list' ? (
         <ListView plans={plans} onSelect={setSelectedPlan}
           onEdit={(p) => { setEditingPlan(p); setShowForm(true) }}
-          onDelete={handleDelete} onQuickStateChange={quickStateChange}
+          onDelete={handleDelete}
+          onCancel={handleCancel}
+          onRestore={handleRestore}
+          onQuickStateChange={quickStateChange}
           statiConfig={statiConfig} />
       ) : (
         <KanbanView plans={plans} onSelect={setSelectedPlan} onStateChange={quickStateChange} reload={loadData}
-          statiConfig={statiConfig} />
+          statiConfig={statiConfig}
+          onCancel={handleCancel}
+          onRestore={handleRestore} />
       )}
 
       {showForm && (
@@ -558,10 +618,25 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
           <div className="flex justify-between items-center pb-2 border-b">
             <span className="text-sm font-medium">Dettagli</span>
             <div className="flex gap-1">
-              <button onClick={() => onEdit(detail)} className="p-1.5 hover:bg-gray-200 rounded"><Edit2 size={14} /></button>
-              <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded"><X size={14} /></button>
+              <button onClick={() => onEdit(detail)} className="p-1.5 hover:bg-gray-200 rounded" title="Modifica"><Edit2 size={14} /></button>
+              <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded" title="Chiudi"><X size={14} /></button>
             </div>
           </div>
+          {/* 🆕 Banner annullamento */}
+          {detail.is_cancelled && (
+            <div className="bg-red-100 border border-red-300 rounded p-2 text-xs">
+              <div className="font-bold text-red-800 mb-1">🚫 Action Plan annullato</div>
+              {detail.cancelled_reason && (
+                <div className="text-red-700 italic">"{detail.cancelled_reason}"</div>
+              )}
+              {detail.cancelled_at && (
+                <div className="text-red-600 mt-1">
+                  📅 {new Date(detail.cancelled_at).toLocaleDateString('it-IT')}
+                  {detail.cancelled_by && ` da ${detail.cancelled_by}`}
+                </div>
+              )}
+            </div>
+          )}
 
           <SidebarRow label="Stato">
             <select value={detail.stato} onChange={(e) => changeStato(e.target.value)}
@@ -650,7 +725,7 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
   )
 }
 
-function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange, statiConfig = [] }) {
+function ListView({ plans, onSelect, onEdit, onDelete, onCancel, onRestore, onQuickStateChange, statiConfig = [] }) {
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
       <table className="w-full text-sm">
@@ -671,7 +746,11 @@ function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange, stati
           {plans.map(p => {
             const TipoIcon = TIPO_ICONS[p.tipo] || CheckSquare
             return (
-              <tr key={p._id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => onSelect(p)}>
+              <tr key={p._id}
+                className={`border-b hover:bg-gray-50 cursor-pointer ${p.is_cancelled ? 'bg-red-50 opacity-70' : ''}`}
+                onClick={() => onSelect(p)}
+                title={p.is_cancelled ? `🚫 Annullato — ${p.cancelled_reason || 'senza motivo'}` : ''}
+              >
                 <td className="px-3 py-2 font-mono text-primary text-xs">{p.numero}</td>
                 <td className="px-3 py-2">
                   <div className="font-medium truncate max-w-md">{p.titolo}</div>
@@ -715,18 +794,19 @@ function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange, stati
                   ) : <span className="text-xs text-gray-400">— Non assegnato</span>}
                 </td>
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                  <select value={p.stato} onChange={(e) => onQuickStateChange(p._id, e.target.value)}
-                    className={`text-xs px-1.5 py-1 rounded border ${STATO_COLORS[p.stato_visuale] || STATO_COLORS[p.stato] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
-                    {statiConfig.length === 0 ? (
-                      <option value={p.stato}>{p.stato || '— Configura stati —'}</option>
-                    ) : (
-                      statiConfig.map(s => (
-                        <option key={s._id} value={s.label}>
-                          {s.icon ? `${s.icon} ` : ''}{s.label}
-                        </option>
-                      ))
+                  <div className="flex justify-center gap-1">
+                    <button onClick={() => onSelect(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Dettaglio"><Eye size={14} /></button>
+                    {!p.is_cancelled && (
+                      <>
+                        <button onClick={() => onEdit(p)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica"><Edit2 size={14} /></button>
+                        <button onClick={() => onCancel(p)} className="p-1 hover:bg-orange-100 rounded text-orange-600" title="🚫 Annulla AP">🚫</button>
+                      </>
                     )}
-                  </select>
+                    {p.is_cancelled && (
+                      <button onClick={() => onRestore(p)} className="p-1 hover:bg-green-100 rounded text-green-600" title="♻️ Ripristina">♻️</button>
+                    )}
+                    <button onClick={() => onDelete(p._id)} className="p-1 hover:bg-red-100 rounded text-red-600" title="🗑️ Elimina definitivamente"><Trash2 size={14} /></button>
+                  </div>
                 </td>
                 <td className="px-3 py-2 text-xs">
                   {p.data_scadenza ? (
@@ -765,7 +845,7 @@ const KANBAN_PALETTE = [
   { color: 'bg-pink-50 border-pink-200', headerColor: 'bg-pink-200 text-pink-800' },
 ]
 
-function KanbanView({ plans, onSelect, onStateChange, reload, statiConfig = [] }) {
+function KanbanView({ plans, onSelect, onStateChange, reload, statiConfig = [], onCancel, onRestore }) {
   // 🆕 Costruisco le colonne dinamicamente dagli stati configurati in Settings
   const columns = statiConfig.length > 0
     ? statiConfig.map((s, idx) => {
@@ -778,17 +858,19 @@ function KanbanView({ plans, onSelect, onStateChange, reload, statiConfig = [] }
         }
       })
     : []
-
+// 🆕 Separo annullati dal flusso Kanban
+  const cancelledPlans = plans.filter(p => p.is_cancelled)
+  const activePlans = plans.filter(p => !p.is_cancelled)
   // 🆕 Raggruppo gli AP per stato. Se uno stato non è più tra i configurati, 
   // l'AP finisce in una colonna speciale "Stato non riconosciuto"
   const grouped = columns.reduce((acc, col) => {
-    acc[col.id] = plans.filter(p => p.stato === col.id)
+    acc[col.id] = activePlans.filter(p => p.stato === col.id)
     return acc
   }, {})
 
   // 🆕 Orfani: AP con stato che non è più nelle Settings
   const knownStati = new Set(columns.map(c => c.id))
-  const orphans = plans.filter(p => !knownStati.has(p.stato))
+  const orphans = activePlans.filter(p => !knownStati.has(p.stato))
   if (orphans.length > 0) {
     columns.push({
       id: '__orphans__',
@@ -824,41 +906,87 @@ function KanbanView({ plans, onSelect, onStateChange, reload, statiConfig = [] }
   }
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex gap-3 overflow-x-auto pb-3" style={{ minHeight: '70vh' }}>
-        {columns.map(col => (
-          <div key={col.id} className={`flex-shrink-0 w-72 rounded-lg border-2 ${col.color} flex flex-col`}>
-            <div className={`${col.headerColor} px-3 py-2 rounded-t-md font-semibold text-sm flex justify-between items-center`}>
-              <span>{col.label}</span>
-              <span className="bg-white bg-opacity-50 px-2 py-0.5 rounded-full text-xs">{grouped[col.id].length}</span>
+    <>
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex gap-3 overflow-x-auto pb-3" style={{ minHeight: '70vh' }}>
+          {columns.map(col => (
+            <div key={col.id} className={`flex-shrink-0 w-72 rounded-lg border-2 ${col.color} flex flex-col`}>
+              <div className={`${col.headerColor} px-3 py-2 rounded-t-md font-semibold text-sm flex justify-between items-center`}>
+                <span>{col.label}</span>
+                <span className="bg-white bg-opacity-50 px-2 py-0.5 rounded-full text-xs">{grouped[col.id].length}</span>
+              </div>
+              <Droppable droppableId={col.id} isDropDisabled={col.id === '__orphans__'}>
+                {(provided, snapshot) => (
+                  <div ref={provided.innerRef} {...provided.droppableProps}
+                    className={`flex-1 p-2 space-y-2 overflow-y-auto transition-colors ${snapshot.isDraggingOver ? 'bg-white bg-opacity-50' : ''}`}
+                    style={{ minHeight: '300px' }}>
+                    {grouped[col.id].length === 0 && !snapshot.isDraggingOver && (
+                      <div className="text-center text-xs text-gray-400 py-8">Trascina qui</div>
+                    )}
+                    {grouped[col.id].map((plan, index) => (
+                      <Draggable key={plan._id} draggableId={plan._id} index={index}>
+                        {(provided, snapshot) => (
+                          <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
+                            onClick={() => !snapshot.isDragging && onSelect(plan)}
+                            className={`bg-white rounded-md p-3 shadow-sm border cursor-pointer hover:shadow-md transition-all ${snapshot.isDragging ? 'rotate-2 shadow-2xl ring-2 ring-primary' : ''}`}>
+                            <KanbanCard plan={plan} />
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
             </div>
-            <Droppable droppableId={col.id} isDropDisabled={col.id === '__orphans__'}>
-              {(provided, snapshot) => (
-                <div ref={provided.innerRef} {...provided.droppableProps}
-                  className={`flex-1 p-2 space-y-2 overflow-y-auto transition-colors ${snapshot.isDraggingOver ? 'bg-white bg-opacity-50' : ''}`}
-                  style={{ minHeight: '300px' }}>
-                  {grouped[col.id].length === 0 && !snapshot.isDraggingOver && (
-                    <div className="text-center text-xs text-gray-400 py-8">Trascina qui</div>
-                  )}
-                  {grouped[col.id].map((plan, index) => (
-                    <Draggable key={plan._id} draggableId={plan._id} index={index}>
-                      {(provided, snapshot) => (
-                        <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
-                          onClick={() => !snapshot.isDragging && onSelect(plan)}
-                          className={`bg-white rounded-md p-3 shadow-sm border cursor-pointer hover:shadow-md transition-all ${snapshot.isDragging ? 'rotate-2 shadow-2xl ring-2 ring-primary' : ''}`}>
-                          <KanbanCard plan={plan} />
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
+          ))}
+        </div>
+      </DragDropContext>
+
+      {/* 🆕 Sezione separata: Annullati */}
+      {cancelledPlans.length > 0 && (
+        <div className="mt-6 bg-red-50 border-2 border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">🚫</span>
+            <h3 className="font-bold text-red-800">Action Plan annullati ({cancelledPlans.length})</h3>
+            <span className="text-xs text-red-600">— Click su ♻️ per ripristinare</span>
           </div>
-        ))}
-      </div>
-    </DragDropContext>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {cancelledPlans.map(plan => (
+              <div
+                key={plan._id}
+                onClick={() => onSelect(plan)}
+                className="bg-white rounded-md p-3 shadow-sm border border-red-300 cursor-pointer hover:shadow-md transition-all opacity-75 hover:opacity-100"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <span className="font-mono text-xs text-red-600 font-bold">{plan.numero}</span>
+                  {onRestore && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onRestore(plan) }}
+                      className="text-green-600 hover:bg-green-100 p-0.5 rounded text-xs"
+                      title="♻️ Ripristina"
+                    >
+                      ♻️
+                    </button>
+                  )}
+                </div>
+                <div className="font-medium text-sm mb-1 line-clamp-2">{plan.titolo}</div>
+                {plan.cancelled_reason && (
+                  <div className="text-xs text-red-700 italic mt-2 bg-red-100 px-2 py-1 rounded">
+                    💬 {plan.cancelled_reason}
+                  </div>
+                )}
+                {plan.cancelled_at && (
+                  <div className="text-[10px] text-gray-500 mt-1">
+                    📅 {new Date(plan.cancelled_at).toLocaleDateString('it-IT')}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
