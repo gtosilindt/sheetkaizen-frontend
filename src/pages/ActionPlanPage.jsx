@@ -55,6 +55,11 @@ export default function ActionPlanPage() {
     search: '', stato: '', tipo: '', priorita: '', categoria: '',
     responsabile: '', reparto: '', tag: '', overdue: false,
   })
+  // 🆕 Configurazioni dinamiche da Settings
+  const { configs } = useAllConfigurations()
+  const statiConfig = configs.stato_ap || []
+  const prioritaConfig = configs.priorita_ap || []
+  const tipiConfig = configs.tipi_action_plan || []
 
   useEffect(() => { loadData() }, [filters])
 
@@ -137,15 +142,31 @@ export default function ActionPlanPage() {
               value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm" />
           </div>
-          <select value={filters.tipo} onChange={(e) => setFilters({ ...filters, tipo: e.target.value })}
+         <select value={filters.tipo} onChange={(e) => setFilters({ ...filters, tipo: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm">
             <option value="">Tutti i tipi</option>
-            {TIPI.map(t => <option key={t}>{t}</option>)}
+            {tipiConfig.length === 0 ? (
+              <option disabled>⚠️ Configura in Settings</option>
+            ) : (
+              tipiConfig.map(t => (
+                <option key={t._id} value={t.label}>
+                  {t.icon ? `${t.icon} ` : ''}{t.label}
+                </option>
+              ))
+            )}
           </select>
           <select value={filters.priorita} onChange={(e) => setFilters({ ...filters, priorita: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm">
             <option value="">Tutte le priorità</option>
-            {PRIORITA.map(p => <option key={p}>{p}</option>)}
+            {prioritaConfig.length === 0 ? (
+              <option disabled>⚠️ Configura in Settings</option>
+            ) : (
+              prioritaConfig.map(p => (
+                <option key={p._id} value={p.label}>
+                  {p.icon ? `${p.icon} ` : ''}{p.label}
+                </option>
+              ))
+            )}
           </select>
           <input type="text" placeholder="Responsabile" value={filters.responsabile}
             onChange={(e) => setFilters({ ...filters, responsabile: e.target.value })}
@@ -167,9 +188,11 @@ export default function ActionPlanPage() {
       ) : viewMode === 'list' ? (
         <ListView plans={plans} onSelect={setSelectedPlan}
           onEdit={(p) => { setEditingPlan(p); setShowForm(true) }}
-          onDelete={handleDelete} onQuickStateChange={quickStateChange} />
+          onDelete={handleDelete} onQuickStateChange={quickStateChange}
+          statiConfig={statiConfig} />
       ) : (
-        <KanbanView plans={plans} onSelect={setSelectedPlan} onStateChange={quickStateChange} reload={loadData} />
+        <KanbanView plans={plans} onSelect={setSelectedPlan} onStateChange={quickStateChange} reload={loadData}
+          statiConfig={statiConfig} />
       )}
 
       {showForm && (
@@ -627,7 +650,7 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
   )
 }
 
-function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange }) {
+function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange, statiConfig = [] }) {
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden">
       <table className="w-full text-sm">
@@ -693,8 +716,16 @@ function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange }) {
                 </td>
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                   <select value={p.stato} onChange={(e) => onQuickStateChange(p._id, e.target.value)}
-                    className={`text-xs px-1.5 py-1 rounded border ${STATO_COLORS[p.stato_visuale] || STATO_COLORS[p.stato]}`}>
-                    {STATI.map(s => <option key={s} value={s}>{s}</option>)}
+                    className={`text-xs px-1.5 py-1 rounded border ${STATO_COLORS[p.stato_visuale] || STATO_COLORS[p.stato] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+                    {statiConfig.length === 0 ? (
+                      <option value={p.stato}>{p.stato || '— Configura stati —'}</option>
+                    ) : (
+                      statiConfig.map(s => (
+                        <option key={s._id} value={s.label}>
+                          {s.icon ? `${s.icon} ` : ''}{s.label}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </td>
                 <td className="px-3 py-2 text-xs">
@@ -721,38 +752,87 @@ function ListView({ plans, onSelect, onEdit, onDelete, onQuickStateChange }) {
   )
 }
 
-const KANBAN_COLUMNS = [
-  { id: 'Da Valutare', label: '📋 Da Valutare', color: 'bg-gray-50 border-gray-300', headerColor: 'bg-gray-200 text-gray-700' },
-  { id: 'Aperto', label: '🆕 Aperto', color: 'bg-blue-50 border-blue-200', headerColor: 'bg-blue-200 text-blue-800' },
-  { id: 'In Corso', label: '🚧 In Corso', color: 'bg-indigo-50 border-indigo-200', headerColor: 'bg-indigo-200 text-indigo-800' },
-  { id: 'In Verifica', label: '🔍 In Verifica', color: 'bg-purple-50 border-purple-200', headerColor: 'bg-purple-200 text-purple-800' },
-  { id: 'Done', label: '✅ Done', color: 'bg-green-50 border-green-200', headerColor: 'bg-green-200 text-green-800' },
-  { id: 'Cancelled', label: '❌ Cancelled', color: 'bg-gray-50 border-gray-300', headerColor: 'bg-gray-300 text-gray-600' },
+// 🎨 Palette colori per generare automaticamente lo stile delle colonne Kanban
+const KANBAN_PALETTE = [
+  { color: 'bg-gray-50 border-gray-300', headerColor: 'bg-gray-200 text-gray-700' },
+  { color: 'bg-blue-50 border-blue-200', headerColor: 'bg-blue-200 text-blue-800' },
+  { color: 'bg-indigo-50 border-indigo-200', headerColor: 'bg-indigo-200 text-indigo-800' },
+  { color: 'bg-purple-50 border-purple-200', headerColor: 'bg-purple-200 text-purple-800' },
+  { color: 'bg-green-50 border-green-200', headerColor: 'bg-green-200 text-green-800' },
+  { color: 'bg-yellow-50 border-yellow-200', headerColor: 'bg-yellow-200 text-yellow-800' },
+  { color: 'bg-orange-50 border-orange-200', headerColor: 'bg-orange-200 text-orange-800' },
+  { color: 'bg-red-50 border-red-200', headerColor: 'bg-red-200 text-red-800' },
+  { color: 'bg-pink-50 border-pink-200', headerColor: 'bg-pink-200 text-pink-800' },
 ]
 
-function KanbanView({ plans, onSelect, onStateChange, reload }) {
-  const grouped = KANBAN_COLUMNS.reduce((acc, col) => {
+function KanbanView({ plans, onSelect, onStateChange, reload, statiConfig = [] }) {
+  // 🆕 Costruisco le colonne dinamicamente dagli stati configurati in Settings
+  const columns = statiConfig.length > 0
+    ? statiConfig.map((s, idx) => {
+        const palette = KANBAN_PALETTE[idx % KANBAN_PALETTE.length]
+        return {
+          id: s.label,
+          label: `${s.icon || '📍'} ${s.label}`,
+          color: palette.color,
+          headerColor: palette.headerColor,
+        }
+      })
+    : []
+
+  // 🆕 Raggruppo gli AP per stato. Se uno stato non è più tra i configurati, 
+  // l'AP finisce in una colonna speciale "Stato non riconosciuto"
+  const grouped = columns.reduce((acc, col) => {
     acc[col.id] = plans.filter(p => p.stato === col.id)
     return acc
   }, {})
+
+  // 🆕 Orfani: AP con stato che non è più nelle Settings
+  const knownStati = new Set(columns.map(c => c.id))
+  const orphans = plans.filter(p => !knownStati.has(p.stato))
+  if (orphans.length > 0) {
+    columns.push({
+      id: '__orphans__',
+      label: '⚠️ Stato non riconosciuto',
+      color: 'bg-red-50 border-red-300',
+      headerColor: 'bg-red-200 text-red-800',
+    })
+    grouped['__orphans__'] = orphans
+  }
 
   async function onDragEnd(result) {
     const { source, destination, draggableId } = result
     if (!destination) return
     if (source.droppableId === destination.droppableId) return
+    if (destination.droppableId === '__orphans__') return  // non si può droppare in orfani
     await onStateChange(draggableId, destination.droppableId)
+  }
+
+  // 🆕 Empty state se nessuno stato è configurato
+  if (statiConfig.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+        <div className="text-6xl mb-3">⚙️</div>
+        <h3 className="font-bold text-lg mb-2">Nessuno stato configurato</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Per usare la vista Kanban devi prima configurare gli <strong>Stati Action Plan</strong> nelle Settings.
+        </p>
+        <a href="/settings" className="inline-block bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-light text-sm">
+          → Vai in Settings → Action Plan → Stato
+        </a>
+      </div>
+    )
   }
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="flex gap-3 overflow-x-auto pb-3" style={{ minHeight: '70vh' }}>
-        {KANBAN_COLUMNS.map(col => (
+        {columns.map(col => (
           <div key={col.id} className={`flex-shrink-0 w-72 rounded-lg border-2 ${col.color} flex flex-col`}>
             <div className={`${col.headerColor} px-3 py-2 rounded-t-md font-semibold text-sm flex justify-between items-center`}>
               <span>{col.label}</span>
               <span className="bg-white bg-opacity-50 px-2 py-0.5 rounded-full text-xs">{grouped[col.id].length}</span>
             </div>
-            <Droppable droppableId={col.id}>
+            <Droppable droppableId={col.id} isDropDisabled={col.id === '__orphans__'}>
               {(provided, snapshot) => (
                 <div ref={provided.innerRef} {...provided.droppableProps}
                   className={`flex-1 p-2 space-y-2 overflow-y-auto transition-colors ${snapshot.isDraggingOver ? 'bg-white bg-opacity-50' : ''}`}
