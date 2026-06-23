@@ -1,28 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, X, ChevronRight, ChevronDown, Target } from 'lucide-react'
 
-// I 6 rami dell'Ishikawa (6M)
+// I 6 rami dell'Ishikawa (6M) — palette neutra
 const RAMI = [
-  { id: 'people',      label: 'People',      color: '#3b82f6' },  // blu
-  { id: 'machine',     label: 'Machine',     color: '#ef4444' },  // rosso
-  { id: 'methods',     label: 'Methods',     color: '#10b981' },  // verde
-  { id: 'materials',   label: 'Materials',   color: '#f59e0b' },  // arancione
-  { id: 'measurement', label: 'Measurement', color: '#8b5cf6' },  // viola
-  { id: 'environment', label: 'Environment', color: '#06b6d4' },  // ciano
+  { id: 'people',      label: 'People' },
+  { id: 'machine',     label: 'Machine' },
+  { id: 'methods',     label: 'Methods' },
+  { id: 'materials',   label: 'Materials' },
+  { id: 'measurement', label: 'Measurement' },
+  { id: 'environment', label: 'Environment' },
 ]
 
-/**
- * IshikawaDiagram — Diagramma a spina di pesce interattivo
- * 
- * Props:
- *   - effetto: stringa, il "problema" centrale
- *   - rami: { people: [...], machine: [...], ... }
- *   - onChange: callback con { effetto, rami } aggiornati
- *   - onExploraInFiveWhys: callback(causa) quando l'utente vuole esplorare una causa nei 5 Perché
- * 
- * Struttura di una causa:
- *   { id, label, voti (0-5), subcauses: [...], promosso_a_5why: bool }
- */
+const NEUTRAL_COLOR = '#475569' // slate-600
+const PRIMARY_COLOR = '#1e3a8a' // primary
+
 export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onExploraInFiveWhys }) {
   const [localEffetto, setLocalEffetto] = useState(effetto)
   const [localRami, setLocalRami] = useState(() => {
@@ -32,7 +23,6 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onE
   })
   const [expandedCauses, setExpandedCauses] = useState(new Set())
   
-  // Refs per onChange senza loop
   const isFirstRender = useRef(true)
   
   useEffect(() => {
@@ -43,9 +33,6 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onE
     onChange?.({ effetto: localEffetto, rami: localRami })
   }, [localEffetto, localRami])
   
-  // ──────────────────────────────────────────
-  // Helpers per modificare cause/sotto-cause
-  // ──────────────────────────────────────────
   function addCausa(ramoId) {
     const newCausa = {
       id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -87,7 +74,6 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onE
         c.id === causaId ? { ...c, subcauses: [...(c.subcauses || []), newSub] } : c
       ),
     }))
-    // Auto-espandi quando aggiungi sotto-causa
     setExpandedCauses(prev => new Set(prev).add(causaId))
   }
   
@@ -120,9 +106,6 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onE
     })
   }
   
-  // ──────────────────────────────────────────
-  // Statistiche
-  // ──────────────────────────────────────────
   const totalCauses = Object.values(localRami).reduce((sum, arr) => sum + arr.length, 0)
   const totalSubcauses = Object.values(localRami).reduce(
     (sum, arr) => sum + arr.reduce((s, c) => s + (c.subcauses?.length || 0), 0),
@@ -131,7 +114,6 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onE
   
   return (
     <div className="space-y-4">
-      {/* Header con effetto + statistiche */}
       <div className="bg-white rounded-xl shadow p-4 border-l-4 border-primary">
         <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
           Effetto / Problema da analizzare
@@ -148,9 +130,7 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onE
         </div>
       </div>
       
-      {/* Layout 2 colonne: Cards a sinistra, SVG a destra */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* === COLONNA SINISTRA: Cards 6M === */}
         <div className="space-y-3">
           {RAMI.map(ramo => (
             <RamoCard
@@ -170,7 +150,6 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onE
           ))}
         </div>
         
-        {/* === COLONNA DESTRA: SVG Fishbone === */}
         <div className="bg-white rounded-xl shadow p-4 sticky top-4 self-start">
           <div className="text-xs font-bold uppercase text-gray-600 mb-2">
             Diagramma a spina di pesce
@@ -182,9 +161,6 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange, onE
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// Card di un ramo (con le sue cause e sotto-cause)
-// ──────────────────────────────────────────────────────────
 function RamoCard({
   ramo, cause, expandedCauses,
   onAddCausa, onUpdateCausa, onRemoveCausa,
@@ -192,39 +168,24 @@ function RamoCard({
   onToggleExpand, onExplora,
 }) {
   return (
-    <div
-      className="bg-white rounded-lg shadow border-l-4"
-      style={{ borderLeftColor: ramo.color }}
-    >
-      {/* Header del ramo */}
-      <div
-        className="px-4 py-2 flex items-center justify-between rounded-t-lg"
-        style={{ backgroundColor: ramo.color + '15' }}
-      >
+    <div className="bg-white rounded-lg shadow border-l-4 border-gray-300">
+      <div className="px-4 py-2 flex items-center justify-between rounded-t-lg bg-gray-50">
         <div className="flex items-center gap-2">
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: ramo.color }}
-          />
-          <span className="font-bold" style={{ color: ramo.color }}>
-            {ramo.label}
-          </span>
+          <span className="font-bold text-gray-700">{ramo.label}</span>
           {cause.length > 0 && (
-            <span className="text-xs bg-white px-2 py-0.5 rounded-full font-medium" style={{ color: ramo.color }}>
+            <span className="text-xs bg-white border px-2 py-0.5 rounded-full font-medium text-gray-600">
               {cause.length}
             </span>
           )}
         </div>
         <button
           onClick={onAddCausa}
-          className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:opacity-80 text-white"
-          style={{ backgroundColor: ramo.color }}
+          className="text-xs flex items-center gap-1 px-2 py-1 rounded bg-primary text-white hover:bg-primary-light"
         >
           <Plus size={12} /> Aggiungi causa
         </button>
       </div>
       
-      {/* Lista cause */}
       <div className="p-3 space-y-2">
         {cause.length === 0 ? (
           <div className="text-xs text-gray-400 italic text-center py-2">
@@ -235,7 +196,6 @@ function RamoCard({
             <CausaItem
               key={causa.id}
               causa={causa}
-              ramoColor={ramo.color}
               expanded={expandedCauses.has(causa.id)}
               onUpdate={(updates) => onUpdateCausa(causa.id, updates)}
               onRemove={() => onRemoveCausa(causa.id)}
@@ -252,11 +212,8 @@ function RamoCard({
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// Singola causa (con voting, sub-cause espandibili, esplora 5 perché)
-// ──────────────────────────────────────────────────────────
 function CausaItem({
-  causa, ramoColor, expanded,
+  causa, expanded,
   onUpdate, onRemove,
   onAddSubcausa, onUpdateSubcausa, onRemoveSubcausa,
   onToggleExpand, onExplora,
@@ -265,7 +222,6 @@ function CausaItem({
   
   return (
     <div className="border rounded-lg overflow-hidden bg-gray-50">
-      {/* Riga causa */}
       <div className="p-2 flex items-center gap-2">
         <button
           onClick={onToggleExpand}
@@ -280,14 +236,11 @@ function CausaItem({
           className="flex-1 text-sm border-0 bg-transparent focus:outline-none focus:bg-white focus:border focus:rounded px-2 py-1"
         />
         
-        {/* Voting 1-5 */}
         <VotingPallini
           value={causa.voti || 0}
           onChange={(v) => onUpdate({ voti: v })}
-          color={ramoColor}
         />
         
-        {/* Bottone esplora nei 5 perché */}
         <button
           onClick={onExplora}
           className={`p-1.5 rounded text-xs flex items-center gap-1 ${
@@ -308,7 +261,6 @@ function CausaItem({
         </button>
       </div>
       
-      {/* Sotto-cause (se espanso o se ce ne sono) */}
       {(expanded || hasSubs) && (
         <div className="px-2 pb-2 pl-8 space-y-1">
           {causa.subcauses?.map(sub => (
@@ -322,7 +274,6 @@ function CausaItem({
               <VotingPallini
                 value={sub.voti || 0}
                 onChange={(v) => onUpdateSubcausa(sub.id, { voti: v })}
-                color={ramoColor}
                 size="sm"
               />
               <button
@@ -346,10 +297,7 @@ function CausaItem({
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// Voting 1-5 pallini
-// ──────────────────────────────────────────────────────────
-function VotingPallini({ value, onChange, color = '#3b82f6', size = 'md' }) {
+function VotingPallini({ value, onChange, size = 'md' }) {
   const dotSize = size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3'
   
   return (
@@ -360,8 +308,8 @@ function VotingPallini({ value, onChange, color = '#3b82f6', size = 'md' }) {
           onClick={() => onChange(value === n ? 0 : n)}
           className={`${dotSize} rounded-full border transition-all`}
           style={{
-            backgroundColor: n <= value ? color : 'transparent',
-            borderColor: n <= value ? color : '#d1d5db',
+            backgroundColor: n <= value ? PRIMARY_COLOR : 'transparent',
+            borderColor: n <= value ? PRIMARY_COLOR : '#d1d5db',
           }}
           title={`Voto ${n}/5`}
         />
@@ -370,46 +318,36 @@ function VotingPallini({ value, onChange, color = '#3b82f6', size = 'md' }) {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// Fishbone SVG (lato destro)
-// ──────────────────────────────────────────────────────────
 function FishboneSVG({ effetto, rami, causeMap }) {
   const width = 600
   const height = 500
   const centerY = height / 2
   const spineStart = 50
   const spineEnd = width - 100
-  
-  // 6 rami: 3 sopra, 3 sotto
   const ramiSopra = rami.slice(0, 3)
   const ramiSotto = rami.slice(3, 6)
   
   return (
     <div className="overflow-x-auto">
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="w-full">
-        {/* Spina centrale */}
         <line
           x1={spineStart}
           y1={centerY}
           x2={spineEnd}
           y2={centerY}
-          stroke="#374151"
+          stroke={NEUTRAL_COLOR}
           strokeWidth="3"
         />
-        
-        {/* Freccia finale */}
         <polygon
           points={`${spineEnd},${centerY - 10} ${spineEnd + 25},${centerY} ${spineEnd},${centerY + 10}`}
-          fill="#374151"
+          fill={NEUTRAL_COLOR}
         />
-        
-        {/* Box effetto */}
         <rect
           x={spineEnd + 30}
           y={centerY - 25}
           width="100"
           height="50"
-          fill="#1e3a8a"
+          fill={PRIMARY_COLOR}
           rx="6"
         />
         <foreignObject
@@ -435,7 +373,6 @@ function FishboneSVG({ effetto, rami, causeMap }) {
           </div>
         </foreignObject>
         
-        {/* Rami sopra (people, machine, methods) */}
         {ramiSopra.map((ramo, i) => {
           const ramoX = spineStart + 100 + i * 150
           const ramoYStart = centerY
@@ -445,22 +382,20 @@ function FishboneSVG({ effetto, rami, causeMap }) {
           
           return (
             <g key={ramo.id}>
-              {/* Linea ramo principale */}
               <line
                 x1={ramoX}
                 y1={ramoYStart}
                 x2={ramoXEnd}
                 y2={ramoYEnd}
-                stroke={ramo.color}
+                stroke={NEUTRAL_COLOR}
                 strokeWidth="2"
               />
-              {/* Label ramo */}
               <rect
                 x={ramoXEnd - 50}
                 y={ramoYEnd - 18}
                 width="100"
                 height="22"
-                fill={ramo.color}
+                fill={NEUTRAL_COLOR}
                 rx="4"
               />
               <text
@@ -473,7 +408,6 @@ function FishboneSVG({ effetto, rami, causeMap }) {
               >
                 {ramo.label}
               </text>
-              {/* Cause (lische più piccole) */}
               {cause.slice(0, 4).map((causa, j) => {
                 const t = (j + 1) / 5
                 const cx1 = ramoX - (ramoX - ramoXEnd) * t
@@ -482,7 +416,7 @@ function FishboneSVG({ effetto, rami, causeMap }) {
                 const cy2 = cy1 + 5
                 return (
                   <g key={causa.id}>
-                    <line x1={cx1} y1={cy1} x2={cx2} y2={cy2} stroke={ramo.color} strokeWidth="1" opacity="0.7" />
+                    <line x1={cx1} y1={cy1} x2={cx2} y2={cy2} stroke={NEUTRAL_COLOR} strokeWidth="1" opacity="0.7" />
                     <text x={cx2 - 4} y={cy2 + 3} textAnchor="end" fontSize="9" fill="#374151">
                       {(causa.label || '—').slice(0, 20)}
                     </text>
@@ -498,7 +432,6 @@ function FishboneSVG({ effetto, rami, causeMap }) {
           )
         })}
         
-        {/* Rami sotto (materials, measurement, environment) */}
         {ramiSotto.map((ramo, i) => {
           const ramoX = spineStart + 100 + i * 150
           const ramoYStart = centerY
@@ -513,7 +446,7 @@ function FishboneSVG({ effetto, rami, causeMap }) {
                 y1={ramoYStart}
                 x2={ramoXEnd}
                 y2={ramoYEnd}
-                stroke={ramo.color}
+                stroke={NEUTRAL_COLOR}
                 strokeWidth="2"
               />
               <rect
@@ -521,7 +454,7 @@ function FishboneSVG({ effetto, rami, causeMap }) {
                 y={ramoYEnd}
                 width="100"
                 height="22"
-                fill={ramo.color}
+                fill={NEUTRAL_COLOR}
                 rx="4"
               />
               <text
@@ -542,7 +475,7 @@ function FishboneSVG({ effetto, rami, causeMap }) {
                 const cy2 = cy1 - 5
                 return (
                   <g key={causa.id}>
-                    <line x1={cx1} y1={cy1} x2={cx2} y2={cy2} stroke={ramo.color} strokeWidth="1" opacity="0.7" />
+                    <line x1={cx1} y1={cy1} x2={cx2} y2={cy2} stroke={NEUTRAL_COLOR} strokeWidth="1" opacity="0.7" />
                     <text x={cx2 - 4} y={cy2 + 3} textAnchor="end" fontSize="9" fill="#374151">
                       {(causa.label || '—').slice(0, 20)}
                     </text>
