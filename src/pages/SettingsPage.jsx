@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Search, GripVertical, ChevronRight, Info } from 'lucide-react'
+import { Settings, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Search, GripVertical, ChevronRight, ChevronDown, Info, Factory, Cpu } from 'lucide-react'
 import api from '../services/api'
 
 // ──────────────────────────────────────────────────────────
@@ -267,28 +267,656 @@ export default function SettingsPage() {
 }
 
 // ──────────────────────────────────────────────────────────
-// PLACEHOLDER REPARTI/LINEE/MACCHINE (lo facciamo in F2)
+// REPARTI TREE — Reparti → Linee → Macchine (gerarchico)
 // ──────────────────────────────────────────────────────────
 function RepartiTreePlaceholder() {
+  const [reparti, setReparti] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [expandedReparti, setExpandedReparti] = useState(new Set())
+  const [expandedLinee, setExpandedLinee] = useState(new Set())
+  const [showRepartoForm, setShowRepartoForm] = useState(false)
+  const [editingReparto, setEditingReparto] = useState(null)
+  const [search, setSearch] = useState('')
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await api.get('/reparti/')
+      setReparti(res.data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function toggleReparto(id) {
+    setExpandedReparti(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleLinea(key) {
+    setExpandedLinee(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
+  async function handleDeleteReparto(reparto) {
+    if (!confirm(`🗑️ Eliminare il reparto "${reparto.nome}" e tutte le sue linee/macchine?`)) return
+    try {
+      await api.delete(`/reparti/${reparto._id}`)
+      load()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  async function handleToggleAttivoReparto(reparto) {
+    try {
+      await api.put(`/reparti/${reparto._id}`, { attivo: !reparto.attivo })
+      load()
+    } catch (err) {
+      alert('Errore: ' + err.message)
+    }
+  }
+
+  // Filtro ricerca
+  const filtered = search.trim()
+    ? reparti.filter(r =>
+        r.nome?.toLowerCase().includes(search.toLowerCase()) ||
+        r.codice?.toLowerCase().includes(search.toLowerCase()) ||
+        r.linee?.some(l =>
+          l.nome?.toLowerCase().includes(search.toLowerCase()) ||
+          l.macchine?.some(m => m.nome?.toLowerCase().includes(search.toLowerCase()))
+        )
+      )
+    : reparti
+
+  // Counters totali
+  const totLinee = reparti.reduce((sum, r) => sum + (r.linee?.length || 0), 0)
+  const totMacchine = reparti.reduce(
+    (sum, r) => sum + (r.linee?.reduce((s, l) => s + (l.macchine?.length || 0), 0) || 0),
+    0
+  )
+
   return (
-    <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-      <div className="text-6xl mb-3">🏭</div>
-      <h3 className="font-bold text-lg mb-2">Reparti → Linee → Macchine</h3>
-      <p className="text-sm text-gray-500 mb-4">
-        Componente gerarchico in arrivo nello <strong>Step F2</strong>
-      </p>
-      <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded text-sm text-left max-w-md mx-auto">
-        <p className="font-medium mb-1">🚧 Prossima implementazione:</p>
-        <ul className="list-disc list-inside text-xs space-y-0.5 text-gray-700">
-          <li>Card espandibili per ogni Reparto</li>
-          <li>Linee figlie con CRUD inline</li>
-          <li>Macchine annidate sotto ogni Linea</li>
-          <li>Dropdown filtrati dinamicamente nei form</li>
-        </ul>
+    <div className="bg-white rounded-lg shadow-sm">
+      {/* Toolbar */}
+      <div className="p-4 border-b flex justify-between items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cerca reparto, linea o macchina..."
+            className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-gray-500 flex gap-3">
+            <span>🏭 {reparti.length} Reparti</span>
+            <span>🔹 {totLinee} Linee</span>
+            <span>⚙️ {totMacchine} Macchine</span>
+          </div>
+          <button
+            onClick={() => { setEditingReparto(null); setShowRepartoForm(true) }}
+            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light text-sm font-medium"
+          >
+            <Plus size={16} /> Aggiungi Reparto
+          </button>
+        </div>
+      </div>
+
+      {/* Lista gerarchica */}
+      {loading ? (
+        <div className="p-12 text-center text-gray-400">⏳ Caricamento...</div>
+      ) : filtered.length === 0 ? (
+        <div className="p-12 text-center">
+          <div className="text-6xl mb-2">🏭</div>
+          <p className="text-gray-500 mb-3">
+            {search ? 'Nessun risultato' : 'Nessun reparto configurato'}
+          </p>
+          {!search && (
+            <>
+              <p className="text-xs text-gray-400 mb-3">
+                💡 Configura la struttura aziendale a 3 livelli: Reparti → Linee → Macchine
+              </p>
+              <button
+                onClick={() => { setEditingReparto(null); setShowRepartoForm(true) }}
+                className="text-primary hover:underline"
+              >
+                + Aggiungi il primo Reparto
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="p-3 space-y-2">
+          {filtered.map(reparto => (
+            <RepartoCard
+              key={reparto._id}
+              reparto={reparto}
+              expanded={expandedReparti.has(reparto._id)}
+              onToggle={() => toggleReparto(reparto._id)}
+              expandedLinee={expandedLinee}
+              onToggleLinea={toggleLinea}
+              onEdit={() => { setEditingReparto(reparto); setShowRepartoForm(true) }}
+              onDelete={() => handleDeleteReparto(reparto)}
+              onToggleAttivo={() => handleToggleAttivoReparto(reparto)}
+              onChange={load}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Modal Reparto */}
+      {showRepartoForm && (
+        <RepartoFormModal
+          reparto={editingReparto}
+          onClose={() => { setShowRepartoForm(false); setEditingReparto(null) }}
+          onSaved={() => { setShowRepartoForm(false); setEditingReparto(null); load() }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// CARD REPARTO (espandibile)
+// ──────────────────────────────────────────────────────────
+function RepartoCard({ reparto, expanded, onToggle, expandedLinee, onToggleLinea, onEdit, onDelete, onToggleAttivo, onChange }) {
+  const [showLineaForm, setShowLineaForm] = useState(false)
+  const [editingLinea, setEditingLinea] = useState(null)
+  const linee = reparto.linee || []
+  const totMacchine = linee.reduce((s, l) => s + (l.macchine?.length || 0), 0)
+
+  async function handleDeleteLinea(linea) {
+    if (!confirm(`🗑️ Eliminare la linea "${linea.nome}" e tutte le sue macchine?`)) return
+    try {
+      await api.delete(`/reparti/${reparto._id}/linee/${linea.id}`)
+      onChange()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  return (
+    <div className={`border rounded-lg overflow-hidden transition-all ${!reparto.attivo ? 'opacity-60' : ''}`}>
+      {/* Header reparto */}
+      <div className="bg-indigo-50 border-l-4 border-indigo-500 px-3 py-2 flex items-center gap-2">
+        <button onClick={onToggle} className="p-1 hover:bg-indigo-100 rounded">
+          {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+        <Factory size={20} className="text-indigo-600 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-indigo-900">{reparto.nome}</span>
+            {reparto.codice && (
+              <span className="font-mono text-xs px-1.5 py-0.5 bg-indigo-200 text-indigo-700 rounded">
+                {reparto.codice}
+              </span>
+            )}
+            <span className="text-xs text-gray-500">
+              · {linee.length} linee · {totMacchine} macchine
+            </span>
+          </div>
+          {reparto.descrizione && (
+            <div className="text-xs text-gray-600 truncate">{reparto.descrizione}</div>
+          )}
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={onToggleAttivo}
+            className={`p-1 rounded hover:bg-white ${reparto.attivo ? 'text-green-600' : 'text-gray-400'}`}
+            title={reparto.attivo ? 'Disattiva' : 'Attiva'}
+          >
+            {reparto.attivo ? <Eye size={14} /> : <EyeOff size={14} />}
+          </button>
+          <button onClick={onEdit} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica">
+            <Edit2 size={14} />
+          </button>
+          <button onClick={onDelete} className="p-1 hover:bg-red-100 rounded text-red-600" title="Elimina">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Linee espanse */}
+      {expanded && (
+        <div className="p-3 bg-white space-y-1.5">
+          {linee.length === 0 ? (
+            <div className="text-center py-4 text-xs text-gray-400 italic">
+              Nessuna linea. Aggiungi la prima!
+            </div>
+          ) : (
+            linee.map(linea => (
+              <LineaCard
+                key={linea.id}
+                reparto={reparto}
+                linea={linea}
+                expanded={expandedLinee.has(`${reparto._id}_${linea.id}`)}
+                onToggle={() => onToggleLinea(`${reparto._id}_${linea.id}`)}
+                onEdit={() => { setEditingLinea(linea); setShowLineaForm(true) }}
+                onDelete={() => handleDeleteLinea(linea)}
+                onChange={onChange}
+              />
+            ))
+          )}
+          <button
+            onClick={() => { setEditingLinea(null); setShowLineaForm(true) }}
+            className="w-full text-xs text-blue-600 hover:bg-blue-50 py-1.5 rounded border-2 border-dashed border-blue-200 flex items-center justify-center gap-1"
+          >
+            <Plus size={14} /> Aggiungi Linea
+          </button>
+        </div>
+      )}
+
+      {/* Modal Linea */}
+      {showLineaForm && (
+        <LineaFormModal
+          reparto={reparto}
+          linea={editingLinea}
+          onClose={() => { setShowLineaForm(false); setEditingLinea(null) }}
+          onSaved={() => { setShowLineaForm(false); setEditingLinea(null); onChange() }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// CARD LINEA (espandibile)
+// ──────────────────────────────────────────────────────────
+function LineaCard({ reparto, linea, expanded, onToggle, onEdit, onDelete, onChange }) {
+  const [showMacchinaForm, setShowMacchinaForm] = useState(false)
+  const [editingMacchina, setEditingMacchina] = useState(null)
+  const macchine = linea.macchine || []
+
+  async function handleDeleteMacchina(macchina) {
+    if (!confirm(`🗑️ Eliminare la macchina "${macchina.nome}"?`)) return
+    try {
+      await api.delete(`/reparti/${reparto._id}/linee/${linea.id}/macchine/${macchina.id}`)
+      onChange()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  return (
+    <div className={`border-l-2 border-blue-300 ml-2 rounded transition-all ${!linea.attivo ? 'opacity-50' : ''}`}>
+      {/* Header linea */}
+      <div className="bg-blue-50 px-3 py-1.5 flex items-center gap-2 rounded-r">
+        <button onClick={onToggle} className="p-0.5 hover:bg-blue-100 rounded">
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        <span className="text-blue-600">🔹</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-blue-900 text-sm">{linea.nome}</span>
+            {linea.codice && (
+              <span className="font-mono text-[10px] px-1 py-0.5 bg-blue-200 text-blue-700 rounded">
+                {linea.codice}
+              </span>
+            )}
+            <span className="text-[10px] text-gray-500">· {macchine.length} macchine</span>
+          </div>
+          {linea.descrizione && (
+            <div className="text-[10px] text-gray-600 truncate">{linea.descrizione}</div>
+          )}
+        </div>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <button onClick={onEdit} className="p-0.5 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica">
+            <Edit2 size={12} />
+          </button>
+          <button onClick={onDelete} className="p-0.5 hover:bg-red-100 rounded text-red-600" title="Elimina">
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* Macchine espanse */}
+      {expanded && (
+        <div className="p-2 bg-white space-y-1 ml-2">
+          {macchine.length === 0 ? (
+            <div className="text-center py-2 text-[10px] text-gray-400 italic">
+              Nessuna macchina. Aggiungi la prima!
+            </div>
+          ) : (
+            macchine.map(m => (
+              <div key={m.id} className={`flex items-center gap-2 px-2 py-1 bg-gray-50 rounded text-xs ${!m.attivo ? 'opacity-50' : ''}`}>
+                <Cpu size={12} className="text-gray-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium">{m.nome}</span>
+                  {m.codice && (
+                    <span className="font-mono text-[10px] ml-2 px-1 py-0.5 bg-gray-200 text-gray-700 rounded">
+                      {m.codice}
+                    </span>
+                  )}
+                  {m.descrizione && (
+                    <span className="text-[10px] text-gray-500 ml-2">· {m.descrizione}</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setEditingMacchina(m); setShowMacchinaForm(true) }}
+                  className="p-0.5 hover:bg-yellow-100 rounded text-yellow-600"
+                  title="Modifica"
+                >
+                  <Edit2 size={11} />
+                </button>
+                <button
+                  onClick={() => handleDeleteMacchina(m)}
+                  className="p-0.5 hover:bg-red-100 rounded text-red-600"
+                  title="Elimina"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            ))
+          )}
+          <button
+            onClick={() => { setEditingMacchina(null); setShowMacchinaForm(true) }}
+            className="w-full text-[10px] text-gray-500 hover:bg-gray-100 py-1 rounded border border-dashed border-gray-300 flex items-center justify-center gap-1"
+          >
+            <Plus size={11} /> Aggiungi Macchina
+          </button>
+        </div>
+      )}
+
+      {/* Modal Macchina */}
+      {showMacchinaForm && (
+        <MacchinaFormModal
+          reparto={reparto}
+          linea={linea}
+          macchina={editingMacchina}
+          onClose={() => { setShowMacchinaForm(false); setEditingMacchina(null) }}
+          onSaved={() => { setShowMacchinaForm(false); setEditingMacchina(null); onChange() }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// MODAL REPARTO
+// ──────────────────────────────────────────────────────────
+function RepartoFormModal({ reparto, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    nome: reparto?.nome || '',
+    codice: reparto?.codice || '',
+    descrizione: reparto?.descrizione || '',
+    attivo: reparto?.attivo !== false,
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.nome.trim()) return alert('Nome obbligatorio')
+    setSaving(true)
+    try {
+      if (reparto?._id) {
+        await api.put(`/reparti/${reparto._id}`, form)
+      } else {
+        await api.post('/reparti/', { ...form, linee: [] })
+      }
+      onSaved()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div className="bg-indigo-600 text-white px-5 py-3 flex justify-between items-center">
+          <h2 className="font-semibold flex items-center gap-2">
+            <Factory size={20} /> {reparto ? `Modifica Reparto` : 'Nuovo Reparto'}
+          </h2>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Nome <span className="text-red-500">*</span></label>
+            <input
+              required
+              autoFocus
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Es: Reparto Cioccolato"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Codice <span className="text-xs text-gray-500 font-normal ml-1">(opzionale)</span>
+            </label>
+            <input
+              value={form.codice}
+              onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
+              className="w-full border rounded-lg px-3 py-2 font-mono"
+              placeholder="Es: CIO"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Descrizione</label>
+            <textarea
+              value={form.descrizione}
+              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
+              rows={2}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="Es: Produzione cioccolato fondente e al latte"
+            />
+          </div>
+          <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
+            <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
+            <span className="text-sm">Attivo</span>
+          </label>
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
+            <button type="submit" disabled={saving} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+              <Save size={16} />
+              {saving ? 'Salvataggio...' : (reparto ? 'Salva' : 'Crea')}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
 }
+
+// ──────────────────────────────────────────────────────────
+// MODAL LINEA
+// ──────────────────────────────────────────────────────────
+function LineaFormModal({ reparto, linea, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    nome: linea?.nome || '',
+    codice: linea?.codice || '',
+    descrizione: linea?.descrizione || '',
+    attivo: linea?.attivo !== false,
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.nome.trim()) return alert('Nome obbligatorio')
+    setSaving(true)
+    try {
+      if (linea?.id) {
+        await api.put(`/reparti/${reparto._id}/linee/${linea.id}`, {
+          ...form,
+          id: linea.id,
+          macchine: linea.macchine || [],
+        })
+      } else {
+        await api.post(`/reparti/${reparto._id}/linee`, { ...form, macchine: [] })
+      }
+      onSaved()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div className="bg-blue-600 text-white px-5 py-3 flex justify-between items-center">
+          <h2 className="font-semibold flex items-center gap-2">
+            🔹 {linea ? 'Modifica Linea' : 'Nuova Linea'} <span className="text-xs opacity-70">in {reparto.nome}</span>
+          </h2>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Nome <span className="text-red-500">*</span></label>
+            <input
+              required
+              autoFocus
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Es: Linea Bindler 11"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Codice <span className="text-xs text-gray-500 font-normal ml-1">(opzionale)</span>
+            </label>
+            <input
+              value={form.codice}
+              onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
+              className="w-full border rounded-lg px-3 py-2 font-mono"
+              placeholder="Es: B11"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Descrizione</label>
+            <textarea
+              value={form.descrizione}
+              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
+              rows={2}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="Es: Tavolette 100g cioccolato fondente"
+            />
+          </div>
+          <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
+            <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
+            <span className="text-sm">Attiva</span>
+          </label>
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
+            <button type="submit" disabled={saving} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+              <Save size={16} />
+              {saving ? 'Salvataggio...' : (linea ? 'Salva' : 'Crea')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// MODAL MACCHINA
+// ──────────────────────────────────────────────────────────
+function MacchinaFormModal({ reparto, linea, macchina, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    nome: macchina?.nome || '',
+    codice: macchina?.codice || '',
+    descrizione: macchina?.descrizione || '',
+    attivo: macchina?.attivo !== false,
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.nome.trim()) return alert('Nome obbligatorio')
+    setSaving(true)
+    try {
+      if (macchina?.id) {
+        await api.put(`/reparti/${reparto._id}/linee/${linea.id}/macchine/${macchina.id}`, {
+          ...form,
+          id: macchina.id,
+        })
+      } else {
+        await api.post(`/reparti/${reparto._id}/linee/${linea.id}/macchine`, form)
+      }
+      onSaved()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div className="bg-gray-600 text-white px-5 py-3 flex justify-between items-center">
+          <h2 className="font-semibold flex items-center gap-2">
+            <Cpu size={20} /> {macchina ? 'Modifica Macchina' : 'Nuova Macchina'} 
+            <span className="text-xs opacity-70">in {linea.nome}</span>
+          </h2>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Nome <span className="text-red-500">*</span></label>
+            <input
+              required
+              autoFocus
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Es: Conca 1"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Codice <span className="text-xs text-gray-500 font-normal ml-1">(opzionale)</span>
+            </label>
+            <input
+              value={form.codice}
+              onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
+              className="w-full border rounded-lg px-3 py-2 font-mono"
+              placeholder="Es: CON-01"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Descrizione</label>
+            <textarea
+              value={form.descrizione}
+              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
+              rows={2}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="Es: Conca rotativa 2000kg"
+            />
+          </div>
+          <label className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg cursor-pointer">
+            <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
+            <span className="text-sm">Attiva</span>
+          </label>
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
+            <button type="submit" disabled={saving} className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 flex items-center gap-2">
+              <Save size={16} />
+              {saving ? 'Salvataggio...' : (macchina ? 'Salva' : 'Crea')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}}
 
 // ──────────────────────────────────────────────────────────
 // CONFIG MANAGER (CRUD generico per tutti i tab)
