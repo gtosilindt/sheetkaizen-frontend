@@ -5,6 +5,7 @@ import { Save, ChevronDown, X, History, RefreshCw } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import IshikawaDiagram from '../components/kaizen/IshikawaDiagram'
 import FiveWhysFlowChart from '../components/kaizen/FiveWhysFlowChart'
+import KaizenGantt from '../components/kaizen/KaizenGantt'
 
 const LIVELLI = ['Quick', 'Standard', 'Major']
 
@@ -482,17 +483,7 @@ export default function KaizenDetailPage() {
         <CountermeasureLadderTab kaizen={kaizen} onSaved={loadKaizen} />
       )}
       {activeTab === 'gantt' && (
-        <PlaceholderTab icon="📅" title="Gantt Chart" subtitle="Pianificazione visiva interattiva"
-          features={[
-            '📊 Timeline visuale con drag&drop su date',
-            '🔗 Dipendenze tra task ("blocks", "related to")',
-            '🔴 Critical Path evidenziato automaticamente',
-            '🎯 Milestones (diamanti)',
-            '👤 Avatar assignee sulle barre',
-            '⚡ Bidirezionalità con Action Plan',
-            '📥 Export PNG/PDF brandizzato Lindt',
-            '🔍 Multi-vista: Giorno · Settimana · Mese · Trimestre',
-          ]} phase="F8-F10" />
+        <KaizenGantt kaizenId={id} kaizenNumero={kaizen.numero} />
       )}
       {activeTab === 'costbenefit' && (
         <PlaceholderTab icon="💰" title="Cost & Benefit" subtitle="Business case e calcolo ROI automatico"
