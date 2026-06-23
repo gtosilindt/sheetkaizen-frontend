@@ -208,16 +208,27 @@ export default function KaizenGantt({ kaizenId, kaizenNumero }) {
   // ──────────────────────────────────────────
   // Creazione nuovo AP
   // ──────────────────────────────────────────
-  function handleNewAP() {
-    // Default: inizia oggi, dura 2 settimane
+  async function handleNewAP() {
+    // Crea subito un AP "vuoto" con date di default e responsabile placeholder
     const today = new Date()
     const inDays14 = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000)
-    setEditingAP({
-      titolo: '',
-      data_inizio: today.toISOString(),
-      data_scadenza: inDays14.toISOString(),
-    })
-    setShowForm(true)
+    try {
+      const res = await api.post('/action-plans/', {
+        titolo: 'Nuovo task',
+        kaizen_id: kaizenId,
+        parent_type: 'kaizen',
+        parent_id: kaizenId,
+        data_inizio: today.toISOString(),
+        data_scadenza: inDays14.toISOString(),
+      })
+      // Aggiorna la lista e apri subito la modal per modificare il titolo
+      await loadAP()
+      setEditingAP(res.data)
+      setShowForm(true)
+    } catch (err) {
+      console.error('Errore creazione AP:', err)
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
   }
 
   // ──────────────────────────────────────────
@@ -293,8 +304,8 @@ export default function KaizenGantt({ kaizenId, kaizenNumero }) {
         ) : (
           <div className="flex">
             {/* Lista task (sinistra, fissa) */}
-            <div className="w-72 flex-shrink-0 border-r">
-              <div className="h-14 bg-gray-50 border-b flex items-center px-3 font-bold text-sm uppercase text-gray-600">
+            <div className="w-80 flex-shrink-0 border-r bg-white">
+              <div className="h-14 bg-gray-50 border-b flex items-center px-4 font-bold text-sm uppercase text-gray-600">
                 Action Plan
               </div>
               {actionPlans.map((ap, idx) => (
@@ -397,19 +408,19 @@ export default function KaizenGantt({ kaizenId, kaizenNumero }) {
                           </div>
                         )}
 
-                        {/* Placeholder se non ci sono date */}
+                        {/* Placeholder se non ci sono date o fuori range */}
                         {!pos && (
-                          <div className="absolute inset-0 flex items-center px-3">
-                            <span className="text-[10px] text-gray-400 italic">
+                          <div
+                            className="absolute inset-0 flex items-center px-3 cursor-pointer hover:bg-yellow-50"
+                            onClick={() => { setEditingAP(ap); setShowForm(true) }}
+                          >
+                            <span className="text-xs text-gray-500 italic">
                               {(!ap.data_inizio || !ap.data_scadenza)
-                                ? 'Date non impostate — click per modificare'
-                                : 'Fuori range visualizzato'}
+                                ? 'Date non impostate — click qui per impostarle'
+                                : `Fuori range visualizzato (${formatDate(ap.data_inizio)} - ${formatDate(ap.data_scadenza)})`}
                             </span>
                           </div>
                         )}
-                      </div>
-                    )
-                  })}
 
                   {/* Linea OGGI */}
                   {todayLinePosition !== null && (
