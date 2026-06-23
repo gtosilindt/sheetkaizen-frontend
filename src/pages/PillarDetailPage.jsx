@@ -362,14 +362,7 @@ const ACTUAL_STATUS = [
   { value: 'blocked', label: 'Blocked', icon: '🚧', color: 'bg-orange-100 text-orange-700 border-orange-300' },
   { value: 'cancelled', label: 'Cancelled', icon: '🔴', color: 'bg-red-100 text-red-700 border-red-300' },
 ]
-import ActionPlanFormShared from '../components/ActionPlanFormShared'
 
-export default function PillarDetailPage() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [pillar, setPillar] = useState(null)
-  const [stats, setStats] = useState(null)
-  const [kaizens, setKaizens] = useState([])
 function KpiManagementTab({ pillar, color, onSaved }) {
   const [stepsData, setStepsData] = useState(() => {
     const initial = {}
@@ -1192,7 +1185,11 @@ function MasterPlanTab({ pillar, color, onSaved }) {
                 )}
               </div>
               <div className="w-20 px-1 border-r flex items-center justify-center gap-0.5">
-                <button onClick={() => moveStep(step.id, ' onClick={() => moveStep(step.id, 'down')} disabled={idx === data.steps.length - 1} className="text-xs px-1 hover:bg-gray-200 rounded disabled:opacity-30" title="Sposta giù">▼</button>                <button onClick={() => moveStep(step.id, 'up')} disabled={idx === 0} className="text-xs px-1 hover:bg-gray-200 rounded disabled:opacity-30" title="Sposta su">▲</button>
+                <button onClick={() => moveStep(step.id, 'up')} disabled={idx === 0} className="text-xs px-1 hover:bg-gray-200 rounded disabled:opacity-30" title="Sposta su">▲</button>
+                <button onClick={() => moveStep(step.id, 'down')} disabled={idx === data.steps.length - 1} className="text-xs px-1 hover:bg-gray-200 rounded disabled:opacity-30" title="Sposta giù">▼</button>
+                <button onClick={() => clearRow(step.id)} className="text-xs px-1 hover:bg-yellow-100 rounded text-yellow-600" title="Pulisci riga">⌫</button>
+                <button onClick={() => removeStep(step.id)} className="p-0.5 hover:bg-red-100 rounded text-red-600" title="Elimina step"><Trash2 size={11} /></button>
+              </div>
                 <button onClick={() => clearRow(step.id)} className="text-xs px-1 hover:bg-yellow-100 rounded text-yellow-600" title="Pulisci riga">⌫</button>
                 <button onClick={() => removeStep(step.id)} className="p-0.5 hover:bg-red-100 rounded text-red-600" title="Elimina step"><Trash2 size={11} /></button>
               </div>
