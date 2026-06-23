@@ -3,16 +3,17 @@ import { X } from 'lucide-react'
 import api from '../services/api'
 import { useAllConfigurations } from '../hooks/useConfigurations'
 
-// 🆕 5M hard-coded (Ishikawa) — non configurabile
+// 5M hard-coded (Ishikawa) — non configurabile
 const QUINTA_M = [
-  { value: 'Machine', label: '⚙️ Machine' },
-  { value: 'Manodopera', label: '👷 Manodopera' },
-  { value: 'Metodo', label: '📋 Metodo' },
-  { value: 'Materiale', label: '📦 Materiale' },
-  { value: 'Misurazione', label: '📏 Misurazione' },
+  { value: 'Machine', label: 'Machine' },
+  { value: 'Manodopera', label: 'Manodopera' },
+  { value: 'Metodo', label: 'Metodo' },
+  { value: 'Materiale', label: 'Materiale' },
+  { value: 'Misurazione', label: 'Misurazione' },
 ]
 
-const [form, setForm] = useState({
+export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilledKaizen = null, prefilledParent = null }) {
+  const [form, setForm] = useState({
     titolo: plan?.titolo || '',
     descrizione: plan?.descrizione || '',
     tipo: plan?.tipo || '',
@@ -26,7 +27,7 @@ const [form, setForm] = useState({
     macchina: plan?.macchina || '',
     data_scadenza: plan?.data_scadenza ? plan.data_scadenza.slice(0, 10) : '',
     tags: plan?.tags?.join(', ') || '',
-    // 🆕 Parent prefilled (es. da pagina Pillar / Dashboard)
+    // Parent prefilled (es. da pagina Pillar / Dashboard)
     parent_type: plan?.parent_type || prefilledParent?.parent_type || 'standalone',
     parent_id: plan?.parent_id || prefilledParent?.parent_id || null,
     parent_label: plan?.parent_label || prefilledParent?.parent_label || null,
@@ -36,13 +37,13 @@ const [form, setForm] = useState({
   const [saving, setSaving] = useState(false)
   const { configs } = useAllConfigurations()
 
-  // 🆕 Carico reparti dal nuovo endpoint /reparti (con linee e macchine annidate)
+  // Carico reparti dal nuovo endpoint /reparti (con linee e macchine annidate)
   const [reparti, setReparti] = useState([])
   useEffect(() => {
     api.get('/reparti/').then(res => setReparti(res.data || [])).catch(() => setReparti([]))
   }, [])
 
-  // 🆕 Linee/Macchine filtrate dinamicamente
+  // Linee/Macchine filtrate dinamicamente
   const lineeDisponibili = useMemo(() => {
     if (!form.reparto) return []
     const rep = reparti.find(r => r.nome === form.reparto)
@@ -55,9 +56,9 @@ const [form, setForm] = useState({
     return linea?.macchine?.filter(m => m.attivo !== false) || []
   }, [form.linea, lineeDisponibili])
 
-  // 🆕 Imposta defaults da Settings se è un nuovo AP (priorità/stato Medium/Da Valutare se non configurati)
+  // Imposta defaults da Settings se è un nuovo AP
   useEffect(() => {
-    if (plan) return // se edit, non sovrascrivo
+    if (plan) return
     const stati = configs.stato_ap || []
     const priorita = configs.priorita_ap || []
     setForm(f => ({
@@ -67,7 +68,6 @@ const [form, setForm] = useState({
     }))
   }, [configs.stato_ap, configs.priorita_ap, plan])
 
-  // Quando cambio reparto, resetto linea e macchina
   function handleRepartoChange(nuovoReparto) {
     setForm(f => ({ ...f, reparto: nuovoReparto, linea: '', macchina: '' }))
   }
@@ -126,7 +126,7 @@ const [form, setForm] = useState({
           return `${field}: ${d.msg}`
         }).join('\n')
       } else if (err.message) msg = err.message
-      alert('❌ Errore salvataggio:\n\n' + msg)
+      alert('Errore salvataggio:\n\n' + msg)
     } finally {
       setSaving(false)
     }
@@ -142,10 +142,15 @@ const [form, setForm] = useState({
       <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[95vh] overflow-y-auto">
         <div className="bg-primary text-white px-6 py-3 flex justify-between items-center sticky top-0 z-10">
           <h2 className="text-lg font-semibold">
-            {plan ? `✏️ Modifica ${plan.numero}` : '➕ Nuovo Action Plan'}
+            {plan ? `Modifica ${plan.numero}` : 'Nuovo Action Plan'}
             {prefilledKaizen && !plan && (
               <span className="ml-2 text-sm font-normal opacity-90">
-                · 🔗 Collegato a {prefilledKaizen.kaizen_numero}
+                · Collegato a {prefilledKaizen.kaizen_numero}
+              </span>
+            )}
+            {prefilledParent && !plan && !prefilledKaizen && (
+              <span className="ml-2 text-sm font-normal opacity-90">
+                · Collegato a {prefilledParent.parent_type} {prefilledParent.parent_label || ''}
               </span>
             )}
           </h2>
@@ -162,20 +167,18 @@ const [form, setForm] = useState({
               value={form.titolo}
               onChange={(e) => setForm({ ...form, titolo: e.target.value })}
               className="w-full border rounded-lg px-3 py-2"
-              placeholder="Es: Sostituire filtro Bindler linea 11"
             />
           </Field>
 
-          <Field label="Descrizione (supporta @mentions e #tags)">
+          <Field label="Descrizione">
             <textarea
               value={form.descrizione}
               onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
               rows={4}
               className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
-              placeholder="Es: @mario.rossi devi sostituire il filtro #manutenzione"
             />
             <div className="text-xs text-gray-500 mt-1">
-              💡 Usa <code className="bg-gray-100 px-1">@nome</code> per taggare persone e{' '}
+              Usa <code className="bg-gray-100 px-1">@nome</code> per taggare persone e{' '}
               <code className="bg-gray-100 px-1">#argomento</code> per categorizzare
             </div>
           </Field>
@@ -187,7 +190,7 @@ const [form, setForm] = useState({
                 value={form.tipo}
                 onChange={(v) => setForm({ ...form, tipo: v })}
                 options={tipiConfig}
-                placeholder="— Seleziona —"
+                placeholder="Seleziona"
                 emptyHint="Settings → Tipo"
               />
             </Field>
@@ -196,7 +199,7 @@ const [form, setForm] = useState({
                 value={form.priorita}
                 onChange={(v) => setForm({ ...form, priorita: v })}
                 options={prioritaConfig}
-                placeholder="— Seleziona —"
+                placeholder="Seleziona"
                 emptyHint="Settings → Priorità"
               />
             </Field>
@@ -205,7 +208,7 @@ const [form, setForm] = useState({
                 value={form.stato}
                 onChange={(v) => setForm({ ...form, stato: v })}
                 options={statiConfig}
-                placeholder="— Seleziona —"
+                placeholder="Seleziona"
                 emptyHint="Settings → Stato"
               />
             </Field>
@@ -218,7 +221,7 @@ const [form, setForm] = useState({
                 value={form.categoria_perdita}
                 onChange={(v) => setForm({ ...form, categoria_perdita: v })}
                 options={categoriePerditaConfig}
-                placeholder="— Nessuna —"
+                placeholder="Nessuna"
                 emptyHint="Settings → Categoria Perdita"
               />
             </Field>
@@ -228,7 +231,7 @@ const [form, setForm] = useState({
                 onChange={(e) => setForm({ ...form, quinta_m: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2"
               >
-                <option value="">— Nessuna —</option>
+                <option value="">Nessuna</option>
                 {QUINTA_M.map(m => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
@@ -240,7 +243,6 @@ const [form, setForm] = useState({
             <input
               value={form.responsabile}
               onChange={(e) => setForm({ ...form, responsabile: e.target.value })}
-              placeholder="Es: Mario Rossi"
               className="w-full border rounded-lg px-3 py-2"
             />
           </Field>
@@ -253,9 +255,9 @@ const [form, setForm] = useState({
                 onChange={(e) => handleRepartoChange(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2"
               >
-                <option value="">— Seleziona —</option>
+                <option value="">Seleziona</option>
                 {reparti.length === 0 ? (
-                  <option disabled>⚠️ Settings → Reparti</option>
+                  <option disabled>Configura in Settings → Reparti</option>
                 ) : (
                   reparti.filter(r => r.attivo !== false).map(r => (
                     <option key={r._id} value={r.nome}>
@@ -273,7 +275,7 @@ const [form, setForm] = useState({
                 className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
               >
                 <option value="">
-                  {!form.reparto ? '— Prima il reparto —' : '— Seleziona —'}
+                  {!form.reparto ? 'Prima il reparto' : 'Seleziona'}
                 </option>
                 {lineeDisponibili.map(l => (
                   <option key={l.id} value={l.nome}>
@@ -290,7 +292,7 @@ const [form, setForm] = useState({
                 className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
               >
                 <option value="">
-                  {!form.linea ? '— Prima la linea —' : '— Seleziona —'}
+                  {!form.linea ? 'Prima la linea' : 'Seleziona'}
                 </option>
                 {macchineDisponibili.map(m => (
                   <option key={m.id} value={m.nome}>
@@ -314,7 +316,6 @@ const [form, setForm] = useState({
               <input
                 value={form.tags}
                 onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                placeholder="sicurezza, manutenzione"
                 className="w-full border rounded-lg px-3 py-2"
               />
             </Field>
@@ -329,7 +330,7 @@ const [form, setForm] = useState({
               disabled={saving}
               className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50"
             >
-              {saving ? 'Salvataggio...' : (plan ? '💾 Salva modifiche' : '➕ Crea Action Plan')}
+              {saving ? 'Salvataggio...' : (plan ? 'Salva modifiche' : 'Crea Action Plan')}
             </button>
           </div>
         </form>
@@ -359,7 +360,7 @@ function DynamicSelect({ value, onChange, options, placeholder, emptyHint }) {
     >
       <option value="">{placeholder}</option>
       {options.length === 0 ? (
-        <option disabled>⚠️ Configura in {emptyHint}</option>
+        <option disabled>Configura in {emptyHint}</option>
       ) : (
         options.map(o => (
           <option key={o._id} value={o.label}>
