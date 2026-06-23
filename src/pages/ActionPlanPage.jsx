@@ -190,28 +190,6 @@ export default function ActionPlanPage() {
         </div>
       </div>
 
-      {/* STAT CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <StatCard label="Totale" value={stats.totale || 0} color="gray" icon={Activity}
-          onClick={() => setFilters({...filters, stato: '', overdue: false})}
-          active={!filters.stato && !filters.overdue} />
-        <StatCard label="Da Valutare" value={stats.per_stato?.['Da Valutare'] || 0} color="gray" icon={Clock}
-          onClick={() => setFilters({...filters, stato: 'Da Valutare', overdue: false})}
-          active={filters.stato === 'Da Valutare'} />
-        <StatCard label="In Corso" value={stats.per_stato?.['In Corso'] || 0} color="indigo" icon={TrendingUp}
-          onClick={() => setFilters({...filters, stato: 'In Corso', overdue: false})}
-          active={filters.stato === 'In Corso'} />
-        <StatCard label="In Verifica" value={stats.per_stato?.['In Verifica'] || 0} color="purple" icon={Eye}
-          onClick={() => setFilters({...filters, stato: 'In Verifica', overdue: false})}
-          active={filters.stato === 'In Verifica'} />
-        <StatCard label="Done" value={stats.per_stato?.Done || 0} color="green" icon={CheckCircle2}
-          onClick={() => setFilters({...filters, stato: 'Done', overdue: false})}
-          active={filters.stato === 'Done'} />
-        <StatCard label="Overdue" value={stats.overdue || 0} color="red" icon={AlertCircle}
-          onClick={() => setFilters({...filters, stato: '', overdue: !filters.overdue})}
-          active={filters.overdue} />
-      </div>
-
       {/* SEARCH + FILTRI AVANZATI */}
       <div className="bg-white p-3 rounded-lg shadow-sm">
         <div className="flex gap-2 items-center">
