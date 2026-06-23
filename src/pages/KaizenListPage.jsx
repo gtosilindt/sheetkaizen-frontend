@@ -88,7 +88,14 @@ export default function KaizenListPage() {
     if (!newKaizen.titolo.trim()) return alert('Inserisci un titolo')
     if (!newKaizen.tipo) return alert('Seleziona una tipologia Kaizen')
     try {
-      const res = await api.post('/kaizens', newKaizen)
+      // Mando sia 'tipo' (label leggibile) sia 'livello' (Quick/Standard/Major)
+      // così sia la pagina lista sia il detail interpretano correttamente
+      const payload = {
+        ...newKaizen,
+        livello: newKaizen.tipo,                  // 'Quick' | 'Standard' | 'Major'
+        tipo: `${newKaizen.tipo} Kaizen`,         // 'Quick Kaizen' | 'Standard Kaizen' | 'Major Kaizen'
+      }
+      const res = await api.post('/kaizens', payload)
 
       if (newKaizen.pillar_id && res.data?.id) {
         try {
