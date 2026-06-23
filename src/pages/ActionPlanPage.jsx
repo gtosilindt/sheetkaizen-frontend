@@ -670,6 +670,32 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit, onCancel, onRestor
             <span className="text-xs">{detail.categoria_perdita || detail.tipo_perdita || '—'}</span>
           </SidebarRow>
 
+          {/* Collegamento a parent (Pillar / Kaizen / Dashboard) */}
+          {detail.parent_type && detail.parent_type !== 'standalone' && (
+            <SidebarRow label="Collegato a">
+              <div className="text-xs text-right">
+                <span className={`px-2 py-0.5 rounded ${
+                  detail.parent_type === 'pillar' ? 'bg-indigo-100 text-indigo-700' :
+                  detail.parent_type === 'kaizen' ? 'bg-emerald-100 text-emerald-700' :
+                  detail.parent_type === 'dashboard' ? 'bg-purple-100 text-purple-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {detail.parent_type === 'pillar' && 'Pillar'}
+                  {detail.parent_type === 'kaizen' && 'Kaizen'}
+                  {detail.parent_type === 'dashboard' && 'Dashboard'}
+                  {detail.parent_label && ` · ${detail.parent_label}`}
+                </span>
+              </div>
+            </SidebarRow>
+          )}
+          
+          {/* Pillar id transitivo (se collegato indirettamente via Kaizen) */}
+          {detail.pillar_id && detail.parent_type !== 'pillar' && (
+            <SidebarRow label="Pillar">
+              <span className="text-xs text-gray-600">{detail.pillar_id.slice(0, 8)}...</span>
+            </SidebarRow>
+          )}
+
           {(detail.reparto || detail.linea || detail.macchina) && (
             <SidebarRow label="Location">
               <div className="text-xs text-right">
