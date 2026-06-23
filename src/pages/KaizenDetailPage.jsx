@@ -4,7 +4,7 @@ import api from '../services/api'
 import { Save, ChevronDown, X, History, RefreshCw } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import IshikawaDiagram from '../components/kaizen/IshikawaDiagram'
-import FiveWhysMindMap from '../components/kaizen/FiveWhysMindMap'
+import FiveWhysFlowChart from '../components/kaizen/FiveWhysFlowChart'
 
 const LIVELLI = ['Quick', 'Standard', 'Major']
 
@@ -57,26 +57,15 @@ export default function KaizenDetailPage() {
   const [showStoria, setShowStoria] = useState(false)
   const [transforming, setTransforming] = useState(false)
 
-  // Flusso Ishikawa → 5 Perché → Action Plan
-  const [newPromossoTo5Why, setNewPromossoTo5Why] = useState(null)
+  // Flusso Ishikawa → Crea Action Plan da Root Cause
   const [showAPFormFromRootCause, setShowAPFormFromRootCause] = useState(false)
   const [rootCausePrefill, setRootCausePrefill] = useState(null)
 
-  // Quando l'utente clicca "Esplora con 5 Perché" su una causa Ishikawa
-  function handleExploraInFiveWhys(causa) {
-    setNewPromossoTo5Why({ ...causa, _ts: Date.now() })
-    setActiveTab('quickkaizen')
-    setTimeout(() => {
-      const el = document.getElementById('five-whys-section')
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 200)
-  }
-
   // Quando l'utente clicca "Crea Action Plan da questa Root Cause"
-  function handleCreateAPFromRootCause(rootCauseNode, alberoProblema) {
-    const desc = `Problema: ${alberoProblema}\n\nRoot cause identificata: ${rootCauseNode.perche}`
+  function handleCreateAPFromRootCause(rootCauseNode, problema) {
+    const desc = `Problema: ${problema}\n\nRoot cause identificata: ${rootCauseNode.label}`
     setRootCausePrefill({
-      titolo: `Azione per: ${rootCauseNode.perche?.slice(0, 60) || 'Root Cause'}`,
+      titolo: `Azione per: ${(rootCauseNode.label || 'Root Cause').slice(0, 60)}`,
       descrizione: desc,
     })
     setShowAPFormFromRootCause(true)
@@ -416,29 +405,18 @@ export default function KaizenDetailPage() {
                   },
                 }))
               }}
-              onExploraInFiveWhys={handleExploraInFiveWhys}
             />
           </div>
 
-          {/* PASSO 3 — 5 Perché Mind Map (occupa 2 colonne) */}
-          <div id="five-whys-section" className="lg:col-span-2 bg-white rounded-xl shadow p-6">
+          {/* PASSO 3 — 5 Perché visualizzazione automatica (occupa 2 colonne) */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">
-              PASSO 3 - 5 PERCHÉ (Root Cause Analysis)
+              PASSO 3 - 5 PERCHÉ (Catene Root Cause)
             </h3>
-            <FiveWhysMindMap
-              alberi={kaizen.passo3_causa_radice?.alberi || []}
-              ishikawaRami={kaizen.passo2_cause_probabili?.rami || {}}
-              onChange={(alberi) => {
-                setKaizen(prev => ({
-                  ...prev,
-                  passo3_causa_radice: {
-                    ...prev.passo3_causa_radice,
-                    alberi,
-                  },
-                }))
-              }}
+            <FiveWhysFlowChart
+              effetto={kaizen.passo2_cause_probabili?.effetto || ''}
+              rami={kaizen.passo2_cause_probabili?.rami || {}}
               onCreateActionPlan={handleCreateAPFromRootCause}
-              newPromosso={newPromossoTo5Why}
             />
           </div>
           <div className="bg-white rounded-xl shadow p-6">
