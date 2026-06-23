@@ -36,14 +36,14 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange }) {
     const newCausa = createNewNode()
     setLocalRami(prev => ({
       ...prev,
-      [...(prev[ramoId] || []), newCausa],
+      [ramoId]: [...(prev[ramoId] || []), newCausa],
     }))
   }
   
   function updateNode(ramoId, nodeId, updates) {
     setLocalRami(prev => ({
       ...prev,
-      updateNodoRecursive(prev[ramoId], nodeId, updates),
+      [ramoId]: updateNodoRecursive(prev[ramoId], nodeId, updates),
     }))
   }
   
@@ -51,7 +51,7 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange }) {
     const newChild = createNewNode()
     setLocalRami(prev => ({
       ...prev,
-      addChildRecursive(prev[ramoId], parentId, newChild),
+      [ramoId]: addChildRecursive(prev[ramoId], parentId, newChild),
     }))
     setExpandedNodes(prev => new Set(prev).add(parentId))
   }
@@ -60,14 +60,14 @@ export default function IshikawaDiagram({ effetto = '', rami = {}, onChange }) {
     if (!confirm('Rimuovere questo nodo e tutti i suoi figli?')) return
     setLocalRami(prev => ({
       ...prev,
-      removeNodoRecursive(prev[ramoId], nodeId),
+      [ramoId]: removeNodoRecursive(prev[ramoId], nodeId),
     }))
   }
   
   function toggleRootCause(ramoId, nodeId) {
     setLocalRami(prev => ({
       ...prev,
-      setRootCauseRecursive(prev[ramoId], nodeId),
+      [ramoId]: setRootCauseRecursive(prev[ramoId], nodeId),
     }))
   }
   
