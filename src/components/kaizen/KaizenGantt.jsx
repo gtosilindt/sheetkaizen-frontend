@@ -421,6 +421,9 @@ export default function KaizenGantt({ kaizenId, kaizenNumero }) {
                             </span>
                           </div>
                         )}
+                      </div>
+                    )
+                  })}
 
                   {/* Linea OGGI */}
                   {todayLinePosition !== null && (
