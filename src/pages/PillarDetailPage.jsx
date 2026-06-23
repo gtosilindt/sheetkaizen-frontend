@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import api from '../services/api'
-import { ArrowLeft, User, Calendar, UsersionPlans] = useState([])import { ArrowLeft, User, Calendar, Users, Edit2, Plus, Trash2, ClipboardList } from 'lucide-react'
+import { ArrowLeft, User, Calendar, Users, Edit2, Plus, Trash2, ClipboardList } from 'lucide-react'
+import ActionPlanFormShared from '../components/ActionPlanFormShared'
+
+export default function PillarDetailPage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [pillar, setPillar] = useState(null)
+  const [stats, setStats] = useState(null)
+  const [kaizens, setKaizens] = useState([])
+  const [actionPlans, setActionPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('anagrafica')
 
