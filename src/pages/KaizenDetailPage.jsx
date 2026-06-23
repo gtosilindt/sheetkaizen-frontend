@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom'
 import api from '../services/api'
 import { Save, ChevronDown, X, History, RefreshCw } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
+import IshikawaDiagram from '../components/kaizen/IshikawaDiagram'
+import FiveWhysMindMap from '../components/kaizen/FiveWhysMindMap'
 
 const LIVELLI = ['Quick', 'Standard', 'Major']
 
@@ -54,6 +56,31 @@ export default function KaizenDetailPage() {
   const [motivoTrasforma, setMotivoTrasforma] = useState('')
   const [showStoria, setShowStoria] = useState(false)
   const [transforming, setTransforming] = useState(false)
+
+  // Flusso Ishikawa → 5 Perché → Action Plan
+  const [newPromossoTo5Why, setNewPromossoTo5Why] = useState(null)
+  const [showAPFormFromRootCause, setShowAPFormFromRootCause] = useState(false)
+  const [rootCausePrefill, setRootCausePrefill] = useState(null)
+
+  // Quando l'utente clicca "Esplora con 5 Perché" su una causa Ishikawa
+  function handleExploraInFiveWhys(causa) {
+    setNewPromossoTo5Why({ ...causa, _ts: Date.now() })
+    setActiveTab('quickkaizen')
+    setTimeout(() => {
+      const el = document.getElementById('five-whys-section')
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 200)
+  }
+
+  // Quando l'utente clicca "Crea Action Plan da questa Root Cause"
+  function handleCreateAPFromRootCause(rootCauseNode, alberoProblema) {
+    const desc = `Problema: ${alberoProblema}\n\nRoot cause identificata: ${rootCauseNode.perche}`
+    setRootCausePrefill({
+      titolo: `Azione per: ${rootCauseNode.perche?.slice(0, 60) || 'Root Cause'}`,
+      descrizione: desc,
+    })
+    setShowAPFormFromRootCause(true)
+  }
 
   useEffect(() => { loadKaizen() }, [id])
 
@@ -371,33 +398,47 @@ export default function KaizenDetailPage() {
               </div>
             ))}
           </div>
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">PASSO 2 - CAUSE PROBABILI</h3>
-            <p className="text-sm text-gray-500 mb-3">Diagramma Ishikawa (6M)</p>
-            {['people', 'environment', 'material', 'measurement', 'methods', 'machine'].map(cat => (
-              <div key={cat} className="mb-3">
-                <label className="block text-sm font-bold text-gray-600 capitalize mb-1">{cat}</label>
-                <input value={kaizen.passo2_cause_probabili?.[cat]?.join(', ') || ''}
-                  onChange={(e) => updateField('passo2_cause_probabili', cat, e.target.value.split(', '))}
-                  className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Separare con virgola" />
-              </div>
-            ))}
+          {/* PASSO 2 — Ishikawa interattivo (occupa 2 colonne) */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow p-6">
+            <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">
+              PASSO 2 - CAUSE PROBABILI (Ishikawa)
+            </h3>
+            <IshikawaDiagram
+              effetto={kaizen.passo2_cause_probabili?.effetto || ''}
+              rami={kaizen.passo2_cause_probabili?.rami || {}}
+              onChange={(data) => {
+                setKaizen(prev => ({
+                  ...prev,
+                  passo2_cause_probabili: {
+                    ...prev.passo2_cause_probabili,
+                    effetto: data.effetto,
+                    rami: data.rami,
+                  },
+                }))
+              }}
+              onExploraInFiveWhys={handleExploraInFiveWhys}
+            />
           </div>
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">PASSO 3 - CAUSA RADICE</h3>
-            <p className="text-sm text-gray-500 mb-3">Analisi 5 Why</p>
-            <div className="mb-3">
-              <label className="block text-sm font-bold mb-1">Causa Probabile</label>
-              <input value={kaizen.passo3_causa_radice?.causa_probabile || ''}
-                onChange={(e) => updateField('passo3_causa_radice', 'causa_probabile', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div className="mb-3">
-              <label className="block text-sm font-bold mb-1">Causa Radice Finale</label>
-              <textarea value={kaizen.passo3_causa_radice?.causa_radice_finale || ''}
-                onChange={(e) => updateField('passo3_causa_radice', 'causa_radice_finale', e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm" rows={3} />
-            </div>
+
+          {/* PASSO 3 — 5 Perché Mind Map (occupa 2 colonne) */}
+          <div id="five-whys-section" className="lg:col-span-2 bg-white rounded-xl shadow p-6">
+            <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">
+              PASSO 3 - 5 PERCHÉ (Root Cause Analysis)
+            </h3>
+            <FiveWhysMindMap
+              alberi={kaizen.passo3_causa_radice?.alberi || []}
+              onChange={(alberi) => {
+                setKaizen(prev => ({
+                  ...prev,
+                  passo3_causa_radice: {
+                    ...prev.passo3_causa_radice,
+                    alberi,
+                  },
+                }))
+              }}
+              onCreateActionPlan={handleCreateAPFromRootCause}
+              newPromosso={newPromossoTo5Why}
+            />
           </div>
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">VERIFICA DEL PROCESSO</h3>
@@ -506,6 +547,27 @@ export default function KaizenDetailPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Form AP creato da Root Cause dei 5 Perché */}
+      {showAPFormFromRootCause && rootCausePrefill && (
+        <ActionPlanFormShared
+          plan={{
+            titolo: rootCausePrefill.titolo,
+            descrizione: rootCausePrefill.descrizione,
+          }}
+          prefilledKaizen={{ kaizen_id: id, kaizen_numero: kaizen.numero }}
+          onClose={() => {
+            setShowAPFormFromRootCause(false)
+            setRootCausePrefill(null)
+          }}
+          onSaved={() => {
+            setShowAPFormFromRootCause(false)
+            setRootCausePrefill(null)
+            loadKaizen()
+            alert('Action Plan creato e collegato al Kaizen')
+          }}
+        />
       )}
     </div>
   )
