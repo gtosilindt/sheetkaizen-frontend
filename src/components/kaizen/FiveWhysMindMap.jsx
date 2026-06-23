@@ -8,35 +8,23 @@ import ReactFlow, {
   applyNodeChanges,
   applyEdgeChanges,
   ReactFlowProvider,
-  useReactFlow,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { Plus, X, Target, ClipboardList } from 'lucide-react'
+import { Plus, X, Target, ClipboardList, ChevronRight } from 'lucide-react'
 
-/**
- * FiveWhysMindMap — Mind map radiale dei 5 Perché
- *
- * Props:
- *   - alberi: array di alberi (uno per ogni causa esplorata dall'Ishikawa)
- *     [{ id, problema, root: { id, perche, voti, is_root_cause, children: [...] } }]
- *   - onChange: callback(alberi) con la nuova struttura
- *   - onCreateActionPlan: callback(rootCause, alberoProblema) quando clicco "Crea AP"
- *   - newPromosso: opzionale, causa da Ishikawa appena promossa → crea nuovo albero
- *
- * I nodi React Flow vengono generati ad ogni render da "alberi".
- * Quando l'utente modifica un nodo, aggiorniamo "alberi" e onChange viene chiamato.
- */
-export default function FiveWhysMindMap({ alberi = [], onChange, onCreateActionPlan, newPromosso = null }) {
+const PRIMARY_COLOR = '#1e3a8a'
+
+export default function FiveWhysMindMap({ alberi = [], onChange, onCreateActionPlan, newPromosso = null, ishikawaRami = {} }) {
   const [localAlberi, setLocalAlberi] = useState(alberi)
   const [selectedAlberoId, setSelectedAlberoId] = useState(alberi[0]?.id || null)
   const isFirstRender = useRef(true)
 
-  // Quando il padre passa una causa promossa dall'Ishikawa, creo un nuovo albero
   useEffect(() => {
     if (!newPromosso) return
     const newAlbero = {
       id: `t_${Date.now()}`,
       problema: newPromosso.label || 'Nuova causa da esplorare',
+      sourceIshikawaId: newPromosso.id || null,
       root: {
         id: `n_${Date.now()}`,
         perche: '',
@@ -49,7 +37,6 @@ export default function FiveWhysMindMap({ alberi = [], onChange, onCreateActionP
     setSelectedAlberoId(newAlbero.id)
   }, [newPromosso])
 
-  // Notifica il padre quando cambia
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false
@@ -58,13 +45,11 @@ export default function FiveWhysMindMap({ alberi = [], onChange, onCreateActionP
     onChange?.(localAlberi)
   }, [localAlberi])
 
-  // ──────────────────────────────────────────
-  // CRUD alberi
-  // ──────────────────────────────────────────
-  function addAlbero() {
+  function addAlbero(problema = '', sourceId = null) {
     const newAlbero = {
       id: `t_${Date.now()}`,
-      problema: '',
+      problema,
+      sourceIshikawaId: sourceId,
       root: {
         id: `n_${Date.now()}`,
         perche: '',
@@ -98,14 +83,63 @@ export default function FiveWhysMindMap({ alberi = [], onChange, onCreateActionP
 
   const selectedAlbero = localAlberi.find(t => t.id === selectedAlberoId)
 
+  // Raccoglie tutte le cause Ishikawa (rami + sotto-cause) per il pannello
+  const causeIshikawaDisponibili = useMemo(() => {
+    const flatList = []
+    Object.entries(ishikawaRami).forEach(([ramoId, cause]) => {
+      cause.forEach(causa => {
+        flatList.push({ id: causa.id, label: causa.label, ramo: ramoId, voti: causa.voti })
+      })
+    })
+    return flatList.filter(c => c.label?.trim())
+  }, [ishikawaRami])
+
+  // Verifica se una causa è già stata promossa (cioè esiste già un albero per essa)
+  const isAlreadyPromoted = (ishikawaCausaId) =>
+    localAlberi.some(t => t.sourceIshikawaId === ishikawaCausaId)
+
   return (
     <div className="space-y-4">
-      {/* Lista alberi (tabs orizzontali) */}
+      {/* Pannello cause disponibili dall'Ishikawa */}
+      {causeIshikawaDisponibili.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-3 border-l-4 border-gray-300">
+          <div className="text-xs font-bold uppercase text-gray-600 mb-2">
+            Cause dall'Ishikawa disponibili — Click per esplorare con i 5 Perché
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {causeIshikawaDisponibili.map(c => {
+              const already = isAlreadyPromoted(c.id)
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => !already && addAlbero(c.label, c.id)}
+                  disabled={already}
+                  className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-2 ${
+                    already
+                      ? 'bg-green-50 border-green-300 text-green-700 cursor-default'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-primary hover:bg-blue-50'
+                  }`}
+                >
+                  <span className="text-[10px] uppercase font-semibold opacity-60">{c.ramo}</span>
+                  <span className="font-medium">{c.label}</span>
+                  {already ? (
+                    <span className="text-[10px] bg-green-200 px-1.5 py-0.5 rounded">Esplorata</span>
+                  ) : (
+                    <ChevronRight size={12} />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Lista alberi */}
       <div className="bg-white rounded-xl shadow p-3">
         <div className="flex items-center gap-2 mb-2">
           <h3 className="text-xs font-bold uppercase text-gray-600">Alberi 5 Perché</h3>
           <button
-            onClick={addAlbero}
+            onClick={() => addAlbero()}
             className="ml-auto text-xs px-2 py-1 bg-primary text-white rounded flex items-center gap-1 hover:bg-primary-light"
           >
             <Plus size={12} /> Nuovo albero
@@ -114,7 +148,7 @@ export default function FiveWhysMindMap({ alberi = [], onChange, onCreateActionP
 
         {localAlberi.length === 0 ? (
           <div className="text-xs text-gray-400 italic text-center py-3">
-            Nessun albero. Aggiungine uno o esplora una causa dall'Ishikawa.
+            Nessun albero. Aggiungine uno o click su una causa dall'Ishikawa.
           </div>
         ) : (
           <div className="flex gap-2 flex-wrap">
@@ -152,21 +186,16 @@ export default function FiveWhysMindMap({ alberi = [], onChange, onCreateActionP
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// Editor di un singolo albero (mind map con React Flow)
-// ──────────────────────────────────────────────────────────
 function AlberoEditor({ albero, onUpdate, onDelete, onCreateActionPlan }) {
   const [nodes, setNodes] = useState([])
   const [edges, setEdges] = useState([])
 
-  // Genera nodi/edges dall'albero ad ogni cambio
   useEffect(() => {
     const { nodes: newNodes, edges: newEdges } = albero2Graph(albero)
     setNodes(newNodes)
     setEdges(newEdges)
   }, [albero])
 
-  // Handlers per modifiche posizione/zoom (React Flow)
   const onNodesChange = useCallback((changes) => {
     setNodes((nds) => applyNodeChanges(changes, nds))
   }, [])
@@ -174,9 +203,6 @@ function AlberoEditor({ albero, onUpdate, onDelete, onCreateActionPlan }) {
     setEdges((eds) => applyEdgeChanges(changes, eds))
   }, [])
 
-  // ──────────────────────────────────────────
-  // CRUD nodi dell'albero
-  // ──────────────────────────────────────────
   function addChildToNode(parentId) {
     const newChild = {
       id: `n_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -205,12 +231,10 @@ function AlberoEditor({ albero, onUpdate, onDelete, onCreateActionPlan }) {
   }
 
   function toggleRootCause(nodeId) {
-    // Solo un nodo per albero può essere "root cause"
     const newRoot = setRootCause(albero.root, nodeId)
     onUpdate({ root: newRoot })
   }
 
-  // Custom node type
   const nodeTypes = useMemo(() => ({
     perche: (props) => (
       <PercheNode
@@ -231,7 +255,6 @@ function AlberoEditor({ albero, onUpdate, onDelete, onCreateActionPlan }) {
 
   return (
     <div className="bg-white rounded-xl shadow overflow-hidden">
-      {/* Header con problema modificabile */}
       <div className="bg-gray-50 border-b p-3 flex items-center gap-3">
         <div className="flex-1">
           <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">
@@ -251,7 +274,6 @@ function AlberoEditor({ albero, onUpdate, onDelete, onCreateActionPlan }) {
         </button>
       </div>
 
-      {/* Mind map React Flow */}
       <div style={{ height: 600 }}>
         <ReactFlow
           nodes={nodes}
@@ -262,16 +284,16 @@ function AlberoEditor({ albero, onUpdate, onDelete, onCreateActionPlan }) {
           fitView
           minZoom={0.3}
           maxZoom={2}
+          nodesDraggable={true}
         >
           <Background gap={20} color="#e5e7eb" />
           <Controls />
-          <MiniMap nodeColor={(n) => n.data?.is_root_cause ? '#ef4444' : '#3b82f6'} />
+          <MiniMap nodeColor={(n) => n.data?.is_root_cause ? '#ef4444' : '#94a3b8'} />
         </ReactFlow>
       </div>
 
-      {/* Legenda */}
       <div className="p-3 bg-gray-50 border-t text-[10px] text-gray-500 flex flex-wrap gap-3 items-center">
-        <span><b>Trascina</b> per spostare i nodi</span>
+        <span><b>Trascina</b> sull'intestazione (PERCHÉ) per spostare i nodi</span>
         <span>·</span>
         <span><b>Scroll</b> per zoomare</span>
         <span>·</span>
@@ -281,15 +303,12 @@ function AlberoEditor({ albero, onUpdate, onDelete, onCreateActionPlan }) {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// Nodo "Perché?" custom
-// ──────────────────────────────────────────────────────────
 function PercheNode({ id, data }) {
   const { perche, voti, is_root_cause, isRoot, onAddChild, onUpdate, onRemove, onToggleRootCause, onCreateActionPlan } = data
 
   return (
     <div
-      className={`bg-white border-2 rounded-lg shadow-md p-2 min-w-[220px] ${
+      className={`bg-white border-2 rounded-lg shadow-md min-w-[240px] ${
         is_root_cause
           ? 'border-red-500 ring-4 ring-red-200'
           : isRoot
@@ -299,22 +318,23 @@ function PercheNode({ id, data }) {
     >
       <Handle type="target" position={Position.Top} />
 
-      {/* Badge tipo */}
-      <div className="flex items-center justify-between mb-1">
+      {/* Header — l'unica parte trascinabile */}
+      <div className="flex items-center justify-between p-2 border-b bg-gray-50 cursor-move">
         <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
           is_root_cause
             ? 'bg-red-100 text-red-700'
             : isRoot
             ? 'bg-primary text-white'
-            : 'bg-gray-100 text-gray-600'
+            : 'bg-gray-200 text-gray-700'
         }`}>
           {is_root_cause ? 'ROOT CAUSE' : isRoot ? 'Perché #1' : 'Perché'}
         </span>
 
         {!isRoot && (
           <button
-            onClick={() => onRemove(id)}
-            className="text-red-400 hover:bg-red-50 rounded p-0.5"
+            onClick={(e) => { e.stopPropagation(); onRemove(id) }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="nodrag text-red-400 hover:bg-red-50 rounded p-0.5"
             title="Rimuovi nodo"
           >
             <X size={11} />
@@ -322,78 +342,77 @@ function PercheNode({ id, data }) {
         )}
       </div>
 
-      {/* Textarea per il "perché?" */}
-      <textarea
-        value={perche || ''}
-        onChange={(e) => onUpdate(id, { perche: e.target.value })}
-        placeholder="Perché?"
-        rows={2}
-        className="w-full text-xs border rounded p-1 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-      />
-
-      {/* Voting */}
-      <div className="flex items-center justify-between mt-1.5">
-        <VotingPallini
-          value={voti || 0}
-          onChange={(v) => onUpdate(id, { voti: v })}
-          color="#3b82f6"
+      {/* Body — non trascinabile, qui scrivi */}
+      <div className="p-2 nodrag" onMouseDown={(e) => e.stopPropagation()}>
+        <textarea
+          value={perche || ''}
+          onChange={(e) => onUpdate(id, { perche: e.target.value })}
+          rows={2}
+          className="nodrag w-full text-xs border rounded p-1 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         />
 
-        <div className="flex gap-1">
-          {/* Toggle root cause */}
-          <button
-            onClick={() => onToggleRootCause(id)}
-            className={`p-1 rounded text-[10px] ${
-              is_root_cause
-                ? 'bg-red-500 text-white hover:bg-red-600'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            title={is_root_cause ? 'Rimuovi ROOT CAUSE' : 'Segna come ROOT CAUSE'}
-          >
-            <Target size={11} />
-          </button>
+        <div className="flex items-center justify-between mt-1.5 nodrag" onMouseDown={(e) => e.stopPropagation()}>
+          <VotingPallini
+            value={voti || 0}
+            onChange={(v) => onUpdate(id, { voti: v })}
+          />
 
-          {/* Aggiungi figlio */}
-          <button
-            onClick={() => onAddChild(id)}
-            className="p-1 rounded bg-primary text-white hover:bg-primary-light"
-            title="Aggiungi un Perché figlio"
-          >
-            <Plus size={11} />
-          </button>
+          <div className="flex gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleRootCause(id) }}
+              onMouseDown={(e) => e.stopPropagation()}
+              className={`nodrag p-1 rounded text-[10px] ${
+                is_root_cause
+                  ? 'bg-red-500 text-white hover:bg-red-600'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title={is_root_cause ? 'Rimuovi ROOT CAUSE' : 'Segna come ROOT CAUSE'}
+            >
+              <Target size={11} />
+            </button>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); onAddChild(id) }}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="nodrag p-1 rounded bg-primary text-white hover:bg-primary-light"
+              title="Aggiungi un Perché figlio"
+            >
+              <Plus size={11} />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Bottone "Crea AP" SOLO se è la root cause */}
-      {is_root_cause && (
-        <button
-          onClick={onCreateActionPlan}
-          className="w-full mt-2 text-[10px] px-2 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center gap-1 font-bold"
-        >
-          <ClipboardList size={11} />
-          Crea Action Plan da questa causa
-        </button>
-      )}
+        {is_root_cause && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCreateActionPlan() }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="nodrag w-full mt-2 text-[10px] px-2 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center gap-1 font-bold"
+          >
+            <ClipboardList size={11} />
+            Crea Action Plan da questa causa
+          </button>
+        )}
+      </div>
 
       <Handle type="source" position={Position.Bottom} />
     </div>
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// Voting 1-5 pallini (riutilizzato dall'Ishikawa)
-// ──────────────────────────────────────────────────────────
-function VotingPallini({ value, onChange, color = '#3b82f6' }) {
+function VotingPallini({ value, onChange }) {
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map(n => (
         <button
           key={n}
-          onClick={() => onChange(value === n ? 0 : n)}
-          className="w-2.5 h-2.5 rounded-full border transition-all"
+          onClick={(e) => { e.stopPropagation(); onChange(value === n ? 0 : n) }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="nodrag w-2.5 h-2.5 rounded-full border transition-all"
           style={{
-            backgroundColor: n <= value ? color : 'transparent',
-            borderColor: n <= value ? color : '#d1d5db',
+            backgroundColor: n <= value ? PRIMARY_COLOR : 'transparent',
+            borderColor: n <= value ? PRIMARY_COLOR : '#d1d5db',
           }}
         />
       ))}
@@ -401,19 +420,11 @@ function VotingPallini({ value, onChange, color = '#3b82f6' }) {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// HELPERS — albero ↔ grafo React Flow
-// ──────────────────────────────────────────────────────────
-
-/**
- * Trasforma un albero (struttura ricorsiva) in nodes + edges per React Flow.
- * Calcola la posizione automatica con layout "tree" semplice.
- */
 function albero2Graph(albero) {
   const nodes = []
   const edges = []
-  const xSpacing = 280
-  const ySpacing = 160
+  const xSpacing = 300
+  const ySpacing = 200
 
   function walk(nodo, depth, xOffset, isRoot) {
     const x = xOffset
@@ -429,6 +440,8 @@ function albero2Graph(albero) {
         is_root_cause: nodo.is_root_cause,
         isRoot,
       },
+      // ⚠️ permette di trascinare i nodi liberamente
+      draggable: true,
     })
 
     const children = nodo.children || []
@@ -454,9 +467,6 @@ function albero2Graph(albero) {
   return { nodes, edges }
 }
 
-/**
- * Aggiunge un nuovo figlio a un nodo specifico (ricerca ricorsiva).
- */
 function aggiungiChild(nodo, parentId, newChild) {
   if (nodo.id === parentId) {
     return { ...nodo, children: [...(nodo.children || []), newChild] }
@@ -467,9 +477,6 @@ function aggiungiChild(nodo, parentId, newChild) {
   }
 }
 
-/**
- * Aggiorna un nodo specifico (ricerca ricorsiva).
- */
 function updateNodo(nodo, nodeId, updates) {
   if (nodo.id === nodeId) {
     return { ...nodo, ...updates }
@@ -480,12 +487,8 @@ function updateNodo(nodo, nodeId, updates) {
   }
 }
 
-/**
- * Rimuove un nodo dall'albero (ricerca ricorsiva).
- * Ritorna null se si tenta di rimuovere la radice.
- */
 function rimuoviNodo(nodo, nodeId) {
-  if (nodo.id === nodeId) return null  // non si può rimuovere la radice
+  if (nodo.id === nodeId) return null
   return {
     ...nodo,
     children: (nodo.children || [])
@@ -495,10 +498,6 @@ function rimuoviNodo(nodo, nodeId) {
   }
 }
 
-/**
- * Marca un nodo come ROOT CAUSE.
- * Toglie il flag a tutti gli altri nodi (solo 1 per albero).
- */
 function setRootCause(nodo, nodeId) {
   const isTarget = nodo.id === nodeId
   return {
@@ -508,9 +507,6 @@ function setRootCause(nodo, nodeId) {
   }
 }
 
-/**
- * Trova il nodo segnato come ROOT CAUSE.
- */
 function trovaRootCause(nodo) {
   if (nodo.is_root_cause) return nodo
   for (const child of nodo.children || []) {
