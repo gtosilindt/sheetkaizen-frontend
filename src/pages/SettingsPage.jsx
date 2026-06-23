@@ -1,29 +1,117 @@
 import { useState, useEffect } from 'react'
-import { Settings, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Search, GripVertical } from 'lucide-react'
+import { Settings, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Search, GripVertical, ChevronRight, Info } from 'lucide-react'
 import api from '../services/api'
 
 // ──────────────────────────────────────────────────────────
-// CONFIG: definisce i 7 tab disponibili
+// CONFIG: definisce le sezioni raggruppate
 // ──────────────────────────────────────────────────────────
-const TABS = [
-  { id: 'pillars', label: '🏛️ Pillars', icon: '🏛️', color: 'indigo',
-    hint: 'Pillar TPM Lindt (FI, AM, PM, QM, EM, T&E, S, E, E2E, LP, EEM, EPM)', isPillar: true },
-  { id: 'tipi_kaizen', label: 'Tipologie Kaizen', icon: '📋', color: 'blue', 
-    hint: 'Es: Quick Kaizen, Standard Kaizen, Major Kaizen' },
-  { id: 'categorie_action_plan', label: 'Categorie Action Plan', icon: '🎯', color: 'green',
-    hint: 'Es: Sicurezza, Qualità, Manutenzione, 5S' },
-  { id: 'tipi_action_plan', label: 'Tipi Action Plan', icon: '📌', color: 'green',
-    hint: 'Es: Task, Bug, Improvement, Audit, Manutenzione, Sicurezza' },
-  { id: 'categorie_documento', label: 'Categorie Documenti', icon: '📚', color: 'purple',
-    hint: 'Es: Operativa, Sicurezza, Manutenzione' },
-  { id: 'tipi_perdita', label: 'Tipi Perdita', icon: '💥', color: 'red',
-    hint: 'Es: Guasto, Setup, Microfermata, Scarti (16 Big Losses TPM)' },
-  { id: 'categorie_perdita', label: 'Categorie Perdita', icon: '🟥', color: 'orange',
-    hint: 'Es: Disponibilità, Prestazione, Qualità, Organizzative' },
-  { id: 'reparti', label: 'Reparti', icon: '🏭', color: 'indigo',
-    hint: 'Es: Confezionamento, Cioccolato, Qualità' },
-  { id: 'argomenti', label: 'Argomenti / Tag', icon: '🏷️', color: 'pink',
-    hint: 'Es: sicurezza, efficienza, OEE, 5S (per #hashtag nei kaizen e action plan)' },
+const SECTIONS = [
+  {
+    id: 'struttura',
+    label: 'Struttura Aziendale',
+    icon: '🏗️',
+    color: 'indigo',
+    tabs: [
+      {
+        id: 'pillars',
+        label: 'Pillars',
+        icon: '🏛️',
+        color: 'indigo',
+        isPillar: true,
+        description: 'Pilastri TPM Lindt (FI, AM, PM, QM, ecc.)',
+        usedIn: ['Kaizen', '5 Step KPI Management', 'Master Plan', 'Action Plan (transitivo)'],
+        examples: 'FI (Focused Improvement), AM (Autonomous Maintenance), PM (Planned Maintenance)',
+      },
+      {
+        id: 'reparti_linee',
+        label: 'Reparti → Linee → Macchine',
+        icon: '🏭',
+        color: 'indigo',
+        isRepartiTree: true,  // 🆕 placeholder per F2
+        description: 'Struttura gerarchica della fabbrica (3 livelli)',
+        usedIn: ['Action Plan', 'Kaizen', 'Documenti', 'Filtri'],
+        examples: 'Reparto Cioccolato → Linea Bindler 11 → Macchina Conca 1',
+      },
+    ],
+  },
+  {
+    id: 'action_plan',
+    label: 'Action Plan',
+    icon: '🎯',
+    color: 'green',
+    tabs: [
+      {
+        id: 'tipi_action_plan',
+        label: 'Tipo',
+        icon: '🏷️',
+        color: 'green',
+        description: 'Tipologia funzionale dell\'Action Plan',
+        usedIn: ['Form Action Plan (campo "Tipo")', 'Filtri /action-plan'],
+        examples: 'Sicurezza, Productivity, Manutenzione, Qualità, Ambiente',
+      },
+      {
+        id: 'priorita_ap',
+        label: 'Priorità',
+        icon: '🎚️',
+        color: 'green',
+        description: 'Livelli di priorità per l\'Action Plan',
+        usedIn: ['Form Action Plan (campo "Priorità")', 'Filtri /action-plan', 'Kanban color'],
+        examples: 'Low, Medium, High, Critical',
+      },
+      {
+        id: 'stato_ap',
+        label: 'Stato',
+        icon: '📍',
+        color: 'green',
+        description: 'Stati del flusso di lavoro Action Plan',
+        usedIn: ['Form Action Plan', 'Kanban board', 'Filtri'],
+        examples: 'Da Valutare, Aperto, In Corso, In Verifica, Done',
+      },
+    ],
+  },
+  {
+    id: 'kaizen',
+    label: 'Kaizen',
+    icon: '📋',
+    color: 'red',
+    tabs: [
+      {
+        id: 'categorie_perdita',
+        label: 'Categoria Perdita (TPM)',
+        icon: '💥',
+        color: 'red',
+        description: 'Le 6 grandi perdite TPM — condivisa Kaizen + Action Plan',
+        usedIn: ['Kaizen (Ishikawa)', 'Action Plan', 'Step 2 Pareto Pillar'],
+        examples: 'OEE, Guasti, Setup, Microfermate, Scarti, Riavvii',
+      },
+      {
+        id: 'argomenti',
+        label: 'Argomenti / Tag',
+        icon: '🏷️',
+        color: 'pink',
+        description: 'Tag trasversali per #hashtag in Kaizen e Action Plan',
+        usedIn: ['Kaizen (hashtag)', 'Action Plan (tag)', 'Ricerca globale'],
+        examples: 'sicurezza, efficienza, OEE, 5S, leantools',
+      },
+    ],
+  },
+  {
+    id: 'documenti',
+    label: 'Documenti',
+    icon: '📄',
+    color: 'purple',
+    tabs: [
+      {
+        id: 'categorie_documento',
+        label: 'Categorie Documenti',
+        icon: '📂',
+        color: 'purple',
+        description: 'Categorizzazione dei documenti OPL/SOP/WI',
+        usedIn: ['Documenti', 'Filtri Document Manager'],
+        examples: 'Operativa, Sicurezza, Manutenzione, Qualità',
+      },
+    ],
+  },
 ]
 
 const TAB_COLORS = {
@@ -36,11 +124,21 @@ const TAB_COLORS = {
   pink: 'bg-pink-100 text-pink-700 border-pink-300',
 }
 
+const SECTION_BG = {
+  indigo: 'bg-indigo-50',
+  green: 'bg-green-50',
+  red: 'bg-red-50',
+  purple: 'bg-purple-50',
+}
+
+// Lookup tutti i tab (flat)
+const ALL_TABS = SECTIONS.flatMap(s => s.tabs)
+
 // ──────────────────────────────────────────────────────────
-// MAIN PAGE
+// MAIN PAGE — Sidebar split layout
 // ──────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState(TABS[0].id)
+  const [activeTabId, setActiveTabId] = useState(ALL_TABS[0].id)
   const [stats, setStats] = useState({})
 
   useEffect(() => { loadStats() }, [])
@@ -52,72 +150,142 @@ export default function SettingsPage() {
     } catch (err) { console.error(err) }
   }
 
-  const currentTab = TABS.find(t => t.id === activeTab)
+  const currentTab = ALL_TABS.find(t => t.id === activeTabId)
 
   return (
     <div className="space-y-4">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Settings size={28} /> Settings
-          </h1>
-          <p className="text-gray-500 text-sm">
-            Configura tipologie, categorie e voci di sistema
-          </p>
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Settings size={28} /> Settings
+        </h1>
+        <p className="text-gray-500 text-sm">
+          Configura tutte le voci di sistema raggruppate per dominio
+        </p>
+      </div>
+
+      {/* LAYOUT SPLIT: Sidebar + Detail */}
+      <div className="grid grid-cols-12 gap-4">
+        {/* === SIDEBAR === */}
+        <div className="col-span-12 md:col-span-3 lg:col-span-3">
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden sticky top-4">
+            {SECTIONS.map(section => (
+              <div key={section.id} className="border-b last:border-b-0">
+                {/* Section header */}
+                <div className={`px-3 py-2 ${SECTION_BG[section.color]} border-l-4 border-${section.color}-500`}
+                  style={{ borderLeftColor: section.color === 'indigo' ? '#6366f1' : 
+                            section.color === 'green' ? '#10b981' : 
+                            section.color === 'red' ? '#ef4444' : '#a855f7' }}>
+                  <div className="text-xs font-bold uppercase tracking-wide text-gray-600 flex items-center gap-1">
+                    <span>{section.icon}</span> {section.label}
+                  </div>
+                </div>
+                {/* Section tabs */}
+                <div className="py-1">
+                  {section.tabs.map(tab => {
+                    const isActive = activeTabId === tab.id
+                    const count = stats[tab.id]?.attive || 0
+                    const totale = stats[tab.id]?.totale || 0
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTabId(tab.id)}
+                        className={`w-full px-3 py-2 flex items-center justify-between gap-2 text-sm transition-all ${
+                          isActive
+                            ? `${TAB_COLORS[tab.color]} font-semibold border-l-2`
+                            : 'text-gray-600 hover:bg-gray-50 border-l-2 border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-base">{tab.icon}</span>
+                          <span className="truncate">{tab.label}</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {totale > 0 && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                              isActive ? 'bg-white bg-opacity-70' : 'bg-gray-200 text-gray-600'
+                            }`}>
+                              {count}
+                            </span>
+                          )}
+                          {isActive && <ChevronRight size={14} />}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* === DETAIL === */}
+        <div className="col-span-12 md:col-span-9 lg:col-span-9 space-y-4">
+          {/* Info box */}
+          <div className={`p-4 rounded-lg border-l-4 ${TAB_COLORS[currentTab.color]}`}>
+            <div className="flex items-start gap-3">
+              <Info size={20} className="flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="font-bold text-base mb-1">
+                  {currentTab.icon} {currentTab.label}
+                </div>
+                <p className="text-sm mb-2">{currentTab.description}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="font-semibold uppercase opacity-70 mb-0.5">📍 Usato in:</div>
+                    <ul className="list-disc list-inside ml-1 space-y-0.5">
+                      {currentTab.usedIn.map((u, i) => <li key={i}>{u}</li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="font-semibold uppercase opacity-70 mb-0.5">💡 Esempi:</div>
+                    <p className="italic ml-1">{currentTab.examples}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CONTENUTO */}
+          {currentTab.isPillar ? (
+            <PillarsManager onChange={loadStats} />
+          ) : currentTab.isRepartiTree ? (
+            <RepartiTreePlaceholder />
+          ) : (
+            <ConfigManager
+              key={currentTab.id}
+              tipo={currentTab.id}
+              label={currentTab.label}
+              color={currentTab.color}
+              onChange={loadStats}
+            />
+          )}
         </div>
       </div>
+    </div>
+  )
+}
 
-      {/* TABS NAVIGATION */}
-      <div className="bg-white rounded-lg shadow-sm p-2 flex flex-wrap gap-1">
-        {TABS.map(tab => {
-          const count = stats[tab.id]?.attive || 0
-          const totale = stats[tab.id]?.totale || 0
-          const isActive = activeTab === tab.id
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
-                isActive
-                  ? `${TAB_COLORS[tab.color]} border-2 shadow-sm`
-                  : 'text-gray-600 hover:bg-gray-100 border-2 border-transparent'
-              }`}
-            >
-              <span className="text-base">{tab.icon}</span>
-              <span>{tab.label}</span>
-              {totale > 0 && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  isActive ? 'bg-white bg-opacity-70' : 'bg-gray-200'
-                }`}>
-                  {count}
-                  {totale !== count && ` / ${totale}`}
-                </span>
-              )}
-            </button>
-          )
-        })}
+// ──────────────────────────────────────────────────────────
+// PLACEHOLDER REPARTI/LINEE/MACCHINE (lo facciamo in F2)
+// ──────────────────────────────────────────────────────────
+function RepartiTreePlaceholder() {
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+      <div className="text-6xl mb-3">🏭</div>
+      <h3 className="font-bold text-lg mb-2">Reparti → Linee → Macchine</h3>
+      <p className="text-sm text-gray-500 mb-4">
+        Componente gerarchico in arrivo nello <strong>Step F2</strong>
+      </p>
+      <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded text-sm text-left max-w-md mx-auto">
+        <p className="font-medium mb-1">🚧 Prossima implementazione:</p>
+        <ul className="list-disc list-inside text-xs space-y-0.5 text-gray-700">
+          <li>Card espandibili per ogni Reparto</li>
+          <li>Linee figlie con CRUD inline</li>
+          <li>Macchine annidate sotto ogni Linea</li>
+          <li>Dropdown filtrati dinamicamente nei form</li>
+        </ul>
       </div>
-
-      {/* HINT del tab corrente */}
-      <div className={`p-3 rounded-lg border-l-4 ${TAB_COLORS[currentTab.color]} bg-opacity-30`}>
-        <div className="text-sm">
-          <strong>{currentTab.icon} {currentTab.label}:</strong> {currentTab.hint}
-        </div>
-      </div>
-
-      {/* CONTENUTO TAB */}
-      {currentTab.isPillar ? (
-        <PillarsManager onChange={loadStats} />
-      ) : (
-        <ConfigManager
-          key={activeTab}
-          tipo={activeTab}
-          label={currentTab.label}
-          color={currentTab.color}
-          onChange={loadStats}
-        />
-      )}
     </div>
   )
 }
@@ -186,7 +354,7 @@ function ConfigManager({ tipo, label, color, onChange }) {
           onClick={() => { setEditing(null); setShowForm(true) }}
           className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light text-sm font-medium"
         >
-          <Plus size={16} /> Aggiungi {label.replace('Tipologie ', '').replace('Categorie ', '').slice(0, -1)}
+          <Plus size={16} /> Aggiungi voce
         </button>
       </div>
 
@@ -295,7 +463,6 @@ function ConfigManager({ tipo, label, color, onChange }) {
     </div>
   )
 }
-
 // ──────────────────────────────────────────────────────────
 // FORM CREATE/EDIT
 // ──────────────────────────────────────────────────────────
@@ -318,7 +485,7 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
       const payload = {
         ...form,
         tipo,
-        codice: form.codice.trim() || null,  // null = auto-genera
+        codice: form.codice.trim() || null,
       }
       if (item?._id) {
         await api.put(`/configurazioni/${item._id}`, payload)
@@ -354,7 +521,7 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
               value={form.label}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
               className="w-full border rounded-lg px-3 py-2"
-              placeholder="Es: Quick Kaizen"
+              placeholder="Es: Sicurezza"
             />
           </div>
 
@@ -367,7 +534,7 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
               value={form.codice}
               onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
               className="w-full border rounded-lg px-3 py-2 font-mono"
-              placeholder="Es: QK"
+              placeholder="Es: SIC"
             />
           </div>
 
@@ -378,7 +545,7 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
               onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
               rows={2}
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Es: Risoluzione rapida in 24h"
+              placeholder="Es: Interventi per sicurezza sul lavoro"
             />
           </div>
 
@@ -626,7 +793,7 @@ function PillarsManager({ onChange }) {
 }
 
 // ──────────────────────────────────────────────────────────
-// PILLAR FORM (create/edit)
+// PILLAR FORM (create/edit) — invariato dal tuo file
 // ──────────────────────────────────────────────────────────
 function PillarForm({ pillar, onClose, onSaved }) {
   const [form, setForm] = useState({
