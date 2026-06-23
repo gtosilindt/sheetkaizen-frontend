@@ -373,22 +373,24 @@ export default function KaizenDetailPage() {
       </div>
 
       {activeTab === 'quickkaizen' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
 
-          {/* PASSO 1 — Definizione del problema (1 colonna) */}
+          {/* PASSO 1 — Definizione del problema (da sola, full width) */}
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">PASSO 1 - DEFINIZIONE DEL PROBLEMA</h3>
-            {['che_cosa', 'dove', 'quando', 'chi', 'quale', 'come'].map(field => (
-              <div key={field} className="mb-3">
-                <label className="block text-sm font-bold text-gray-600 uppercase mb-1">{field.replace('_', ' ')}?</label>
-                <textarea value={kaizen.passo1_definizione?.[field] || ''}
-                  onChange={(e) => updateField('passo1_definizione', field, e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
-              </div>
-            ))}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-3">
+              {['che_cosa', 'dove', 'quando', 'chi', 'quale', 'come'].map(field => (
+                <div key={field}>
+                  <label className="block text-sm font-bold text-gray-600 uppercase mb-1">{field.replace('_', ' ')}?</label>
+                  <textarea value={kaizen.passo1_definizione?.[field] || ''}
+                    onChange={(e) => updateField('passo1_definizione', field, e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* PASSO 2 — Ishikawa (1 colonna a destra) */}
+          {/* PASSO 2 — Ishikawa (da sola, full width) */}
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">
               PASSO 2 - CAUSE PROBABILI (Ishikawa)
@@ -409,8 +411,8 @@ export default function KaizenDetailPage() {
             />
           </div>
 
-          {/* PASSO 3 — Catene 5 Perché (full width) */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow p-6">
+          {/* PASSO 3 — Catene 5 Perché (da sola, full width) */}
+          <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">
               PASSO 3 - 5 PERCHÉ (Catene Root Cause)
             </h3>
@@ -421,8 +423,8 @@ export default function KaizenDetailPage() {
             />
           </div>
 
-          {/* PASSO 4 — Verifica del processo (full width) */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow p-6">
+          {/* PASSO 4 — Verifica del processo (da sola, full width con 2 colonne interne) */}
+          <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">PASSO 4 - VERIFICA DEL PROCESSO</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-3">
               {[
@@ -451,26 +453,26 @@ export default function KaizenDetailPage() {
             </div>
           </div>
 
-          {/* PASSO 5 — Piano Azioni (Gantt) — full width */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow p-6">
+          {/* PASSO 5 — Piano Azioni (Gantt) — da sola, full width */}
+          <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">PASSO 5 - PIANO AZIONI</h3>
             <KaizenGantt kaizenId={id} kaizenNumero={kaizen.numero} />
           </div>
 
-          {/* FASE 6 — Valutazione efficacia (compatta, 1 colonna) */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">FASE 6 - VALUTAZIONE EFFICACIA</h3>
-            <textarea value={kaizen.fase5_valutazione_efficacia?.osservazioni || ''}
-              onChange={(e) => updateField('fase5_valutazione_efficacia', 'osservazioni', e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm" rows={4} />
-          </div>
-
-          {/* FASE 7 — Standardizzazione (full width, sotto FASE 6) */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow p-6">
-            <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">FASE 7 - STANDARDIZZAZIONE E REPLICA</h3>
-            <textarea value={kaizen.fase6_standardizzazione?.osservazioni || ''}
-              onChange={(e) => updateField('fase6_standardizzazione', 'osservazioni', e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm" rows={4} />
+          {/* FASE 6 + FASE 7 affiancate (grid 2 colonne, solo per loro) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow p-6">
+              <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">FASE 6 - VALUTAZIONE EFFICACIA</h3>
+              <textarea value={kaizen.fase5_valutazione_efficacia?.osservazioni || ''}
+                onChange={(e) => updateField('fase5_valutazione_efficacia', 'osservazioni', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm" rows={6} />
+            </div>
+            <div className="bg-white rounded-xl shadow p-6">
+              <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">FASE 7 - STANDARDIZZAZIONE E REPLICA</h3>
+              <textarea value={kaizen.fase6_standardizzazione?.osservazioni || ''}
+                onChange={(e) => updateField('fase6_standardizzazione', 'osservazioni', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm" rows={6} />
+            </div>
           </div>
 
         </div>
