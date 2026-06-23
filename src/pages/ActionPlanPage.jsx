@@ -266,11 +266,12 @@ export default function ActionPlanPage() {
         <ActionPlanDetail plan={selectedPlan}
           onClose={() => setSelectedPlan(null)}
           onUpdated={() => loadData()}
-          onEdit={(p) => { setSelectedPlan(null); setEditingPlan(p); setShowForm(true) }} />
+          onEdit={(p) => { setSelectedPlan(null); setEditingPlan(p); setShowForm(true) }}
+          onCancel={async (p) => { await handleCancel(p); setSelectedPlan(null) }}
+          onRestore={async (p) => { await handleRestore(p); setSelectedPlan(null) }}
+          onDelete={async (id) => { await handleDelete(id); setSelectedPlan(null) }}
+        />
       )}
-    </div>
-  )
-}
 
 function Avatar({ name, size = 24 }) {
   if (!name) return null
@@ -464,7 +465,7 @@ function ActionPlanForm({ plan, onClose, onSaved }) {
     </Modal>
   )
 }
-function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
+function ActionPlanDetail({ plan, onClose, onUpdated, onEdit, onCancel, onRestore, onDelete }) {
   const [detail, setDetail] = useState(plan)
   const [nuovoCommento, setNuovoCommento] = useState('')
   const [nuovoChecklistItem, setNuovoChecklistItem] = useState('')
@@ -618,11 +619,43 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit }) {
           <div className="flex justify-between items-center pb-2 border-b">
             <span className="text-sm font-medium">Dettagli</span>
             <div className="flex gap-1">
-              <button onClick={() => onEdit(detail)} className="p-1.5 hover:bg-gray-200 rounded" title="Modifica"><Edit2 size={14} /></button>
-              <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded" title="Chiudi"><X size={14} /></button>
+              {!detail.is_cancelled && onCancel && (
+                <button
+                  onClick={() => onCancel(detail)}
+                  className="p-1.5 hover:bg-orange-100 rounded text-orange-600"
+                  title="🚫 Annulla Action Plan"
+                >
+                  🚫
+                </button>
+              )}
+              {detail.is_cancelled && onRestore && (
+                <button
+                  onClick={() => onRestore(detail)}
+                  className="p-1.5 hover:bg-green-100 rounded text-green-600"
+                  title="♻️ Ripristina"
+                >
+                  ♻️
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(detail._id)}
+                  className="p-1.5 hover:bg-red-100 rounded text-red-600"
+                  title="🗑️ Elimina definitivamente"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+              <button onClick={() => onEdit(detail)} className="p-1.5 hover:bg-gray-200 rounded" title="Modifica">
+                <Edit2 size={14} />
+              </button>
+              <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded" title="Chiudi">
+                <X size={14} />
+              </button>
             </div>
           </div>
-          {/* 🆕 Banner annullamento */}
+
+          {/* 🆕 Banner annullamento (visibile solo se annullato) */}
           {detail.is_cancelled && (
             <div className="bg-red-100 border border-red-300 rounded p-2 text-xs">
               <div className="font-bold text-red-800 mb-1">🚫 Action Plan annullato</div>
