@@ -263,8 +263,7 @@ export default function ActionPlanPage() {
         />
       )}
    {selectedPlan && (
-        <ActionPlanDetail
-          plan={selectedPlan}
+        <ActionPlanDetail plan={selectedPlan}
           onClose={() => setSelectedPlan(null)}
           onUpdated={() => loadData()}
           onEdit={(p) => { setSelectedPlan(null); setEditingPlan(p); setShowForm(true) }}
@@ -276,6 +275,8 @@ export default function ActionPlanPage() {
     </div>
   )
 }
+
+function Avatar({ name, size = 24 }) {
 
 function Avatar({ name, size = 24 }) {
 
