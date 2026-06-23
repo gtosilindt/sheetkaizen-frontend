@@ -1,9 +1,47 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
-import { Plus, Search, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2, CheckCircle } from 'lucide-react'
 import { useAllConfigurations } from '../hooks/useConfigurations'
 import { usePillars } from '../hooks/usePillars'
+
+// Tipologie Kaizen hard-coded (Quick / Standard / Major)
+const TIPOLOGIE_KAIZEN = [
+  { value: 'Quick', label: 'Quick Kaizen', desc: 'Risoluzione rapida (1-3 giorni)' },
+  { value: 'Standard', label: 'Standard Kaizen', desc: 'Progetto strutturato (1-4 settimane)' },
+  { value: 'Major', label: 'Major Kaizen', desc: 'Iniziativa Pillar (1-3 mesi)' },
+]
+
+// Helper: calcola giorni da apertura
+function giorniDaApertura(dataApertura, stato) {
+  if (!dataApertura) return null
+  const apertura = new Date(dataApertura)
+  const oggi = new Date()
+  const diff = Math.floor((oggi - apertura) / (1000 * 60 * 60 * 24))
+  return diff
+}
+
+// Helper: badge colorato giorni
+function GiorniBadge({ giorni, stato }) {
+  if (giorni === null) return <span className="text-gray-400">—</span>
+
+  // Se è chiuso, mostro solo "Chiuso" in grigio
+  if (stato === 'Chiuso') {
+    return <span className="text-xs text-gray-500">Chiuso</span>
+  }
+
+  let colorClass = 'text-green-700 bg-green-50'
+  if (giorni > 30) colorClass = 'text-red-700 bg-red-50'
+  else if (giorni > 7) colorClass = 'text-yellow-700 bg-yellow-50'
+
+  const label = giorni === 0 ? 'oggi' : `${giorni} giorni`
+
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded ${colorClass}`}>
+      {label}
+    </span>
+  )
+}
 
 export default function KaizenListPage() {
   const [kaizens, setKaizens] = useState([])
@@ -11,7 +49,7 @@ export default function KaizenListPage() {
   const [showModal, setShowModal] = useState(false)
   const [newKaizen, setNewKaizen] = useState({
     titolo: '',
-    tipo: '',
+    tipo: 'Quick', // default Quick
     reparto: '',
     linea: '',
     macchina: '',
@@ -20,6 +58,7 @@ export default function KaizenListPage() {
   })
   const [filterTipo, setFilterTipo] = useState('')
   const [filterPillar, setFilterPillar] = useState('')
+  const [filterStato, setFilterStato] = useState('')
   const { configs } = useAllConfigurations()
   const { pillars } = usePillars()
 
@@ -38,7 +77,7 @@ export default function KaizenListPage() {
     try {
       const res = await api.post('/kaizens', newKaizen)
 
-      // Se è stato selezionato un pillar, chiamiamo link-kaizen per denormalizzare sigla+label
+      // Se è stato selezionato un pillar, denormalizza sigla+label
       if (newKaizen.pillar_id && res.data?.id) {
         try {
           await api.post(`/pillars/${newKaizen.pillar_id}/link-kaizen`, {
@@ -52,11 +91,24 @@ export default function KaizenListPage() {
       }
 
       setShowModal(false)
-      setNewKaizen({ titolo: '', tipo: '', reparto: '', linea: '', macchina: '', tipo_perdita: '', pillar_id: '' })
+      setNewKaizen({ titolo: '', tipo: 'Quick', reparto: '', linea: '', macchina: '', tipo_perdita: '', pillar_id: '' })
       loadKaizens()
     } catch (err) {
       console.error(err)
       alert('Errore creazione: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  const chiudiKaizen = async (kaizen, e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm(`Chiudere il Kaizen "${kaizen.numero} - ${kaizen.titolo}"?\n\nLo stato passerà a "Chiuso".`)) return
+    try {
+      await api.put(`/kaizens/${kaizen._id}`, { stato: 'Chiuso' })
+      loadKaizens()
+    } catch (err) {
+      console.error(err)
+      alert('Errore chiusura: ' + (err.response?.data?.detail || err.message))
     }
   }
 
@@ -71,12 +123,12 @@ export default function KaizenListPage() {
       const childrenRes = await api.get(`/kaizens/${kaizen._id}/children`)
       const childrenCount = childrenRes.data?.length || 0
 
-      let confirmMsg = `🗑️ Eliminare "${kaizen.numero} - ${kaizen.titolo}"?`
+      let confirmMsg = `Eliminare "${kaizen.numero} - ${kaizen.titolo}"?`
 
       if (apCount > 0 || childrenCount > 0) {
-        confirmMsg += `\n\n⚠️ ATTENZIONE:`
-        if (apCount > 0) confirmMsg += `\n• ${apCount} Action Plan collegati`
-        if (childrenCount > 0) confirmMsg += `\n• ${childrenCount} Kaizen figli`
+        confirmMsg += `\n\nATTENZIONE:`
+        if (apCount > 0) confirmMsg += `\n- ${apCount} Action Plan collegati`
+        if (childrenCount > 0) confirmMsg += `\n- ${childrenCount} Kaizen figli`
         confirmMsg += `\n\nGli AP rimarranno ma perderanno il link.\nI Kaizen figli diventeranno top-level.`
       }
 
@@ -85,28 +137,29 @@ export default function KaizenListPage() {
       if (!confirm(confirmMsg)) return
 
       await api.delete(`/kaizens/${kaizen._id}`)
-      alert(`✅ Kaizen ${kaizen.numero} eliminato`)
       loadKaizens()
     } catch (err) {
       console.error(err)
-      alert('❌ Errore eliminazione: ' + (err.response?.data?.detail || err.message))
+      alert('Errore eliminazione: ' + (err.response?.data?.detail || err.message))
     }
   }
 
   const filtered = kaizens.filter(k => {
     const matchSearch = k.titolo?.toLowerCase().includes(search.toLowerCase()) ||
                         k.numero?.toLowerCase().includes(search.toLowerCase())
-    const matchTipo = !filterTipo || k.tipo === filterTipo
+    // Filtro per tipo: gestiamo sia "Quick" che "Quick Kaizen" (legacy)
+    const tipoNormalizzato = k.livello || (k.tipo?.includes('Major') ? 'Major' : k.tipo?.includes('Standard') ? 'Standard' : 'Quick')
+    const matchTipo = !filterTipo || tipoNormalizzato === filterTipo
     const matchPillar = !filterPillar || k.pillar_id === filterPillar
-    return matchSearch && matchTipo && matchPillar
+    const matchStato = !filterStato || k.stato === filterStato
+    return matchSearch && matchTipo && matchPillar && matchStato
   })
 
-  const getTipoBadge = (tipo) => {
-    const conf = (configs.tipi_kaizen || []).find(t => t.label === tipo)
-    if (conf) {
-      return { icon: conf.icon, color: conf.color }
-    }
-    return { icon: '📋', color: '#6b7280' }
+  const getTipoStyle = (tipo) => {
+    const t = tipo || ''
+    if (t.includes('Major')) return { bg: 'bg-purple-100', color: 'text-purple-700', label: 'Major' }
+    if (t.includes('Standard')) return { bg: 'bg-blue-100', color: 'text-blue-700', label: 'Standard' }
+    return { bg: 'bg-emerald-100', color: 'text-emerald-700', label: 'Quick' }
   }
 
   return (
@@ -123,7 +176,7 @@ export default function KaizenListPage() {
       </div>
 
       {/* FILTERS */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-3 text-gray-400" size={18} />
           <input
@@ -139,11 +192,19 @@ export default function KaizenListPage() {
           className="border rounded-lg px-3 py-2 text-sm"
         >
           <option value="">Tutte le tipologie</option>
-          {(configs.tipi_kaizen || []).map(t => (
-            <option key={t._id} value={t.label}>
-              {t.icon ? `${t.icon} ` : ''}{t.label}
-            </option>
+          {TIPOLOGIE_KAIZEN.map(t => (
+            <option key={t.value} value={t.value}>{t.label}</option>
           ))}
+        </select>
+        <select
+          value={filterStato}
+          onChange={(e) => setFilterStato(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Tutti gli stati</option>
+          <option value="Aperto">Aperto</option>
+          <option value="In Corso">In Corso</option>
+          <option value="Chiuso">Chiuso</option>
         </select>
         <select
           value={filterPillar}
@@ -153,12 +214,12 @@ export default function KaizenListPage() {
           <option value="">Tutti i pillar</option>
           {pillars.map(p => (
             <option key={p._id} value={p._id}>
-              {p.icon ? `${p.icon} ` : ''}{p.sigla} — {p.label}
+              {p.sigla} — {p.label}
             </option>
           ))}
         </select>
         <div className="text-sm text-gray-500 self-center">
-          📊 {filtered.length} kaizen
+          {filtered.length} kaizen
         </div>
       </div>
 
@@ -174,13 +235,15 @@ export default function KaizenListPage() {
               <th className="p-4">Stato</th>
               <th className="p-4">Reparto</th>
               <th className="p-4">Linea</th>
-              <th className="p-4">Data</th>
-              <th className="p-4 text-center w-20">Azioni</th>
+              <th className="p-4">Aperto da</th>
+              <th className="p-4 text-center w-28">Azioni</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((k) => {
-              const tipoBadge = getTipoBadge(k.tipo)
+              const tipoStyle = getTipoStyle(k.livello || k.tipo)
+              const giorni = giorniDaApertura(k.data_apertura, k.stato)
+              const isChiuso = k.stato === 'Chiuso'
               return (
                 <tr key={k._id} className="border-t hover:bg-gray-50">
                   <td className="p-4">
@@ -190,28 +253,14 @@ export default function KaizenListPage() {
                   </td>
                   <td className="p-4 font-medium">{k.titolo}</td>
                   <td className="p-4">
-                    <span
-                      className="px-2 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1"
-                      style={{
-                        backgroundColor: tipoBadge.color ? `${tipoBadge.color}20` : '#f3f4f6',
-                        color: tipoBadge.color || '#6b7280',
-                      }}
-                    >
-                      {tipoBadge.icon} {k.tipo}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${tipoStyle.bg} ${tipoStyle.color}`}>
+                      {tipoStyle.label}
                     </span>
                   </td>
                   <td className="p-4">
                     {k.pillar_sigla ? (
-                      <span
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono font-bold"
-                        style={{
-                          backgroundColor: pillars.find(p => p._id === k.pillar_id)?.color
-                            ? `${pillars.find(p => p._id === k.pillar_id).color}20`
-                            : '#e0e7ff',
-                          color: pillars.find(p => p._id === k.pillar_id)?.color || '#4f46e5',
-                        }}
-                      >
-                        🏛️ {k.pillar_sigla}
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono font-bold bg-indigo-100 text-indigo-700">
+                        {k.pillar_sigla}
                       </span>
                     ) : (
                       <span className="text-xs text-gray-400">—</span>
@@ -221,20 +270,34 @@ export default function KaizenListPage() {
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       k.stato === 'Aperto' ? 'bg-blue-100 text-blue-700' :
                       k.stato === 'In Corso' ? 'bg-yellow-100 text-yellow-700' :
+                      k.stato === 'Chiuso' ? 'bg-gray-200 text-gray-700' :
                       'bg-green-100 text-green-700'
                     }`}>{k.stato}</span>
                   </td>
                   <td className="p-4 text-xs">{k.reparto || '—'}</td>
                   <td className="p-4 text-xs">{k.linea || '—'}</td>
-                  <td className="p-4 text-gray-500 text-xs">{k.data_apertura?.slice(0, 10)}</td>
+                  <td className="p-4">
+                    <GiorniBadge giorni={giorni} stato={k.stato} />
+                  </td>
                   <td className="p-4 text-center">
-                    <button
-                      onClick={(e) => deleteKaizen(k, e)}
-                      className="text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors"
-                      title="Elimina Kaizen"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex justify-center gap-1">
+                      {!isChiuso && (
+                        <button
+                          onClick={(e) => chiudiKaizen(k, e)}
+                          className="text-green-600 hover:bg-green-50 p-2 rounded-full transition-colors"
+                          title="Chiudi Kaizen"
+                        >
+                          <CheckCircle size={16} />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => deleteKaizen(k, e)}
+                        className="text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors"
+                        title="Elimina Kaizen"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
@@ -243,10 +306,9 @@ export default function KaizenListPage() {
         </table>
         {filtered.length === 0 && (
           <div className="text-center text-gray-400 py-12">
-            <div className="text-5xl mb-2">📋</div>
             <p>Nessun kaizen trovato</p>
             <button onClick={() => setShowModal(true)} className="text-primary hover:underline mt-2">
-              Creane uno nuovo →
+              Creane uno nuovo
             </button>
           </div>
         )}
@@ -257,7 +319,7 @@ export default function KaizenListPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="bg-primary text-white px-5 py-3 rounded-t-xl flex justify-between items-center">
-              <h2 className="text-lg font-bold">➕ Nuovo Kaizen</h2>
+              <h2 className="text-lg font-bold">Nuovo Kaizen</h2>
               <button onClick={() => setShowModal(false)} className="hover:bg-primary-light p-1 rounded">✕</button>
             </div>
 
@@ -270,7 +332,6 @@ export default function KaizenListPage() {
                   value={newKaizen.titolo}
                   onChange={(e) => setNewKaizen({ ...newKaizen, titolo: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Es: Riduzione microfermate linea 2"
                   autoFocus
                 />
               </div>
@@ -279,117 +340,94 @@ export default function KaizenListPage() {
                 <label className="block text-sm font-medium mb-1">
                   Tipologia Kaizen <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={newKaizen.tipo}
-                  onChange={(e) => setNewKaizen({ ...newKaizen, tipo: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2"
-                >
-                  <option value="">— Seleziona —</option>
-                  {(configs.tipi_kaizen || []).map(t => (
-                    <option key={t._id} value={t.label}>
-                      {t.icon ? `${t.icon} ` : ''}{t.label}
-                    </option>
+                <div className="grid grid-cols-3 gap-2">
+                  {TIPOLOGIE_KAIZEN.map(t => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setNewKaizen({ ...newKaizen, tipo: t.value })}
+                      className={`border-2 rounded-lg p-3 text-center transition-all ${
+                        newKaizen.tipo === t.value
+                          ? 'border-primary bg-blue-50 shadow-sm'
+                          : 'border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      <div className={`font-bold text-sm ${
+                        newKaizen.tipo === t.value ? 'text-primary' : 'text-gray-700'
+                      }`}>
+                        {t.value}
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-1">{t.desc}</div>
+                    </button>
                   ))}
-                </select>
-                {(configs.tipi_kaizen || []).length === 0 && (
-                  <div className="text-xs text-orange-600 mt-1">
-                    ⚠️ Nessuna tipologia configurata. Vai su <strong>Settings → Tipologie Kaizen</strong> per crearle.
-                  </div>
-                )}
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-sm font-medium mb-1">Reparto</label>
-                  <select
+                  <input
                     value={newKaizen.reparto}
                     onChange={(e) => setNewKaizen({ ...newKaizen, reparto: e.target.value })}
                     className="w-full border rounded-lg px-2 py-2 text-sm"
-                  >
-                    <option value="">—</option>
-                    {(configs.reparti || []).map(r => (
-                      <option key={r._id} value={r.label}>
-                        {r.icon ? `${r.icon} ` : ''}{r.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Linea</label>
-                  <select
+                  <input
                     value={newKaizen.linea}
                     onChange={(e) => setNewKaizen({ ...newKaizen, linea: e.target.value })}
                     className="w-full border rounded-lg px-2 py-2 text-sm"
-                  >
-                    <option value="">—</option>
-                    {(configs.linee || []).map(l => (
-                      <option key={l._id} value={l.label}>
-                        {l.icon ? `${l.icon} ` : ''}{l.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Macchina</label>
-                  <select
+                  <input
                     value={newKaizen.macchina}
                     onChange={(e) => setNewKaizen({ ...newKaizen, macchina: e.target.value })}
                     className="w-full border rounded-lg px-2 py-2 text-sm"
-                  >
-                    <option value="">—</option>
-                    {(configs.macchine || []).map(m => (
-                      <option key={m._id} value={m.label}>
-                        {m.icon ? `${m.icon} ` : ''}{m.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Tipo Perdita (TPM)</label>
+                <label className="block text-sm font-medium mb-1">Categoria Perdita (TPM)</label>
                 <select
                   value={newKaizen.tipo_perdita}
                   onChange={(e) => setNewKaizen({ ...newKaizen, tipo_perdita: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2"
                 >
-                  <option value="">— Nessuna —</option>
-                  {(configs.tipi_perdita || []).map(p => (
+                  <option value="">Nessuna</option>
+                  {(configs.categorie_perdita || []).map(p => (
                     <option key={p._id} value={p.label}>
-                      {p.icon ? `${p.icon} ` : ''}{p.label}
+                      {p.label}
                     </option>
                   ))}
                 </select>
-                <div className="text-xs text-gray-500 mt-1">
-                  💡 Collega il kaizen a una perdita TPM per le analytics OEE
-                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  🏛️ Pillar di appartenenza
+                  Pillar di appartenenza
                 </label>
                 <select
                   value={newKaizen.pillar_id}
                   onChange={(e) => setNewKaizen({ ...newKaizen, pillar_id: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2"
                 >
-                  <option value="">— Nessuno (kaizen autonomo) —</option>
+                  <option value="">Nessuno (kaizen autonomo)</option>
                   {pillars.map(p => (
                     <option key={p._id} value={p._id}>
-                      {p.icon ? `${p.icon} ` : ''}{p.sigla} — {p.label}
+                      {p.sigla} — {p.label}
                       {p.leader ? ` (${p.leader})` : ''}
                     </option>
                   ))}
                 </select>
                 {pillars.length === 0 && (
                   <div className="text-xs text-orange-600 mt-1">
-                    ⚠️ Nessun Pillar configurato. Vai su <strong>Settings → 🏛️ Pillars</strong> per crearli.
+                    Nessun Pillar configurato. Vai su <strong>Settings → Pillars</strong> per crearli.
                   </div>
                 )}
-                <div className="text-xs text-gray-500 mt-1">
-                  💡 Il Pillar gestisce il 5 Step KPI Management che include questo Kaizen
-                </div>
               </div>
 
               <div className="flex gap-2 justify-end pt-3 border-t">
@@ -403,7 +441,7 @@ export default function KaizenListPage() {
                   onClick={createKaizen}
                   className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light"
                 >
-                  ➕ Crea Kaizen
+                  Crea Kaizen
                 </button>
               </div>
             </div>
