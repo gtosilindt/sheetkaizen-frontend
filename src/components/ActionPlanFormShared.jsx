@@ -12,8 +12,7 @@ const QUINTA_M = [
   { value: 'Misurazione', label: '📏 Misurazione' },
 ]
 
-export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilledKaizen = null }) {
-  const [form, setForm] = useState({
+const [form, setForm] = useState({
     titolo: plan?.titolo || '',
     descrizione: plan?.descrizione || '',
     tipo: plan?.tipo || '',
@@ -27,6 +26,12 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
     macchina: plan?.macchina || '',
     data_scadenza: plan?.data_scadenza ? plan.data_scadenza.slice(0, 10) : '',
     tags: plan?.tags?.join(', ') || '',
+    // 🆕 Parent prefilled (es. da pagina Pillar / Dashboard)
+    parent_type: plan?.parent_type || prefilledParent?.parent_type || 'standalone',
+    parent_id: plan?.parent_id || prefilledParent?.parent_id || null,
+    parent_label: plan?.parent_label || prefilledParent?.parent_label || null,
+    pillar_id: plan?.pillar_id || prefilledParent?.pillar_id || null,
+    dashboard_id: plan?.dashboard_id || prefilledParent?.dashboard_id || null,
   })
   const [saving, setSaving] = useState(false)
   const { configs } = useAllConfigurations()
