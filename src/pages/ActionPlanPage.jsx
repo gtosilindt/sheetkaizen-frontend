@@ -506,8 +506,6 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit, onCancel, onRestor
               <span>{detail.tipo}</span>
               <span>·</span>
               <span className="font-mono">{detail.numero}</span>
-              <span>·</span>
-              <HealthBadge score={detail.health_score || 0} />
             </div>
             <h2 className="text-xl font-bold">{detail.titolo}</h2>
           </div>
@@ -757,7 +755,6 @@ function ListView({ plans, onSelect, onEdit, onDelete, onCancel, onRestore, onQu
             <th className="px-3 py-2 text-left w-32">Responsabile</th>
             <th className="px-3 py-2 text-left w-32">Stato</th>
             <th className="px-3 py-2 text-left w-28">Scadenza</th>
-            <th className="px-3 py-2 text-left w-20">Health</th>
             <th className="px-3 py-2 text-center w-40">Azioni</th>
           </tr>
         </thead>
@@ -831,7 +828,6 @@ function ListView({ plans, onSelect, onEdit, onDelete, onCancel, onRestore, onQu
                     </div>
                   ) : '—'}
                 </td>
-                <td className="px-3 py-2"><HealthBadge score={p.health_score || 0} /></td>
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-center gap-1">
                     <button onClick={() => onSelect(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Dettaglio"><Eye size={14} /></button>
