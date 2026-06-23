@@ -1,46 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { Plus, Search, Trash2, CheckCircle } from 'lucide-react'
 import { useAllConfigurations } from '../hooks/useConfigurations'
 import { usePillars } from '../hooks/usePillars'
 
-// Tipologie Kaizen hard-coded (Quick / Standard / Major)
 const TIPOLOGIE_KAIZEN = [
   { value: 'Quick', label: 'Quick Kaizen', desc: 'Risoluzione rapida (1-3 giorni)' },
   { value: 'Standard', label: 'Standard Kaizen', desc: 'Progetto strutturato (1-4 settimane)' },
   { value: 'Major', label: 'Major Kaizen', desc: 'Iniziativa Pillar (1-3 mesi)' },
 ]
 
-// Helper: calcola giorni da apertura
-function giorniDaApertura(dataApertura, stato) {
+function giorniDaApertura(dataApertura) {
   if (!dataApertura) return null
   const apertura = new Date(dataApertura)
   const oggi = new Date()
-  const diff = Math.floor((oggi - apertura) / (1000 * 60 * 60 * 24))
-  return diff
+  return Math.floor((oggi - apertura) / (1000 * 60 * 60 * 24))
 }
 
-// Helper: badge colorato giorni
 function GiorniBadge({ giorni, stato }) {
   if (giorni === null) return <span className="text-gray-400">—</span>
-
-  // Se è chiuso, mostro solo "Chiuso" in grigio
-  if (stato === 'Chiuso') {
-    return <span className="text-xs text-gray-500">Chiuso</span>
-  }
+  if (stato === 'Chiuso') return <span className="text-xs text-gray-500">Chiuso</span>
 
   let colorClass = 'text-green-700 bg-green-50'
   if (giorni > 30) colorClass = 'text-red-700 bg-red-50'
   else if (giorni > 7) colorClass = 'text-yellow-700 bg-yellow-50'
 
   const label = giorni === 0 ? 'oggi' : `${giorni} giorni`
-
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded ${colorClass}`}>
-      {label}
-    </span>
-  )
+  return <span className={`text-xs px-2 py-0.5 rounded ${colorClass}`}>{label}</span>
 }
 
 export default function KaizenListPage() {
@@ -49,7 +36,7 @@ export default function KaizenListPage() {
   const [showModal, setShowModal] = useState(false)
   const [newKaizen, setNewKaizen] = useState({
     titolo: '',
-    tipo: 'Quick', // default Quick
+    tipo: 'Quick',
     reparto: '',
     linea: '',
     macchina: '',
@@ -61,6 +48,32 @@ export default function KaizenListPage() {
   const [filterStato, setFilterStato] = useState('')
   const { configs } = useAllConfigurations()
   const { pillars } = usePillars()
+
+  // Carico reparti gerarchici (con linee + macchine annidate)
+  const [reparti, setReparti] = useState([])
+  useEffect(() => {
+    api.get('/reparti/').then(res => setReparti(res.data || [])).catch(() => setReparti([]))
+  }, [])
+
+  // Linee/Macchine filtrate dinamicamente
+  const lineeDisponibili = useMemo(() => {
+    if (!newKaizen.reparto) return []
+    const rep = reparti.find(r => r.nome === newKaizen.reparto)
+    return rep?.linee?.filter(l => l.attivo !== false) || []
+  }, [newKaizen.reparto, reparti])
+
+  const macchineDisponibili = useMemo(() => {
+    if (!newKaizen.linea) return []
+    const linea = lineeDisponibili.find(l => l.nome === newKaizen.linea)
+    return linea?.macchine?.filter(m => m.attivo !== false) || []
+  }, [newKaizen.linea, lineeDisponibili])
+
+  function handleRepartoChange(nuovoReparto) {
+    setNewKaizen(k => ({ ...k, reparto: nuovoReparto, linea: '', macchina: '' }))
+  }
+  function handleLineaChange(nuovaLinea) {
+    setNewKaizen(k => ({ ...k, linea: nuovaLinea, macchina: '' }))
+  }
 
   useEffect(() => { loadKaizens() }, [])
 
@@ -77,7 +90,6 @@ export default function KaizenListPage() {
     try {
       const res = await api.post('/kaizens', newKaizen)
 
-      // Se è stato selezionato un pillar, denormalizza sigla+label
       if (newKaizen.pillar_id && res.data?.id) {
         try {
           await api.post(`/pillars/${newKaizen.pillar_id}/link-kaizen`, {
@@ -115,25 +127,20 @@ export default function KaizenListPage() {
   const deleteKaizen = async (kaizen, e) => {
     e.preventDefault()
     e.stopPropagation()
-
     try {
       const apRes = await api.get(`/kaizens/${kaizen._id}/action-plans`)
       const apCount = apRes.data?.length || 0
-
       const childrenRes = await api.get(`/kaizens/${kaizen._id}/children`)
       const childrenCount = childrenRes.data?.length || 0
 
       let confirmMsg = `Eliminare "${kaizen.numero} - ${kaizen.titolo}"?`
-
       if (apCount > 0 || childrenCount > 0) {
         confirmMsg += `\n\nATTENZIONE:`
         if (apCount > 0) confirmMsg += `\n- ${apCount} Action Plan collegati`
         if (childrenCount > 0) confirmMsg += `\n- ${childrenCount} Kaizen figli`
         confirmMsg += `\n\nGli AP rimarranno ma perderanno il link.\nI Kaizen figli diventeranno top-level.`
       }
-
       confirmMsg += `\n\nProcedere?`
-
       if (!confirm(confirmMsg)) return
 
       await api.delete(`/kaizens/${kaizen._id}`)
@@ -147,7 +154,6 @@ export default function KaizenListPage() {
   const filtered = kaizens.filter(k => {
     const matchSearch = k.titolo?.toLowerCase().includes(search.toLowerCase()) ||
                         k.numero?.toLowerCase().includes(search.toLowerCase())
-    // Filtro per tipo: gestiamo sia "Quick" che "Quick Kaizen" (legacy)
     const tipoNormalizzato = k.livello || (k.tipo?.includes('Major') ? 'Major' : k.tipo?.includes('Standard') ? 'Standard' : 'Quick')
     const matchTipo = !filterTipo || tipoNormalizzato === filterTipo
     const matchPillar = !filterPillar || k.pillar_id === filterPillar
@@ -164,7 +170,6 @@ export default function KaizenListPage() {
 
   return (
     <div>
-      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Kaizen Sheet</h1>
         <button
@@ -175,7 +180,6 @@ export default function KaizenListPage() {
         </button>
       </div>
 
-      {/* FILTERS */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -186,44 +190,27 @@ export default function KaizenListPage() {
             className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
-        <select
-          value={filterTipo}
-          onChange={(e) => setFilterTipo(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm"
-        >
+        <select value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
           <option value="">Tutte le tipologie</option>
           {TIPOLOGIE_KAIZEN.map(t => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>
-        <select
-          value={filterStato}
-          onChange={(e) => setFilterStato(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm"
-        >
+        <select value={filterStato} onChange={(e) => setFilterStato(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
           <option value="">Tutti gli stati</option>
           <option value="Aperto">Aperto</option>
           <option value="In Corso">In Corso</option>
           <option value="Chiuso">Chiuso</option>
         </select>
-        <select
-          value={filterPillar}
-          onChange={(e) => setFilterPillar(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm"
-        >
+        <select value={filterPillar} onChange={(e) => setFilterPillar(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
           <option value="">Tutti i pillar</option>
           {pillars.map(p => (
-            <option key={p._id} value={p._id}>
-              {p.sigla} — {p.label}
-            </option>
+            <option key={p._id} value={p._id}>{p.sigla} — {p.label}</option>
           ))}
         </select>
-        <div className="text-sm text-gray-500 self-center">
-          {filtered.length} kaizen
-        </div>
+        <div className="text-sm text-gray-500 self-center">{filtered.length} kaizen</div>
       </div>
 
-      {/* TABLE */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
@@ -242,14 +229,12 @@ export default function KaizenListPage() {
           <tbody>
             {filtered.map((k) => {
               const tipoStyle = getTipoStyle(k.livello || k.tipo)
-              const giorni = giorniDaApertura(k.data_apertura, k.stato)
+              const giorni = giorniDaApertura(k.data_apertura)
               const isChiuso = k.stato === 'Chiuso'
               return (
                 <tr key={k._id} className="border-t hover:bg-gray-50">
                   <td className="p-4">
-                    <Link to={`/kaizen/${k._id}`} className="text-primary font-mono hover:underline">
-                      {k.numero}
-                    </Link>
+                    <Link to={`/kaizen/${k._id}`} className="text-primary font-mono hover:underline">{k.numero}</Link>
                   </td>
                   <td className="p-4 font-medium">{k.titolo}</td>
                   <td className="p-4">
@@ -363,30 +348,62 @@ export default function KaizenListPage() {
                 </div>
               </div>
 
+              {/* Reparto → Linea → Macchina dinamici dal modello reparti */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-sm font-medium mb-1">Reparto</label>
-                  <input
+                  <select
                     value={newKaizen.reparto}
-                    onChange={(e) => setNewKaizen({ ...newKaizen, reparto: e.target.value })}
+                    onChange={(e) => handleRepartoChange(e.target.value)}
                     className="w-full border rounded-lg px-2 py-2 text-sm"
-                  />
+                  >
+                    <option value="">Seleziona</option>
+                    {reparti.length === 0 ? (
+                      <option disabled>Configura in Settings → Reparti</option>
+                    ) : (
+                      reparti.filter(r => r.attivo !== false).map(r => (
+                        <option key={r._id} value={r.nome}>
+                          {r.nome}{r.codice ? ` [${r.codice}]` : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Linea</label>
-                  <input
+                  <select
                     value={newKaizen.linea}
-                    onChange={(e) => setNewKaizen({ ...newKaizen, linea: e.target.value })}
-                    className="w-full border rounded-lg px-2 py-2 text-sm"
-                  />
+                    onChange={(e) => handleLineaChange(e.target.value)}
+                    disabled={!newKaizen.reparto}
+                    className="w-full border rounded-lg px-2 py-2 text-sm disabled:bg-gray-100"
+                  >
+                    <option value="">
+                      {!newKaizen.reparto ? 'Prima il reparto' : 'Seleziona'}
+                    </option>
+                    {lineeDisponibili.map(l => (
+                      <option key={l.id} value={l.nome}>
+                        {l.nome}{l.codice ? ` [${l.codice}]` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Macchina</label>
-                  <input
+                  <select
                     value={newKaizen.macchina}
                     onChange={(e) => setNewKaizen({ ...newKaizen, macchina: e.target.value })}
-                    className="w-full border rounded-lg px-2 py-2 text-sm"
-                  />
+                    disabled={!newKaizen.linea}
+                    className="w-full border rounded-lg px-2 py-2 text-sm disabled:bg-gray-100"
+                  >
+                    <option value="">
+                      {!newKaizen.linea ? 'Prima la linea' : 'Seleziona'}
+                    </option>
+                    {macchineDisponibili.map(m => (
+                      <option key={m.id} value={m.nome}>
+                        {m.nome}{m.codice ? ` [${m.codice}]` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -399,17 +416,13 @@ export default function KaizenListPage() {
                 >
                   <option value="">Nessuna</option>
                   {(configs.categorie_perdita || []).map(p => (
-                    <option key={p._id} value={p.label}>
-                      {p.label}
-                    </option>
+                    <option key={p._id} value={p.label}>{p.label}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Pillar di appartenenza
-                </label>
+                <label className="block text-sm font-medium mb-1">Pillar di appartenenza</label>
                 <select
                   value={newKaizen.pillar_id}
                   onChange={(e) => setNewKaizen({ ...newKaizen, pillar_id: e.target.value })}
@@ -431,16 +444,10 @@ export default function KaizenListPage() {
               </div>
 
               <div className="flex gap-2 justify-end pt-3 border-t">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border rounded-lg"
-                >
+                <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">
                   Annulla
                 </button>
-                <button
-                  onClick={createKaizen}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light"
-                >
+                <button onClick={createKaizen} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light">
                   Crea Kaizen
                 </button>
               </div>
