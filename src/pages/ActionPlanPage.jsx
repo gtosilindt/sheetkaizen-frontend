@@ -259,27 +259,27 @@ export default function ActionPlanPage() {
           <div className="mt-3 pt-3 border-t space-y-3">
             {/* Riga 1: Vista */}
             <div>
-              <label className="text-xs font-semibold text-gray-600 uppercase mb-1 block">📦 Vista</label>
+              <label className="text-xs font-semibold text-gray-600 uppercase mb-1 block"> Vista</label>
               <div className="flex flex-wrap gap-2">
                 <FilterChip
                   active={!filters.only_cancelled && !filters.include_cancelled && !filters.overdue}
                   onClick={() => setFilters({ ...filters, only_cancelled: false, include_cancelled: false, overdue: false })}
-                  label="✅ Solo attivi"
+                  label="Attivi"
                 />
                 <FilterChip
                   active={filters.overdue}
                   onClick={() => setFilters({ ...filters, overdue: !filters.overdue, only_cancelled: false })}
-                  label="⏰ Solo scaduti"
+                  label="Scaduti"
                 />
                 <FilterChip
                   active={filters.include_cancelled && !filters.only_cancelled}
                   onClick={() => setFilters({ ...filters, include_cancelled: true, only_cancelled: false })}
-                  label="👁️ Mostra anche annullati"
+                  label="Mostra anche annullati"
                 />
                 <FilterChip
                   active={filters.only_cancelled}
                   onClick={() => setFilters({ ...filters, only_cancelled: true, include_cancelled: false })}
-                  label="🚫 Solo annullati"
+                  label="Solo annullati"
                   variant="danger"
                 />
               </div>
@@ -290,19 +290,19 @@ export default function ActionPlanPage() {
               <label className="text-xs font-semibold text-gray-600 uppercase mb-1 block">🏷️ Classificazione</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <select value={filters.stato} onChange={(e) => setFilters({ ...filters, stato: e.target.value })} className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">📍 Tutti gli stati</option>
+                  <option value="">Tutti gli stati</option>
                   {statiConfig.map(s => <option key={s._id} value={s.label}>{s.icon ? `${s.icon} ` : ''}{s.label}</option>)}
                 </select>
                 <select value={filters.tipo} onChange={(e) => setFilters({ ...filters, tipo: e.target.value })} className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">🏷️ Tutti i tipi</option>
+                  <option value="">Tutti i tipi</option>
                   {tipiConfig.map(t => <option key={t._id} value={t.label}>{t.icon ? `${t.icon} ` : ''}{t.label}</option>)}
                 </select>
                 <select value={filters.priorita} onChange={(e) => setFilters({ ...filters, priorita: e.target.value })} className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">🎚️ Tutte le priorità</option>
+                  <option value="">Tutte le priorità</option>
                   {prioritaConfig.map(p => <option key={p._id} value={p.label}>{p.icon ? `${p.icon} ` : ''}{p.label}</option>)}
                 </select>
                 <select value={filters.categoria_perdita} onChange={(e) => setFilters({ ...filters, categoria_perdita: e.target.value })} className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">💥 Tutte categorie perdita</option>
+                  <option value="">Tutte categorie perdita</option>
                   {(configs.categorie_perdita || []).map(c => <option key={c._id} value={c.label}>{c.icon ? `${c.icon} ` : ''}{c.label}</option>)}
                 </select>
               </div>
@@ -313,7 +313,7 @@ export default function ActionPlanPage() {
               <label className="text-xs font-semibold text-gray-600 uppercase mb-1 block">🏭 Struttura aziendale</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <select value={filters.reparto} onChange={(e) => setFilters({ ...filters, reparto: e.target.value, linea: '', macchina: '' })} className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">🏭 Tutti i reparti</option>
+                  <option value="">Tutti i reparti</option>
                   {reparti.filter(r => r.attivo !== false).map(r => <option key={r._id} value={r.nome}>{r.nome}{r.codice ? ` [${r.codice}]` : ''}</option>)}
                 </select>
                 <select value={filters.linea} onChange={(e) => setFilters({ ...filters, linea: e.target.value, macchina: '' })} disabled={!filters.reparto} className="border rounded-lg px-3 py-2 text-sm disabled:bg-gray-100">
@@ -321,16 +321,16 @@ export default function ActionPlanPage() {
                   {lineeFiltrate.filter(l => l.attivo !== false).map(l => <option key={l.id} value={l.nome}>{l.nome}{l.codice ? ` [${l.codice}]` : ''}</option>)}
                 </select>
                 <select value={filters.macchina} onChange={(e) => setFilters({ ...filters, macchina: e.target.value })} disabled={!filters.linea} className="border rounded-lg px-3 py-2 text-sm disabled:bg-gray-100">
-                  <option value="">{filters.linea ? '⚙️ Tutte le macchine' : '— prima la linea —'}</option>
+                  <option value="">{filters.linea ? 'Tutte le macchine' : '— prima la linea —'}</option>
                   {macchineFiltrate.filter(m => m.attivo !== false).map(m => <option key={m.id} value={m.nome}>{m.nome}{m.codice ? ` [${m.codice}]` : ''}</option>)}
                 </select>
                 <select value={filters.quinta_m} onChange={(e) => setFilters({ ...filters, quinta_m: e.target.value })} className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">🧩 Tutte le 5M</option>
-                  <option value="Machine">⚙️ Machine</option>
-                  <option value="Manodopera">👷 Manodopera</option>
-                  <option value="Metodo">📋 Metodo</option>
-                  <option value="Materiale">📦 Materiale</option>
-                  <option value="Misurazione">📏 Misurazione</option>
+                  <option value="">Tutte le 5M</option>
+                  <option value="Machine">Machine</option>
+                  <option value="Manodopera">Manodopera</option>
+                  <option value="Metodo">Metodo</option>
+                  <option value="Materiale">Materiale</option>
+                  <option value="Misurazione">Misurazione</option>
                 </select>
               </div>
             </div>
@@ -340,18 +340,18 @@ export default function ActionPlanPage() {
               <label className="text-xs font-semibold text-gray-600 uppercase mb-1 block">🔗 Contesto</label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <select value={filters.pillar_id} onChange={(e) => setFilters({ ...filters, pillar_id: e.target.value })} className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">🏛️ Tutti i pillars</option>
+                  <option value="">Tutti i pillars</option>
                   {pillars.filter(p => p.attivo !== false).map(p => (
                     <option key={p._id} value={p._id}>{p.icon ? `${p.icon} ` : ''}{p.sigla} — {p.label}</option>
                   ))}
                 </select>
                 <select value={filters.dashboard_id} onChange={(e) => setFilters({ ...filters, dashboard_id: e.target.value })} className="border rounded-lg px-3 py-2 text-sm">
-                  <option value="">📊 Tutte le dashboard</option>
+                  <option value="">Tutte le dashboard</option>
                   {dashboards.map(d => (
                     <option key={d._id} value={d._id}>{d.icon ? `${d.icon} ` : '📊 '}{d.nome || d.label || d.titolo || 'Dashboard'}</option>
                   ))}
                 </select>
-                <input type="text" list="responsabili-list" placeholder="👤 Responsabile" value={filters.responsabile}
+                <input type="text" list="responsabili-list" placeholder="Responsabile" value={filters.responsabile}
                   onChange={(e) => setFilters({ ...filters, responsabile: e.target.value })}
                   className="border rounded-lg px-3 py-2 text-sm" />
                 <datalist id="responsabili-list">
