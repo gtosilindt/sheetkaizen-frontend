@@ -1190,9 +1190,6 @@ function MasterPlanTab({ pillar, color, onSaved }) {
                 <button onClick={() => clearRow(step.id)} className="text-xs px-1 hover:bg-yellow-100 rounded text-yellow-600" title="Pulisci riga">⌫</button>
                 <button onClick={() => removeStep(step.id)} className="p-0.5 hover:bg-red-100 rounded text-red-600" title="Elimina step"><Trash2 size={11} /></button>
               </div>
-                <button onClick={() => clearRow(step.id)} className="text-xs px-1 hover:bg-yellow-100 rounded text-yellow-600" title="Pulisci riga">⌫</button>
-                <button onClick={() => removeStep(step.id)} className="p-0.5 hover:bg-red-100 rounded text-red-600" title="Elimina step"><Trash2 size={11} /></button>
-              </div>
               {years.map(year => (
                 <div key={year} className="flex-1 min-w-[80px] border-r last:border-r-0 flex">
                   {quarters.map((q, qIdx) => {
