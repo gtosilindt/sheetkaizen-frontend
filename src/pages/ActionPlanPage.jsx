@@ -641,11 +641,13 @@ function ActionPlanDetail({ plan, onClose, onUpdated, onEdit, onCancel, onRestor
             </span>
           </SidebarRow>
 
-          <SidebarRow label="Tipo">
-            <span className={`text-xs flex items-center gap-1 ${TIPO_COLORS[detail.tipo] || ''}`}>
-              <TipoIcon size={12} /> {detail.tipo}
-            </span>
-          </SidebarRow>
+          {detail.tipo && (
+            <SidebarRow label="Tipo">
+              <span className={`text-xs flex items-center gap-1 ${TIPO_COLORS[detail.tipo] || ''}`}>
+                <TipoIcon size={12} /> {detail.tipo}
+              </span>
+            </SidebarRow>
+          )}
 
           <SidebarRow label="Responsabile">
             {detail.responsabile ? (
