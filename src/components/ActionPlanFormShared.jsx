@@ -77,6 +77,11 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
 
   async function handleSubmit(e) {
     e.preventDefault()
+    // 🆕 Scadenza obbligatoria
+    if (!form.data_scadenza) {
+      alert('La scadenza è obbligatoria')
+      return
+    }
     setSaving(true)
     try {
       const tagsArray = form.tags.split(',').map(t => t.trim()).filter(Boolean)
@@ -304,8 +309,9 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Scadenza">
+            <Field label="Scadenza *">
               <input
+                required
                 type="date"
                 value={form.data_scadenza}
                 onChange={(e) => setForm({ ...form, data_scadenza: e.target.value })}
