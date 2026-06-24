@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '../../services/api'
-import { Plus, Filter, X, Trash2, Edit2, Link2, AlertCircle, CheckSquare, Bug, TrendingUp, Shield, Wrench, Eye } from 'lucide-react'
+import { Plus, Filter, X, Trash2, Edit2, Link2, AlertCircle, CheckSquare, Bug, TrendingUp, Shield, Wrench } from 'lucide-react'
 import ActionPlanFormShared from '../ActionPlanFormShared'
+import ActionPlanDetailPanel from '../ActionPlanDetailPanel'
 
 const STATO_COLORS = {
   'Da Valutare': 'bg-gray-100 text-gray-700 border-gray-300',
@@ -38,7 +39,6 @@ const TIPO_COLORS = {
   Sicurezza: 'text-yellow-600',
 }
 
-// Avatar circolare con iniziali
 function Avatar({ name }) {
   if (!name) return <span className="text-xs text-gray-400 italic">— Non assegnato</span>
   const initials = name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()
@@ -64,6 +64,7 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
   const [filterStato, setFilterStato] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingAP, setEditingAP] = useState(null)
+  const [selectedAP, setSelectedAP] = useState(null)  // 🆕 AP aperto nel pannello dettaglio
 
   const steps = kaizen?.gant_master_plan?.steps || []
 
@@ -118,6 +119,32 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
       loadAzioni()
     } catch (err) {
       alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  const cancelAP = async (plan) => {
+    const reason = prompt(
+      `Annullare l'Action Plan "${plan.numero} - ${plan.titolo}"?\n\nInserisci il motivo (obbligatorio):`
+    )
+    if (!reason || !reason.trim()) return
+    try {
+      await api.post(`/action-plans/${plan._id}/cancel`, {
+        reason: reason.trim(),
+        user: 'Default User',
+      })
+      loadAzioni()
+    } catch (err) {
+      alert('Errore annullamento: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  const restoreAP = async (plan) => {
+    if (!confirm(`Ripristinare l'Action Plan "${plan.numero}"?\n\nTornerà tra gli attivi.`)) return
+    try {
+      await api.post(`/action-plans/${plan._id}/restore`)
+      loadAzioni()
+    } catch (err) {
+      alert('Errore ripristino: ' + (err.response?.data?.detail || err.message))
     }
   }
 
@@ -201,7 +228,7 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
         </div>
       </div>
 
-      {/* Tabella stile Action Plan Management */}
+      {/* Tabella */}
       {loading ? (
         <div className="bg-white rounded-xl shadow p-8 text-center text-gray-400">Caricamento...</div>
       ) : azioniFiltrate.length === 0 ? (
@@ -241,7 +268,8 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
                 return (
                   <tr
                     key={ap._id}
-                    className={`border-b hover:bg-gray-50 ${isCancelled ? 'opacity-60' : ''}`}
+                    className={`border-b hover:bg-gray-50 cursor-pointer ${isCancelled ? 'opacity-60' : ''}`}
+                    onClick={() => setSelectedAP(ap)}
                   >
                     <td className="px-3 py-2 font-mono text-primary text-xs font-bold">
                       {ap.numero}
@@ -267,7 +295,7 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
                     <td className="px-3 py-2">
                       <Avatar name={ap.responsabile} />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={ap.stato || 'Aperto'}
                         onChange={(e) => changeStato(ap._id, e.target.value)}
@@ -288,7 +316,7 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
                         </div>
                       ) : '—'}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={ap.gant_step_id || ''}
                         onChange={(e) => changeStepAP(ap._id, e.target.value)}
@@ -306,7 +334,7 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
                         ))}
                       </select>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-center gap-1">
                         <button
                           onClick={() => { setEditingAP(ap); setShowForm(true) }}
@@ -339,7 +367,7 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal form */}
       {showForm && (
         <ActionPlanFormShared
           plan={editingAP}
@@ -351,6 +379,19 @@ export default function KaizenAzioniList({ kaizen, kaizenId, kaizenNumero, onUpd
             loadAzioni()
             onUpdate?.()
           }}
+        />
+      )}
+
+      {/* Pannello dettaglio AP (cliccando una riga) */}
+      {selectedAP && (
+        <ActionPlanDetailPanel
+          plan={selectedAP}
+          onClose={() => setSelectedAP(null)}
+          onUpdated={loadAzioni}
+          onEdit={(p) => { setSelectedAP(null); setEditingAP(p); setShowForm(true) }}
+          onCancel={async (p) => { await cancelAP(p); setSelectedAP(null) }}
+          onRestore={async (p) => { await restoreAP(p); setSelectedAP(null) }}
+          onDelete={async (apId) => { await deleteAP(apId, selectedAP.numero); setSelectedAP(null) }}
         />
       )}
     </div>
