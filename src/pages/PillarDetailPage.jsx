@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import api from '../services/api'
 import { ArrowLeft, User, Calendar, Users, Edit2, Plus, Trash2, ClipboardList, Link2, AlertCircle, CheckSquare, Bug, TrendingUp, Shield, Wrench } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
+import ActionPlanDetailPanel from '../components/ActionPlanDetailPanel'
 
 export default function PillarDetailPage() {
   const { id } = useParams()
@@ -200,6 +201,7 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
   const [showForm, setShowForm] = useState(false)
   const [editingAP, setEditingAP] = useState(null)
   const [filterStato, setFilterStato] = useState('')
+  const [selectedAP, setSelectedAP] = useState(null)  // 🆕 pannello dettaglio
 
   const prefilledPillar = {
     parent_type: 'pillar',
@@ -245,6 +247,32 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
       onReload()
     } catch (err) {
       alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  async function cancelAP(plan) {
+    const reason = prompt(
+      `Annullare l'Action Plan "${plan.numero} - ${plan.titolo}"?\n\nInserisci il motivo (obbligatorio):`
+    )
+    if (!reason || !reason.trim()) return
+    try {
+      await api.post(`/action-plans/${plan._id}/cancel`, {
+        reason: reason.trim(),
+        user: 'Default User',
+      })
+      onReload()
+    } catch (err) {
+      alert('Errore annullamento: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  async function restoreAP(plan) {
+    if (!confirm(`Ripristinare l'Action Plan "${plan.numero}"?\n\nTornerà tra gli attivi.`)) return
+    try {
+      await api.post(`/action-plans/${plan._id}/restore`)
+      onReload()
+    } catch (err) {
+      alert('Errore ripristino: ' + (err.response?.data?.detail || err.message))
     }
   }
 
@@ -363,7 +391,8 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
                 return (
                   <tr
                     key={ap._id}
-                    className={`border-b hover:bg-gray-50 ${isCancelled ? 'opacity-60' : ''}`}
+                    className={`border-b hover:bg-gray-50 cursor-pointer ${isCancelled ? 'opacity-60' : ''}`}
+                    onClick={() => setSelectedAP(ap)}
                   >
                     <td className="px-3 py-2 font-mono text-primary text-xs font-bold">
                       {ap.numero}
@@ -389,7 +418,7 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
                     <td className="px-3 py-2">
                       <AvatarAP name={ap.responsabile} />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={ap.stato || 'Aperto'}
                         onChange={(e) => changeStato(ap._id, e.target.value)}
@@ -410,7 +439,7 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
                         </div>
                       ) : '—'}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-center gap-1">
                         <button
                           onClick={() => { setEditingAP(ap); setShowForm(true) }}
@@ -450,6 +479,19 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
           prefilledParent={editingAP ? null : prefilledPillar}
           onClose={() => { setShowForm(false); setEditingAP(null) }}
           onSaved={handleSaved}
+        />
+      )}
+
+      {/* Pannello dettaglio AP (cliccando una riga) */}
+      {selectedAP && (
+        <ActionPlanDetailPanel
+          plan={selectedAP}
+          onClose={() => setSelectedAP(null)}
+          onUpdated={onReload}
+          onEdit={(p) => { setSelectedAP(null); setEditingAP(p); setShowForm(true) }}
+          onCancel={async (p) => { await cancelAP(p); setSelectedAP(null) }}
+          onRestore={async (p) => { await restoreAP(p); setSelectedAP(null) }}
+          onDelete={async (apId) => { await deleteAP(apId, selectedAP.numero); setSelectedAP(null) }}
         />
       )}
     </div>
