@@ -8,6 +8,13 @@ const CELL_STATES = [
   { value: 2, label: 'Completato', color: '#2563eb' },
 ]
 
+// Granularità configurabile dall'utente
+const GRANULARITIES = [
+  { id: 'week',    label: 'Settimana' },
+  { id: 'month',   label: 'Mese' },
+  { id: 'quarter', label: 'Trimestre' },
+]
+
 function getDefaultGantData() {
   const currentYear = new Date().getFullYear()
   return {
@@ -19,16 +26,48 @@ function getDefaultGantData() {
     ],
     cells: {},
     start_year: currentYear,
-    end_year: currentYear + 1,
+    end_year: currentYear,  // default solo 1 anno
+    granularity: 'month',   // default mese
   }
 }
 
+// Genera le colonne in base alla granularità
+function buildColumns(granularity, startYear, endYear) {
+  const cols = []
+  for (let y = startYear; y <= endYear; y++) {
+    if (granularity === 'week') {
+      // 52 settimane per anno
+      for (let w = 1; w <= 52; w++) {
+        cols.push({ year: y, period: w, label: `W${w}`, group: String(y) })
+      }
+    } else if (granularity === 'month') {
+      // 12 mesi per anno
+      const labels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+      for (let m = 1; m <= 12; m++) {
+        cols.push({ year: y, period: m, label: labels[m - 1], group: String(y) })
+      }
+    } else {
+      // 4 trimestri per anno
+      for (let q = 1; q <= 4; q++) {
+        cols.push({ year: y, period: q, label: `Q${q}`, group: String(y) })
+      }
+    }
+  }
+  return cols
+}
+
+// Raggruppa le colonne per anno (per il sub-header)
+function groupColsByYear(columns) {
+  const groups = {}
+  columns.forEach(c => {
+    if (!groups[c.group]) groups[c.group] = 0
+    groups[c.group]++
+  })
+  return Object.entries(groups).map(([year, count]) => ({ year, count }))
+}
+
 /**
- * KaizenGantMasterPlan — Gant stile Master Plan per Standard/Major Kaizen
- *
- * Props:
- *   - kaizen: oggetto kaizen
- *   - onSaved: callback dopo save (per reload)
+ * KaizenGantMasterPlan — Gant configurabile (settimana/mese/trimestre)
  */
 export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
   const savedGant = kaizen.gant_master_plan || null
@@ -60,6 +99,7 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
     }
   }
 
+  // Auto-save debounced
   useEffect(() => {
     if (JSON.stringify(data) === JSON.stringify(savedGant || getDefaultGantData())) return
     setHasUnsavedChanges(true)
@@ -68,12 +108,12 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  // CRUD celle e steps
-  function getCellValue(stepId, year, quarter) {
-    return data.cells[`${stepId}_${year}_${quarter}`] || 0
+  // CRUD celle / steps
+  function getCellValue(stepId, year, period) {
+    return data.cells[`${stepId}_${year}_${period}`] || 0
   }
-  function cycleCell(stepId, year, quarter) {
-    const key = `${stepId}_${year}_${quarter}`
+  function cycleCell(stepId, year, period) {
+    const key = `${stepId}_${year}_${period}`
     const current = data.cells[key] || 0
     const next = (current + 1) % CELL_STATES.length
     setData(prev => {
@@ -137,19 +177,23 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
     if (v < 2000 || v > 2100) return
     setData(prev => ({ ...prev, [field]: v }))
   }
+  function setGranularity(g) {
+    setData(prev => ({ ...prev, granularity: g }))
+  }
 
-  const years = []
-  for (let y = data.start_year; y <= data.end_year; y++) years.push(y)
-  const quarters = ['Q1', 'Q2', 'Q3', 'Q4']
+  const granularity = data.granularity || 'month'
+  const columns = buildColumns(granularity, data.start_year, data.end_year)
+  const yearGroups = groupColsByYear(columns)
+
+  // Dimensione cella dinamica
+  const CELL_WIDTH = granularity === 'week' ? 32 : granularity === 'month' ? 50 : 70
 
   return (
     <div className="space-y-4">
       {/* Header config */}
       <div className="bg-white rounded-xl shadow p-4">
         <div className="flex justify-between items-start mb-3">
-          <div>
-            <p className="text-xs text-gray-500">Pianificazione multi-anno per trimestri delle macro-fasi del Kaizen</p>
-          </div>
+          <p className="text-xs text-gray-500">Pianificazione multi-anno per macro-fasi del Kaizen</p>
           <div className="flex items-center gap-3 text-xs">
             {saving ? <span className="text-blue-600">Salvataggio...</span> :
              hasUnsavedChanges ? <span className="text-orange-600 font-medium">Non salvato</span> :
@@ -164,7 +208,29 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end pt-3 border-t">
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end pt-3 border-t">
+          {/* Granularità */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Granularità</label>
+            <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+              {GRANULARITIES.map(g => (
+                <button
+                  key={g.id}
+                  onClick={() => setGranularity(g.id)}
+                  className={`flex-1 px-2 py-1 text-xs rounded-md transition-all ${
+                    granularity === g.id
+                      ? 'bg-white text-primary shadow-sm font-medium'
+                      : 'text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Anno inizio */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Anno inizio</label>
             <input
@@ -176,6 +242,8 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
               className="w-full border rounded px-2 py-1 text-sm"
             />
           </div>
+
+          {/* Anno fine */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Anno fine</label>
             <input
@@ -187,6 +255,8 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
               className="w-full border rounded px-2 py-1 text-sm"
             />
           </div>
+
+          {/* Aggiungi step */}
           <button
             onClick={addStep}
             className="bg-primary text-white px-3 py-1.5 rounded text-sm font-medium flex items-center justify-center gap-1"
@@ -194,6 +264,7 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
             <Plus size={14} /> Aggiungi step
           </button>
         </div>
+
         <div className="flex gap-3 mt-3 pt-3 border-t text-xs items-center flex-wrap">
           <span className="font-medium text-gray-600">Stati cella:</span>
           {CELL_STATES.map(s => (
@@ -208,28 +279,40 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
 
       {/* Griglia Gant */}
       <div className="bg-white rounded-xl shadow overflow-x-auto">
-        <div style={{ minWidth: years.length * 80 + 412 }}>
-          <div className="flex border-b bg-gray-100 sticky top-0 z-10">
-            <div className="w-12 px-2 py-2 text-xs font-bold text-center border-r"></div>
-            <div className="w-80 px-3 py-2 text-xs font-bold border-r">Step macro</div>
-            <div className="w-20 px-1 py-2 text-xs font-bold text-center border-r">Azioni</div>
-            {years.map(year => (
-              <div key={year} className="flex-1 min-w-[80px] border-r last:border-r-0">
-                <div
-                  className="text-center font-bold text-xs py-1 border-b bg-primary text-white"
-                >
-                  {year}
-                </div>
-                <div className="flex">
-                  {quarters.map(q => (
-                    <div key={q} className="flex-1 text-center text-[10px] font-medium text-gray-500 py-0.5 border-r last:border-r-0">
-                      {q}
-                    </div>
-                  ))}
-                </div>
+        <div style={{ minWidth: columns.length * CELL_WIDTH + 412 }}>
+          {/* Header anni */}
+          <div className="flex border-b bg-primary text-white sticky top-0 z-10">
+            <div className="w-12 px-2 py-2 text-xs font-bold text-center border-r border-blue-700"></div>
+            <div className="w-80 px-3 py-2 text-xs font-bold border-r border-blue-700">Step macro</div>
+            <div className="w-20 px-1 py-2 text-xs font-bold text-center border-r border-blue-700">Azioni</div>
+            {yearGroups.map((yg, i) => (
+              <div
+                key={i}
+                className="border-r border-blue-700 text-center font-bold text-xs py-2"
+                style={{ width: yg.count * CELL_WIDTH }}
+              >
+                {yg.year}
               </div>
             ))}
           </div>
+
+          {/* Header periodi */}
+          <div className="flex border-b bg-gray-50">
+            <div className="w-12 border-r" />
+            <div className="w-80 border-r" />
+            <div className="w-20 border-r" />
+            {columns.map((col, ci) => (
+              <div
+                key={ci}
+                className="border-r flex flex-col items-center justify-center text-[10px] text-gray-500 py-1"
+                style={{ width: CELL_WIDTH, minWidth: CELL_WIDTH }}
+              >
+                {col.label}
+              </div>
+            ))}
+          </div>
+
+          {/* Righe steps */}
           {data.steps.map((step, idx) => (
             <div key={step.id} className="flex border-b hover:bg-gray-50">
               <div className="w-12 px-2 py-2 text-sm font-bold text-center border-r flex items-center justify-center bg-blue-50 text-primary">
@@ -263,28 +346,29 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
                   <Trash2 size={11} />
                 </button>
               </div>
-              {years.map(year => (
-                <div key={year} className="flex-1 min-w-[80px] border-r last:border-r-0 flex">
-                  {quarters.map((q, qIdx) => {
-                    const val = getCellValue(step.id, year, qIdx + 1)
-                    const state = CELL_STATES[val]
-                    return (
-                      <button
-                        key={q}
-                        onClick={() => cycleCell(step.id, year, qIdx + 1)}
-                        className="flex-1 border-r last:border-r-0 hover:opacity-75 transition-opacity"
-                        style={{
-                          backgroundColor: state.color || 'transparent',
-                          minHeight: '32px',
-                        }}
-                        title={`${year} ${q}: ${state.label}`}
-                      />
-                    )
-                  })}
-                </div>
-              ))}
+
+              {/* Celle */}
+              {columns.map((col, ci) => {
+                const val = getCellValue(step.id, col.year, col.period)
+                const state = CELL_STATES[val]
+                return (
+                  <button
+                    key={ci}
+                    onClick={() => cycleCell(step.id, col.year, col.period)}
+                    className="border-r hover:opacity-75 transition-opacity"
+                    style={{
+                      width: CELL_WIDTH,
+                      minWidth: CELL_WIDTH,
+                      backgroundColor: state.color || 'transparent',
+                      minHeight: '32px',
+                    }}
+                    title={`${col.year} ${col.label}: ${state.label}`}
+                  />
+                )
+              })}
             </div>
           ))}
+
           {data.steps.length === 0 && (
             <div className="text-center py-12 text-gray-400">
               <p>Nessuno step. Aggiungi il primo!</p>
