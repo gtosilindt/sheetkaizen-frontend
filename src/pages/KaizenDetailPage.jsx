@@ -5,7 +5,8 @@ import { Save, ChevronDown, X, History, RefreshCw } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import IshikawaDiagram from '../components/kaizen/IshikawaDiagram'
 import FiveWhysFlowChart from '../components/kaizen/FiveWhysFlowChart'
-import KaizenGantt from '../components/kaizen/KaizenGantt'
+import KaizenGantMasterPlan from '../components/kaizen/KaizenGantMasterPlan'
+import KaizenAzioniList from '../components/kaizen/KaizenAzioniList'
 
 const LIVELLI = ['Quick', 'Standard', 'Major']
 
@@ -375,7 +376,7 @@ export default function KaizenDetailPage() {
       {activeTab === 'quickkaizen' && (
         <div className="space-y-6">
 
-          {/* PASSO 1 — Definizione del problema (da sola, full width) */}
+          {/* PASSO 1 — Definizione del problema */}
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">PASSO 1 - DEFINIZIONE DEL PROBLEMA</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-3">
@@ -390,7 +391,7 @@ export default function KaizenDetailPage() {
             </div>
           </div>
 
-          {/* PASSO 2 — Ishikawa (da sola, full width) */}
+          {/* PASSO 2 — Ishikawa */}
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">
               PASSO 2 - CAUSE PROBABILI (Ishikawa)
@@ -411,7 +412,7 @@ export default function KaizenDetailPage() {
             />
           </div>
 
-          {/* PASSO 3 — Catene 5 Perché (da sola, full width) */}
+          {/* PASSO 3 — Catene 5 Perché */}
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">
               PASSO 3 - 5 PERCHÉ (Catene Root Cause)
@@ -423,7 +424,7 @@ export default function KaizenDetailPage() {
             />
           </div>
 
-          {/* PASSO 4 — Verifica del processo (da sola, full width con 2 colonne interne) */}
+          {/* PASSO 4 — Verifica del processo */}
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">PASSO 4 - VERIFICA DEL PROCESSO</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-3">
@@ -453,13 +454,31 @@ export default function KaizenDetailPage() {
             </div>
           </div>
 
-          {/* PASSO 5 — Piano Azioni (Gantt) — da sola, full width */}
+          {/* PASSO 5 — Piano Azioni (Standard/Major: Gant + Lista | Quick: solo lista) */}
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">PASSO 5 - PIANO AZIONI</h3>
-            <KaizenGantt kaizenId={id} kaizenNumero={kaizen.numero} />
+
+            {livelloAttuale !== 'Quick' && (
+              <>
+                {/* Gant in cima (solo Standard/Major) */}
+                <div className="mb-6">
+                  <h4 className="font-bold text-sm uppercase text-gray-700 mb-2">Gant macro</h4>
+                  <KaizenGantMasterPlan kaizen={kaizen} onSaved={loadKaizen} />
+                </div>
+                <div className="border-t pt-6" />
+              </>
+            )}
+
+            {/* Lista azioni (per tutti i livelli) */}
+            <KaizenAzioniList
+              kaizen={kaizen}
+              kaizenId={id}
+              kaizenNumero={kaizen.numero}
+              onUpdate={loadKaizen}
+            />
           </div>
 
-          {/* FASE 6 + FASE 7 affiancate (grid 2 colonne, solo per loro) */}
+          {/* FASE 6 + FASE 7 affiancate */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-xl shadow p-6">
               <h3 className="bg-primary text-white text-center py-2 rounded-lg font-bold mb-4">FASE 6 - VALUTAZIONE EFFICACIA</h3>
@@ -477,84 +496,6 @@ export default function KaizenDetailPage() {
 
         </div>
       )}
-
-      {activeTab === 'figli' && (
-        <FigliTab
-          kaizenId={id}
-          kaizenNumero={kaizen.numero}
-          kaizenLivello={livelloAttuale}
-          kaizenReparto={kaizen.reparto}
-          kaizenLinea={kaizen.linea}
-          onUpdate={loadKaizen}
-        />
-      )}
-
-      {activeTab === 'stdelements' && (
-        <StandardElementsTab kaizen={kaizen} onSaved={loadKaizen} />
-      )}
-      {activeTab === 'cmladder' && (
-        <CountermeasureLadderTab kaizen={kaizen} onSaved={loadKaizen} />
-      )}
-      {activeTab === 'gantt' && (
-        <KaizenGantt kaizenId={id} kaizenNumero={kaizen.numero} />
-      )}
-      {activeTab === 'costbenefit' && (
-        <PlaceholderTab icon="💰" title="Cost & Benefit" subtitle="Business case e calcolo ROI automatico"
-          features={[
-            '💵 Calcolo costo totale (investimento + manodopera + materiali)',
-            '📈 Saving annuo stimato vs reale',
-            '🎯 ROI % e Payback period automatici',
-            '📊 Grafico proiezione 5 anni',
-            '💎 VAN (Valore Attuale Netto)',
-            '⚖️ Confronto stimato vs reale post-progetto',
-            '📋 Import template Excel Lindt',
-          ]} phase="Futura" />
-      )}
-
-      {activeTab === 'lavagna' && (
-        <div className="bg-white rounded-xl shadow p-6">
-          <textarea value={kaizen.lavagna || ''} onChange={(e) => setKaizen({...kaizen, lavagna: e.target.value})}
-            className="w-full border rounded-lg px-4 py-3 min-h-[400px]" placeholder="Scrivi qui le tue note..." />
-        </div>
-      )}
-      {activeTab === 'feed' && (
-        <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="font-bold mb-4">Cronologia Attività</h3>
-          {kaizen.feed?.map((entry, i) => (
-            <div key={i} className="flex gap-3 mb-3 pb-3 border-b last:border-0">
-              <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
-              <div>
-                <p className="text-sm"><strong>{entry.utente}</strong> — {entry.azione}</p>
-                <p className="text-xs text-gray-400">{entry.timestamp}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Form AP creato da Root Cause dei 5 Perché */}
-      {showAPFormFromRootCause && rootCausePrefill && (
-        <ActionPlanFormShared
-          plan={{
-            titolo: rootCausePrefill.titolo,
-            descrizione: rootCausePrefill.descrizione,
-          }}
-          prefilledKaizen={{ kaizen_id: id, kaizen_numero: kaizen.numero }}
-          onClose={() => {
-            setShowAPFormFromRootCause(false)
-            setRootCausePrefill(null)
-          }}
-          onSaved={() => {
-            setShowAPFormFromRootCause(false)
-            setRootCausePrefill(null)
-            loadKaizen()
-            alert('Action Plan creato e collegato al Kaizen')
-          }}
-        />
-      )}
-    </div>
-  )
-}
 
 // ──────────────────────────────────────────────────────────
 // COMPONENTE PLACEHOLDER
@@ -608,170 +549,6 @@ function PlaceholderTab({ icon, title, subtitle, steps, features, phase, target 
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// AZIONI TAB
-// ──────────────────────────────────────────────────────────
-function AzioniTab({ kaizenId, kaizenNumero, onUpdate }) {
-  const [azioni, setAzioni] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [filtro, setFiltro] = useState('tutti')
-  const [showForm, setShowForm] = useState(false)
-  const [editingAP, setEditingAP] = useState(null)
-
-  useEffect(() => { loadAzioni() }, [kaizenId])
-
-  const loadAzioni = async () => {
-    setLoading(true)
-    try {
-      const res = await api.get(`/kaizens/${kaizenId}/action-plans`)
-      setAzioni(res.data || [])
-    } catch (err) { console.error(err) }
-    setLoading(false)
-  }
-
-  const changeStato = async (apId, nuovoStato) => {
-    try {
-      await api.patch(`/action-plans/${apId}/stato`, { stato: nuovoStato })
-      loadAzioni()
-    } catch (err) { alert('Errore cambio stato: ' + (err.response?.data?.detail || err.message)) }
-  }
-
-  const unlinkAP = async (apId, apNumero) => {
-    if (!confirm(`🔓 Scollegare ${apNumero} dal Kaizen ${kaizenNumero}?\n\nL'Action Plan rimane in vita, ma non sarà più collegato a questo Kaizen.`)) return
-    try {
-      await api.delete(`/action-plans/${apId}/link-kaizen/${kaizenId}`)
-      loadAzioni()
-    } catch (err) { alert('Errore: ' + (err.response?.data?.detail || err.message)) }
-  }
-
-  const azioniFiltrate = azioni.filter(ap => {
-    if (filtro === 'tutti') return true
-    if (filtro === 'aperti') return ['Da Valutare', 'Aperto'].includes(ap.stato)
-    if (filtro === 'incorso') return ap.stato === 'In Corso'
-    if (filtro === 'done') return ap.stato === 'Done'
-    if (filtro === 'overdue') return ap.stato_visuale === 'In Ritardo'
-    return true
-  })
-
-  const stats = {
-    totale: azioni.length,
-    aperti: azioni.filter(a => ['Da Valutare', 'Aperto'].includes(a.stato)).length,
-    incorso: azioni.filter(a => a.stato === 'In Corso').length,
-    done: azioni.filter(a => a.stato === 'Done').length,
-    overdue: azioni.filter(a => a.stato_visuale === 'In Ritardo').length,
-  }
-
-  const STATI_AP = ['Da Valutare', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
-  const STATO_COLORS = {
-    'Da Valutare': 'bg-gray-100 text-gray-700',
-    'Aperto': 'bg-blue-100 text-blue-700',
-    'In Corso': 'bg-indigo-100 text-indigo-700',
-    'In Verifica': 'bg-purple-100 text-purple-700',
-    'Done': 'bg-green-100 text-green-700',
-    'Cancelled': 'bg-gray-200 text-gray-500',
-    'In Ritardo': 'bg-red-100 text-red-700',
-    'In Scadenza': 'bg-yellow-100 text-yellow-700',
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl shadow p-4">
-        <div className="flex justify-between items-center mb-3">
-          <div>
-            <h3 className="font-bold text-lg">📋 Azioni del Kaizen {kaizenNumero}</h3>
-            <p className="text-xs text-gray-500">Action Plan collegati a questo Kaizen</p>
-          </div>
-          <button onClick={() => { setEditingAP(null); setShowForm(true) }} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-light text-sm font-medium">
-            ➕ Crea Action Plan
-          </button>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {[
-            { id: 'tutti', label: 'Tutti', count: stats.totale, color: 'bg-gray-100 text-gray-700' },
-            { id: 'aperti', label: 'Aperti', count: stats.aperti, color: 'bg-blue-100 text-blue-700' },
-            { id: 'incorso', label: 'In Corso', count: stats.incorso, color: 'bg-indigo-100 text-indigo-700' },
-            { id: 'done', label: 'Done', count: stats.done, color: 'bg-green-100 text-green-700' },
-            ...(stats.overdue > 0 ? [{ id: 'overdue', label: '🔴 Overdue', count: stats.overdue, color: 'bg-red-100 text-red-700' }] : []),
-          ].map(f => (
-            <button key={f.id} onClick={() => setFiltro(f.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${f.color} ${filtro === f.id ? 'ring-2 ring-primary ring-offset-1' : 'opacity-70 hover:opacity-100'}`}>
-              {f.label} <span className="font-bold ml-1">{f.count}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="bg-white rounded-xl shadow p-8 text-center text-gray-400">⏳ Caricamento...</div>
-      ) : azioniFiltrate.length === 0 ? (
-        <div className="bg-white rounded-xl shadow p-12 text-center">
-          <div className="text-5xl mb-3">📋</div>
-          <h3 className="text-lg font-semibold mb-1">{azioni.length === 0 ? 'Nessun Action Plan collegato' : 'Nessun risultato per questo filtro'}</h3>
-          <p className="text-sm text-gray-500 mb-4">
-            {azioni.length === 0 ? 'Crea il primo Action Plan per questo Kaizen!' : 'Cambia filtro per vedere altri Action Plan'}
-          </p>
-          {azioni.length === 0 && (
-            <button onClick={() => { setEditingAP(null); setShowForm(true) }} className="text-primary hover:underline">➕ Crea il primo Action Plan</button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {azioniFiltrate.map(ap => {
-            const isOverdue = ap.stato_visuale === 'In Ritardo'
-            const isInScadenza = ap.stato_visuale === 'In Scadenza'
-            return (
-              <div key={ap._id} className={`bg-white rounded-xl shadow p-4 border-l-4 ${isOverdue ? 'border-red-500' : isInScadenza ? 'border-yellow-500' : 'border-primary'}`}>
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-xs text-primary font-bold">{ap.numero}</span>
-                      <h4 className="font-semibold truncate">{ap.titolo}</h4>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap text-xs">
-                      {ap.tipo && <span className="text-gray-600">📋 {ap.tipo}</span>}
-                      {ap.categoria && <span className="text-gray-600">🏷️ {ap.categoria}</span>}
-                      {ap.priorita && <span className="text-gray-600">⚠️ {ap.priorita}</span>}
-                      {ap.responsabile && <span className="text-gray-600">👤 {ap.responsabile}</span>}
-                      {ap.data_scadenza && (
-                        <span className={`${isOverdue ? 'text-red-600 font-bold' : isInScadenza ? 'text-yellow-700 font-bold' : 'text-gray-600'}`}>
-                          📅 {new Date(ap.data_scadenza).toLocaleDateString('it-IT')}
-                          {isOverdue && ' ⚠️'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t mt-2">
-                  <select value={ap.stato} onChange={(e) => changeStato(ap._id, e.target.value)}
-                    className={`text-xs px-2 py-1 rounded border ${STATO_COLORS[ap.stato_visuale] || STATO_COLORS[ap.stato]}`}>
-                    {STATI_AP.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <div className="flex gap-1">
-                    <button onClick={() => { setEditingAP(ap); setShowForm(true) }} className="text-xs px-3 py-1 bg-blue-50 hover:bg-blue-100 rounded text-blue-700" title="Modifica AP">
-                      ✏️ Modifica
-                    </button>
-                    <button onClick={() => unlinkAP(ap._id, ap.numero)} className="text-xs px-3 py-1 bg-red-50 hover:bg-red-100 rounded text-red-600" title="Scollega dal Kaizen">
-                      🔓 Scollega
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {showForm && (
-        <ActionPlanFormShared
-          plan={editingAP}
-          prefilledKaizen={{ kaizen_id: kaizenId, kaizen_numero: kaizenNumero }}
-          onClose={() => { setShowForm(false); setEditingAP(null) }}
-          onSaved={() => { setShowForm(false); setEditingAP(null); loadAzioni(); onUpdate?.() }}
-        />
-      )}
-    </div>
-  )
-}
 
 // ──────────────────────────────────────────────────────────
 // FIGLI TAB — Quick Kaizen collegati al progetto Standard/Major
