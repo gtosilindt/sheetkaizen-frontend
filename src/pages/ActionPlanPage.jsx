@@ -877,6 +877,23 @@ function CalendarCard({ ap, onClick, compact }) {
           <span>{ap.tipo}</span>
         </div>
       )}
+
+      {/* Badge "Collegato a" */}
+      {ap.parent_type && ap.parent_type !== 'standalone' && (
+        <div className="mb-2">
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+            ap.parent_type === 'pillar' ? 'bg-indigo-100 text-indigo-700' :
+            ap.parent_type === 'kaizen' ? 'bg-emerald-100 text-emerald-700' :
+            ap.parent_type === 'dashboard' ? 'bg-purple-100 text-purple-700' :
+            'bg-gray-100 text-gray-700'
+          }`}>
+            {ap.parent_type === 'pillar' && 'Pillar'}
+            {ap.parent_type === 'kaizen' && 'Kaizen'}
+            {ap.parent_type === 'dashboard' && 'Meeting'}
+            {ap.parent_label && ` · ${ap.parent_label}`}
+          </span>
+        </div>
+      )}
       
       <div className="flex justify-between items-center pt-2 border-t mt-2 text-xs">
         {ap.responsabile ? (
@@ -925,9 +942,26 @@ function KanbanCard({ plan }) {
         </span>
       </div>
       <div className="font-medium text-sm mb-2 line-clamp-2">{plan.titolo}</div>
-      <div className={`flex items-center gap-1 text-xs mb-2 ${TIPO_COLORS[plan.tipo] || ''}`}>
+      <div className={`flex items-center gap-1 text-xs mb-2 ${TIPO_COLORS[plan.tipo] || ''}`}>      <div className={`flex items-center gap-1 text-xs mb{/* Badge "Collegato a" */}
+      {plan.parent_type && plan.parent_type !== 'standalone' && (
+        <div className="mb-2">
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+            plan.parent_type === 'pillar' ? 'bg-indigo-100 text-indigo-700' :
+            plan.parent_type === 'kaizen' ? 'bg-emerald-100 text-emerald-700' :
+            plan.parent_type === 'dashboard' ? 'bg-purple-100 text-purple-700' :
+            'bg-gray-100 text-gray-700'
+          }`}>
+            {plan.parent_type === 'pillar' && 'Pillar'}
+            {plan.parent_type === 'kaizen' && 'Kaizen'}
+            {plan.parent_type === 'dashboard' && 'Meeting'}
+            {plan.parent_label && ` · ${plan.parent_label}`}
+          </span>
+        </div>
+      )}
         <TipoIcon size={12} /><span>{plan.tipo}</span>
       </div>
+
+
       {plan.tags?.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {plan.tags.slice(0, 3).map(t => (
