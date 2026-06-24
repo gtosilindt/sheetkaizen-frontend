@@ -10,7 +10,7 @@ export default function Layout() {
     { to: '/', icon: Home, label: 'Home' },
     { to: '/kaizen', icon: FileText, label: 'Kaizen' },
     { to: '/action-plan', icon: ClipboardList, label: 'Action Plan' },
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Meetings' },
     { to: '/pillars', icon: Columns, label: 'Pillars' },
     { to: '/documenti', icon: BookOpen, label: 'Documenti' },
     { to: '/settings', icon: Cog, label: 'Settings' },
