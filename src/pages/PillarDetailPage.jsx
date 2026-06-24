@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import api from '../services/api'
-import { ArrowLeft, User, Calendar, Users, Edit2, Plus, Trash2, ClipboardList } from 'lucide-react'
+import { ArrowLeft, User, Calendar, Users, Edit2, Plus, Trash2, ClipboardList, Link2, AlertCircle, CheckSquare, Bug, TrendingUp, Shield, Wrench } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 
 export default function PillarDetailPage() {
@@ -37,11 +37,10 @@ export default function PillarDetailPage() {
     }
   }
 
-  if (loading) return <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">⏳ Caricamento pillar...</div>
+  if (loading) return <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">Caricamento pillar...</div>
   if (!pillar) {
     return (
       <div className="bg-white rounded-xl shadow p-12 text-center">
-        <div className="text-5xl mb-3">🏛️</div>
         <h3 className="font-semibold mb-2">Pillar non trovato</h3>
         <button onClick={() => navigate('/pillars')} className="text-primary hover:underline">← Torna ai Pillars</button>
       </div>
@@ -53,12 +52,12 @@ export default function PillarDetailPage() {
   const stepsTotal = stats?.steps_total || 5
 
   const tabs = [
-    { id: 'anagrafica', label: '👤 Anagrafica' },
-    { id: 'kpi', label: `🎯 5 Step KPI (${stepsCompleted}/${stepsTotal})` },
-    { id: 'masterplan', label: '📅 Master Plan' },
-    { id: 'kaizen', label: `📋 Kaizen (${kaizens.length})` },
-    { id: 'action_plan', label: `📌 Action Plan (${actionPlans.length})` },
-    { id: 'maturity', label: '📈 Maturity Grid' },
+    { id: 'anagrafica', label: 'Anagrafica' },
+    { id: 'kpi', label: `5 Step KPI (${stepsCompleted}/${stepsTotal})` },
+    { id: 'masterplan', label: 'Master Plan' },
+    { id: 'kaizen', label: `Kaizen (${kaizens.length})` },
+    { id: 'action_plan', label: `Action Plan (${actionPlans.length})` },
+    { id: 'maturity', label: 'Maturity Grid' },
   ]
 
   return (
@@ -76,13 +75,13 @@ export default function PillarDetailPage() {
           <div className="flex justify-between items-start gap-4">
             <div className="flex items-start gap-4 flex-1 min-w-0">
               <div className="w-20 h-20 rounded-xl flex items-center justify-center text-5xl flex-shrink-0 shadow-md" style={{ backgroundColor: color, color: 'white' }}>
-                {pillar.icon || '🏛️'}
+                {pillar.icon || pillar.sigla?.charAt(0) || 'P'}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-1">
                   <span className="font-mono font-black text-3xl" style={{ color }}>{pillar.sigla}</span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${pillar.attivo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                    {pillar.attivo ? '✅ Attivo' : '⏸️ Disattivo'}
+                    {pillar.attivo ? 'Attivo' : 'Disattivo'}
                   </span>
                 </div>
                 <h1 className="text-xl font-bold text-gray-800 mb-2">{pillar.label}</h1>
@@ -115,10 +114,10 @@ export default function PillarDetailPage() {
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 p-4 bg-white border-t">
             <StatBlock label="Kaizen Totali" value={stats.totale_kaizen} color="indigo" />
-            <StatBlock label="Quick" value={stats.quick} icon="⚡" color="green" />
-            <StatBlock label="Standard" value={stats.standard} icon="📊" color="blue" />
-            <StatBlock label="Major" value={stats.major} icon="🏆" color="purple" />
-            <StatBlock label="5 Step Progress" value={`${stepsCompleted}/${stepsTotal}`} icon="🎯" color="orange" />
+            <StatBlock label="Quick" value={stats.quick} color="green" />
+            <StatBlock label="Standard" value={stats.standard} color="blue" />
+            <StatBlock label="Major" value={stats.major} color="purple" />
+            <StatBlock label="5 Step Progress" value={`${stepsCompleted}/${stepsTotal}`} color="orange" />
           </div>
         )}
       </div>
@@ -142,11 +141,65 @@ export default function PillarDetailPage() {
 }
 
 // ──────────────────────────────────────────────────────────
-// NUOVO: TAB ACTION PLAN (Pillar)
+// TAB ACTION PLAN — Nuovo layout stile Action Plan Management
 // ──────────────────────────────────────────────────────────
+const STATO_COLORS_AP = {
+  'Da Valutare': 'bg-gray-100 text-gray-700 border-gray-300',
+  'Aperto': 'bg-blue-100 text-blue-700 border-blue-300',
+  'In Corso': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+  'In Verifica': 'bg-purple-100 text-purple-700 border-purple-300',
+  'Done': 'bg-green-100 text-green-700 border-green-300',
+  'Cancelled': 'bg-gray-200 text-gray-500 border-gray-300',
+}
+
+const PRIORITA_BG = {
+  Lowest: 'bg-gray-100 text-gray-700',
+  Low: 'bg-blue-100 text-blue-700',
+  Medium: 'bg-yellow-100 text-yellow-700',
+  High: 'bg-orange-100 text-orange-700',
+  Critical: 'bg-red-100 text-red-700',
+}
+
+const TIPO_ICONS = {
+  Task: CheckSquare,
+  Bug: Bug,
+  Improvement: TrendingUp,
+  Audit: Shield,
+  Manutenzione: Wrench,
+  Sicurezza: AlertCircle,
+}
+
+const TIPO_COLORS = {
+  Task: 'text-blue-600',
+  Bug: 'text-red-600',
+  Improvement: 'text-green-600',
+  Audit: 'text-purple-600',
+  Manutenzione: 'text-orange-600',
+  Sicurezza: 'text-yellow-600',
+}
+
+function AvatarAP({ name }) {
+  if (!name) return <span className="text-xs text-gray-400 italic">— Non assegnato</span>
+  const initials = name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()
+  const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-yellow-500', 'bg-orange-500']
+  const color = colors[name.charCodeAt(0) % colors.length]
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className={`${color} text-white rounded-full flex items-center justify-center font-bold flex-shrink-0`}
+        style={{ width: 24, height: 24, fontSize: 10 }}
+      >
+        {initials}
+      </div>
+      <span className="text-xs">{name}</span>
+    </div>
+  )
+}
+
 function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
-  const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
+  const [editingAP, setEditingAP] = useState(null)
+  const [filterStato, setFilterStato] = useState('')
 
   const prefilledPillar = {
     parent_type: 'pillar',
@@ -157,7 +210,42 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
 
   function handleSaved() {
     setShowForm(false)
+    setEditingAP(null)
     onReload()
+  }
+
+  async function changeStato(apId, nuovoStato) {
+    try {
+      await api.patch(`/action-plans/${apId}/stato`, { stato: nuovoStato })
+      onReload()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  async function unlinkAP(apId, apNumero) {
+    if (!confirm(`Scollegare ${apNumero} dal Pillar ${pillar.sigla}?\nL'AP rimane nel sistema ma non sarà più collegato a questo Pillar.`)) return
+    try {
+      await api.put(`/action-plans/${apId}`, {
+        parent_type: 'standalone',
+        parent_id: null,
+        parent_label: null,
+        pillar_id: null,
+      })
+      onReload()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  async function deleteAP(apId, apNumero) {
+    if (!confirm(`ELIMINA ${apNumero}?\n\nQuesto rimuove l'Action Plan in modo permanente. Conferma solo se sei sicuro.`)) return
+    try {
+      await api.delete(`/action-plans/${apId}`)
+      onReload()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
   }
 
   const counts = {
@@ -168,82 +256,184 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
     overdue: actionPlans.filter(a => a.stato_visuale === 'In Ritardo').length,
   }
 
+  const actionPlansFiltrati = actionPlans.filter(ap => {
+    if (filterStato && ap.stato !== filterStato) return false
+    return true
+  })
+
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl shadow p-4 flex justify-between items-center">
-        <div>
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <ClipboardList size={20} style={{ color }} />
-            Action Plan collegati a {pillar.sigla}
-          </h3>
-          <div className="flex gap-4 text-xs text-gray-500 mt-1">
-            <span>Totale: <strong className="text-gray-700">{counts.totale}</strong></span>
-            <span>Da valutare: <strong className="text-gray-700">{counts.da_valutare}</strong></span>
-            <span>In corso: <strong className="text-blue-600">{counts.in_corso}</strong></span>
-            <span>Done: <strong className="text-green-600">{counts.done}</strong></span>
-            {counts.overdue > 0 && <span>Scaduti: <strong className="text-red-600">{counts.overdue}</strong></span>}
+      <div className="bg-white rounded-xl shadow p-4">
+        <div className="flex justify-between items-center mb-3">
+          <div>
+            <h3 className="font-bold text-lg flex items-center gap-2">
+              <ClipboardList size={20} style={{ color }} />
+              Action Plan collegati a {pillar.sigla}
+            </h3>
+            <div className="flex gap-4 text-xs text-gray-500 mt-1">
+              <span>Totale: <strong className="text-gray-700">{counts.totale}</strong></span>
+              <span>Da valutare: <strong className="text-gray-700">{counts.da_valutare}</strong></span>
+              <span>In corso: <strong className="text-blue-600">{counts.in_corso}</strong></span>
+              <span>Done: <strong className="text-green-600">{counts.done}</strong></span>
+              {counts.overdue > 0 && (
+                <span>Scaduti: <strong className="text-red-600">{counts.overdue}</strong></span>
+              )}
+            </div>
           </div>
+          <button
+            onClick={() => { setEditingAP(null); setShowForm(true) }}
+            className="text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow"
+            style={{ backgroundColor: color }}
+          >
+            <Plus size={16} /> Nuovo Action Plan
+          </button>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow"
-          style={{ backgroundColor: color }}
-        >
-          <Plus size={16} /> Nuovo Action Plan
-        </button>
+
+        <div className="flex items-center gap-2 flex-wrap mt-2 pt-3 border-t">
+          <span className="text-xs font-medium text-gray-600">Filtri:</span>
+          <select
+            value={filterStato}
+            onChange={(e) => setFilterStato(e.target.value)}
+            className="text-xs border rounded px-2 py-1"
+          >
+            <option value="">Tutti gli stati</option>
+            <option>Da Valutare</option>
+            <option>Aperto</option>
+            <option>In Corso</option>
+            <option>In Verifica</option>
+            <option>Done</option>
+            <option>Cancelled</option>
+          </select>
+          {filterStato && (
+            <button
+              onClick={() => setFilterStato('')}
+              className="text-xs px-2 py-1 border rounded text-gray-600 hover:bg-gray-100"
+            >
+              Reset
+            </button>
+          )}
+          <span className="text-xs text-gray-500 ml-auto">
+            {actionPlansFiltrati.length} azion{actionPlansFiltrati.length === 1 ? 'e' : 'i'} visualizzate
+          </span>
+        </div>
       </div>
 
-      {actionPlans.length === 0 ? (
+      {actionPlansFiltrati.length === 0 ? (
         <div className="bg-white rounded-xl shadow p-12 text-center">
           <ClipboardList className="mx-auto text-gray-300 mb-3" size={48} />
-          <p className="text-gray-400 mb-3">Nessun Action Plan collegato a questo pillar</p>
-          <p className="text-xs text-gray-400 mb-4">
-            Crea un AP qui per averlo automaticamente collegato a <strong>{pillar.sigla}</strong>
+          <p className="text-gray-400 mb-3">
+            {actionPlans.length === 0
+              ? 'Nessun Action Plan collegato a questo pillar'
+              : 'Nessun risultato per i filtri impostati'}
           </p>
-          <button onClick={() => setShowForm(true)} className="text-primary hover:underline text-sm">
-            + Crea il primo Action Plan
-          </button>
+          {actionPlans.length === 0 && (
+            <>
+              <p className="text-xs text-gray-400 mb-4">
+                Crea un AP qui per averlo automaticamente collegato a <strong>{pillar.sigla}</strong>
+              </p>
+              <button
+                onClick={() => { setEditingAP(null); setShowForm(true) }}
+                className="text-primary hover:underline text-sm"
+              >
+                + Crea il primo Action Plan
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
               <tr>
-                <th className="px-4 py-2 text-left w-24">Numero</th>
-                <th className="px-4 py-2 text-left">Titolo</th>
-                <th className="px-4 py-2 text-left w-28">Tipo</th>
-                <th className="px-4 py-2 text-left w-24">Priorità</th>
-                <th className="px-4 py-2 text-left w-32">Responsabile</th>
-                <th className="px-4 py-2 text-left w-28">Stato</th>
-                <th className="px-4 py-2 text-left w-28">Scadenza</th>
-                <th className="px-4 py-2 text-right w-20">Azioni</th>
+                <th className="px-3 py-2 text-left w-24">Numero</th>
+                <th className="px-3 py-2 text-left">Titolo</th>
+                <th className="px-3 py-2 text-left w-24">Tipo</th>
+                <th className="px-3 py-2 text-left w-24">Priorità</th>
+                <th className="px-3 py-2 text-left w-40">Responsabile</th>
+                <th className="px-3 py-2 text-left w-32">Stato</th>
+                <th className="px-3 py-2 text-left w-28">Scadenza</th>
+                <th className="px-3 py-2 text-center w-32">Azioni</th>
               </tr>
             </thead>
             <tbody>
-              {actionPlans.map(ap => {
+              {actionPlansFiltrati.map(ap => {
+                const TipoIcon = TIPO_ICONS[ap.tipo] || CheckSquare
                 const isOverdue = ap.stato_visuale === 'In Ritardo'
+                const isCancelled = ap.is_cancelled
                 return (
-                  <tr key={ap._id} className="border-b hover:bg-gray-50 cursor-pointer"
-                    onClick={() => navigate(`/action-plan`)}>
-                    <td className="px-4 py-2 font-mono text-xs text-primary font-bold">{ap.numero}</td>
-                    <td className="px-4 py-2 font-medium">{ap.titolo}</td>
-                    <td className="px-4 py-2 text-xs">{ap.tipo || '—'}</td>
-                    <td className="px-4 py-2">
-                      <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
-                        {ap.priorita || '—'}
-                      </span>
+                  <tr
+                    key={ap._id}
+                    className={`border-b hover:bg-gray-50 ${isCancelled ? 'opacity-60' : ''}`}
+                  >
+                    <td className="px-3 py-2 font-mono text-primary text-xs font-bold">
+                      {ap.numero}
                     </td>
-                    <td className="px-4 py-2 text-xs">{ap.responsabile || '— Non assegnato'}</td>
-                    <td className="px-4 py-2">
-                      <span className="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">{ap.stato}</span>
+                    <td className="px-3 py-2">
+                      <div className="font-medium truncate max-w-md">{ap.titolo}</div>
                     </td>
-                    <td className={`px-4 py-2 text-xs ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
-                      {ap.data_scadenza ? new Date(ap.data_scadenza).toLocaleDateString('it-IT') : '—'}
+                    <td className="px-3 py-2">
+                      {ap.tipo ? (
+                        <div className={`flex items-center gap-1 text-xs ${TIPO_COLORS[ap.tipo] || 'text-gray-500'}`}>
+                          <TipoIcon size={14} />
+                          <span>{ap.tipo}</span>
+                        </div>
+                      ) : <span className="text-xs text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-2 text-right">
-                      <Link to={`/action-plan`} onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-xs">
-                        Apri →
-                      </Link>
+                    <td className="px-3 py-2">
+                      {ap.priorita ? (
+                        <span className={`px-2 py-0.5 rounded text-xs ${PRIORITA_BG[ap.priorita] || 'bg-gray-100 text-gray-700'}`}>
+                          {ap.priorita}
+                        </span>
+                      ) : <span className="text-xs text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      <AvatarAP name={ap.responsabile} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={ap.stato || 'Aperto'}
+                        onChange={(e) => changeStato(ap._id, e.target.value)}
+                        className={`text-xs px-1.5 py-1 rounded border font-medium ${STATO_COLORS_AP[ap.stato] || 'bg-gray-100 text-gray-700'}`}
+                      >
+                        <option>Da Valutare</option>
+                        <option>Aperto</option>
+                        <option>In Corso</option>
+                        <option>In Verifica</option>
+                        <option>Done</option>
+                        <option>Cancelled</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {ap.data_scadenza ? (
+                        <div className={isOverdue ? 'text-red-600 font-bold' : 'text-gray-700'}>
+                          {new Date(ap.data_scadenza).toLocaleDateString('it-IT')}
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex justify-center gap-1">
+                        <button
+                          onClick={() => { setEditingAP(ap); setShowForm(true) }}
+                          className="p-1 hover:bg-yellow-100 rounded text-yellow-600"
+                          title="Modifica"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => unlinkAP(ap._id, ap.numero)}
+                          className="p-1 hover:bg-orange-100 rounded text-orange-600"
+                          title="Scollega dal Pillar"
+                        >
+                          <Link2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => deleteAP(ap._id, ap.numero)}
+                          className="p-1 hover:bg-red-100 rounded text-red-600"
+                          title="Elimina definitivamente"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -255,10 +445,10 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
 
       {showForm && (
         <ActionPlanFormShared
-          plan={null}
+          plan={editingAP}
           prefilledKaizen={null}
-          prefilledParent={prefilledPillar}
-          onClose={() => setShowForm(false)}
+          prefilledParent={editingAP ? null : prefilledPillar}
+          onClose={() => { setShowForm(false); setEditingAP(null) }}
           onSaved={handleSaved}
         />
       )}
@@ -266,11 +456,10 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
   )
 }
 
-function StatBlock({ label, value, icon, color = 'gray' }) {
+function StatBlock({ label, value, color = 'gray' }) {
   const colors = { gray: 'text-gray-700', indigo: 'text-indigo-700', green: 'text-emerald-700', blue: 'text-blue-700', purple: 'text-purple-700', orange: 'text-orange-700' }
   return (
     <div className="text-center">
-      {icon && <div className="text-xl mb-1">{icon}</div>}
       <div className={`text-2xl font-bold ${colors[color]}`}>{value ?? '—'}</div>
       <div className="text-xs text-gray-500 uppercase">{label}</div>
     </div>
@@ -290,13 +479,13 @@ function AnagraficaTab({ pillar }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-4">ℹ️ Informazioni Pillar</h3>
+        <h3 className="font-bold text-lg mb-4">Informazioni Pillar</h3>
         <div className="space-y-3 text-sm">
           <InfoRow label="Sigla" value={pillar.sigla} mono />
           <InfoRow label="Nome completo" value={pillar.label} />
           <InfoRow label="Anno di riferimento" value={pillar.anno || '—'} />
           <InfoRow label="Codice colore" value={pillar.color || '—'} mono />
-          <InfoRow label="Stato" value={pillar.attivo ? '✅ Attivo' : '⏸️ Disattivo'} />
+          <InfoRow label="Stato" value={pillar.attivo ? 'Attivo' : 'Disattivo'} />
           {pillar.descrizione && (
             <div>
               <div className="text-gray-500 text-xs uppercase mb-1">Descrizione</div>
@@ -306,11 +495,11 @@ function AnagraficaTab({ pillar }) {
         </div>
       </div>
       <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-4">👥 Team del Pillar</h3>
+        <h3 className="font-bold text-lg mb-4">Team del Pillar</h3>
         <div className="space-y-3">
           {pillar.leader && (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
-              <div className="text-xs text-yellow-700 font-bold uppercase mb-1">🏅 Pillar Leader</div>
+              <div className="text-xs text-yellow-700 font-bold uppercase mb-1">Pillar Leader</div>
               <div className="font-semibold text-gray-800">{pillar.leader}</div>
             </div>
           )}
@@ -332,7 +521,7 @@ function AnagraficaTab({ pillar }) {
       </div>
       {pillar.note && (
         <div className="bg-white rounded-xl shadow p-6 md:col-span-2">
-          <h3 className="font-bold text-lg mb-3">📝 Note</h3>
+          <h3 className="font-bold text-lg mb-3">Note</h3>
           <div className="bg-gray-50 p-4 rounded text-sm whitespace-pre-wrap">{pillar.note}</div>
         </div>
       )}
@@ -341,28 +530,27 @@ function AnagraficaTab({ pillar }) {
 }
 
 const KPI_STEPS = [
-  { id: 'step1_kpi_definition', num: 1, title: 'KPI / KMI Definition', icon: '📊', desc: 'Definisci il KPI principale del Pillar' },
-  { id: 'step2_pareto_analysis', num: 2, title: 'Pareto Analysis & Loss Identification', icon: '📉', desc: 'Identifica e prioritizza le perdite' },
-  { id: 'step3_target_definition', num: 3, title: 'Project Planning & Assignment', icon: '🎯', desc: 'Pianifica progetti per chiudere il gap' },
-  { id: 'step4_implementation', num: 4, title: 'Project Implementation', icon: '🚧', desc: 'Esegui e monitora i progetti' },
-  { id: 'step5_close_the_loop', num: 5, title: 'Gap Analysis & Close the Loop', icon: '🏁', desc: 'Bridge chart target vs actual' },
+  { id: 'step1_kpi_definition', num: 1, title: 'KPI / KMI Definition', desc: 'Definisci il KPI principale del Pillar' },
+  { id: 'step2_pareto_analysis', num: 2, title: 'Pareto Analysis & Loss Identification', desc: 'Identifica e prioritizza le perdite' },
+  { id: 'step3_target_definition', num: 3, title: 'Project Planning & Assignment', desc: 'Pianifica progetti per chiudere il gap' },
+  { id: 'step4_implementation', num: 4, title: 'Project Implementation', desc: 'Esegui e monitora i progetti' },
+  { id: 'step5_close_the_loop', num: 5, title: 'Gap Analysis & Close the Loop', desc: 'Bridge chart target vs actual' },
 ]
 
 const PROGETTO_STATUS = [
-  { value: 'planned', label: 'Planned', icon: '⚪', color: 'bg-gray-100 text-gray-700 border-gray-300' },
-  { value: 'in_progress', label: 'In Progress', icon: '🟡', color: 'bg-yellow-100 text-yellow-700 border-yellow-400' },
-  { value: 'done', label: 'Done', icon: '🟢', color: 'bg-green-100 text-green-700 border-green-400' },
-  { value: 'cancelled', label: 'Cancelled', icon: '🔴', color: 'bg-red-100 text-red-700 border-red-300' },
+  { value: 'planned', label: 'Planned', color: 'bg-gray-100 text-gray-700 border-gray-300' },
+  { value: 'in_progress', label: 'In Progress', color: 'bg-yellow-100 text-yellow-700 border-yellow-400' },
+  { value: 'done', label: 'Done', color: 'bg-green-100 text-green-700 border-green-400' },
+  { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-700 border-red-300' },
 ]
 
 const ACTUAL_STATUS = [
-  { value: 'not_started', label: 'Not started', icon: '⚪', color: 'bg-gray-100 text-gray-700 border-gray-300' },
-  { value: 'in_progress', label: 'In Progress', icon: '🟡', color: 'bg-yellow-100 text-yellow-700 border-yellow-400' },
-  { value: 'done', label: 'Done', icon: '🟢', color: 'bg-green-100 text-green-700 border-green-400' },
-  { value: 'blocked', label: 'Blocked', icon: '🚧', color: 'bg-orange-100 text-orange-700 border-orange-300' },
-  { value: 'cancelled', label: 'Cancelled', icon: '🔴', color: 'bg-red-100 text-red-700 border-red-300' },
+  { value: 'not_started', label: 'Not started', color: 'bg-gray-100 text-gray-700 border-gray-300' },
+  { value: 'in_progress', label: 'In Progress', color: 'bg-yellow-100 text-yellow-700 border-yellow-400' },
+  { value: 'done', label: 'Done', color: 'bg-green-100 text-green-700 border-green-400' },
+  { value: 'blocked', label: 'Blocked', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+  { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-700 border-red-300' },
 ]
-
 function KpiManagementTab({ pillar, color, onSaved }) {
   const [stepsData, setStepsData] = useState(() => {
     const initial = {}
@@ -414,16 +602,16 @@ function KpiManagementTab({ pillar, color, onSaved }) {
       <div className="bg-white rounded-xl shadow p-6">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h3 className="text-xl font-bold mb-1">🎯 5 Step KPI Management</h3>
+            <h3 className="text-xl font-bold mb-1">5 Step KPI Management</h3>
             <p className="text-sm text-gray-500">Metodologia ufficiale Lindt FI Pillar per il <strong>{pillar.sigla}</strong></p>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold" style={{ color }}>{completedCount}/5</div>
             <div className="text-xs text-gray-500 uppercase">Step Completati</div>
             <div className="text-xs mt-1">
-              {saving ? <span className="text-blue-600">⏳ Salvataggio...</span> :
-               hasUnsavedChanges ? <span className="text-orange-600">⚠️ Non salvato</span> :
-               lastSaved ? <span className="text-green-600">💾 Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> :
+              {saving ? <span className="text-blue-600">Salvataggio...</span> :
+               hasUnsavedChanges ? <span className="text-orange-600">Non salvato</span> :
+               lastSaved ? <span className="text-green-600">Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> :
                <span className="text-gray-400">Pronto</span>}
             </div>
           </div>
@@ -459,9 +647,8 @@ function KpiManagementTab({ pillar, color, onSaved }) {
               </div>
               <div className="flex-1 text-left">
                 <div className="font-semibold flex items-center gap-2">
-                  <span className="text-lg">{step.icon}</span>
                   STEP {step.num} — {step.title}
-                  {isCompleted && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">✅ Completato</span>}
+                  {isCompleted && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completato</span>}
                 </div>
                 <div className="text-xs text-gray-500 mt-0.5">{step.desc}</div>
               </div>
@@ -472,13 +659,13 @@ function KpiManagementTab({ pillar, color, onSaved }) {
                 <StepContent step={step} data={data} color={color} onUpdate={(updates) => updateStep(step.id, updates)} allStepsData={stepsData} />
                 <div className="mt-4 pt-4 border-t space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 uppercase mb-1">📝 Note dello step</label>
-                    <textarea value={data.note || ''} onChange={(e) => updateStep(step.id, { note: e.target.value })} rows={3} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Note, contesto, decisioni prese..." />
+                    <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Note dello step</label>
+                    <textarea value={data.note || ''} onChange={(e) => updateStep(step.id, { note: e.target.value })} rows={3} className="w-full border rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <label className="flex items-center gap-3 p-3 bg-white border-2 rounded-lg cursor-pointer hover:bg-gray-50" style={{ borderColor: isCompleted ? color : '#e5e7eb' }}>
                     <input type="checkbox" checked={isCompleted} onChange={(e) => updateStep(step.id, { completato: e.target.checked })} className="w-5 h-5" style={{ accentColor: color }} />
                     <div className="flex-1">
-                      <div className="font-medium text-sm">{isCompleted ? '✅ Step Completato' : '☐ Marca come completato'}</div>
+                      <div className="font-medium text-sm">{isCompleted ? 'Step Completato' : 'Marca come completato'}</div>
                       <div className="text-xs text-gray-500">{isCompleted ? 'Lo step è considerato concluso.' : 'Spunta quando hai finito le attività di questo step.'}</div>
                     </div>
                   </label>
@@ -516,38 +703,35 @@ function Step1Content({ data, color, onUpdate }) {
   return (
     <div className="space-y-4 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        ℹ️ <strong>Cosa fare:</strong> Definisci il KPI principale (es. OEE, MTBF) con baseline e target. I KMI sono indicatori secondari opzionali di supporto.
+        <strong>Cosa fare:</strong> Definisci il KPI principale (es. OEE, MTBF) con baseline e target. I KMI sono indicatori secondari opzionali di supporto.
       </div>
       <div className="bg-white p-4 rounded-lg border-2" style={{ borderColor: color }}>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-2xl">🎯</span>
-          <h4 className="font-bold text-sm uppercase" style={{ color }}>KPI Principale (obbligatorio)</h4>
-        </div>
+        <h4 className="font-bold text-sm uppercase mb-3" style={{ color }}>KPI Principale (obbligatorio)</h4>
         <div className="grid grid-cols-12 gap-2 mb-2">
           <div className="col-span-4">
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome KPI <span className="text-red-500">*</span></label>
-            <input className="w-full border rounded px-3 py-2 text-sm font-bold" value={kpiPrincipale.label} onChange={(e) => updateKpiPrincipale('label', e.target.value)} placeholder="Es: OEE, MTBF, Scarti %" />
+            <input className="w-full border rounded px-3 py-2 text-sm font-bold" value={kpiPrincipale.label} onChange={(e) => updateKpiPrincipale('label', e.target.value)} />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Baseline</label>
-            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.baseline} onChange={(e) => updateKpiPrincipale('baseline', e.target.value)} placeholder="65" />
+            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.baseline} onChange={(e) => updateKpiPrincipale('baseline', e.target.value)} />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Target</label>
-            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.target} onChange={(e) => updateKpiPrincipale('target', e.target.value)} placeholder="75" />
+            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.target} onChange={(e) => updateKpiPrincipale('target', e.target.value)} />
           </div>
           <div className="col-span-1">
             <label className="block text-xs font-medium text-gray-600 mb-1">Unità</label>
-            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.unit} onChange={(e) => updateKpiPrincipale('unit', e.target.value)} placeholder="%" />
+            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.unit} onChange={(e) => updateKpiPrincipale('unit', e.target.value)} />
           </div>
           <div className="col-span-3">
             <label className="block text-xs font-medium text-gray-600 mb-1">Owner</label>
-            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.owner} onChange={(e) => updateKpiPrincipale('owner', e.target.value)} placeholder="Nome responsabile" />
+            <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.owner} onChange={(e) => updateKpiPrincipale('owner', e.target.value)} />
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Descrizione (opzionale)</label>
-          <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.descrizione} onChange={(e) => updateKpiPrincipale('descrizione', e.target.value)} placeholder="Es: Overall Equipment Effectiveness linea Bindler 11" />
+          <input className="w-full border rounded px-3 py-2 text-sm" value={kpiPrincipale.descrizione} onChange={(e) => updateKpiPrincipale('descrizione', e.target.value)} />
         </div>
         {kpiPrincipale.baseline && kpiPrincipale.target && (
           <div className="mt-3 pt-3 border-t flex items-center gap-3 text-sm">
@@ -563,12 +747,9 @@ function Step1Content({ data, color, onUpdate }) {
       </div>
       <div className="bg-white p-4 rounded-lg border">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">📊</span>
-            <div>
-              <h4 className="font-bold text-sm uppercase text-gray-700">KMI — Key Management Indicators</h4>
-              <p className="text-xs text-gray-500">Indicatori secondari opzionali di supporto al KPI principale</p>
-            </div>
+          <div>
+            <h4 className="font-bold text-sm uppercase text-gray-700">KMI — Key Management Indicators</h4>
+            <p className="text-xs text-gray-500">Indicatori secondari opzionali di supporto al KPI principale</p>
           </div>
           <button onClick={addKmi} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi KMI</button>
         </div>
@@ -579,7 +760,7 @@ function Step1Content({ data, color, onUpdate }) {
             {kmis.map((kmi, idx) => (
               <div key={kmi.id} className="grid grid-cols-12 gap-2 items-center">
                 <div className="col-span-1 text-center text-xs font-bold text-gray-400">#{idx + 1}</div>
-                <input className="col-span-4 border rounded px-2 py-1 text-sm" value={kmi.label} onChange={(e) => updateKmi(kmi.id, { label: e.target.value })} placeholder="Es: MTBF" />
+                <input className="col-span-4 border rounded px-2 py-1 text-sm" value={kmi.label} onChange={(e) => updateKmi(kmi.id, { label: e.target.value })} />
                 <input className="col-span-2 border rounded px-2 py-1 text-sm" value={kmi.baseline} onChange={(e) => updateKmi(kmi.id, { baseline: e.target.value })} placeholder="Baseline" />
                 <input className="col-span-2 border rounded px-2 py-1 text-sm" value={kmi.target} onChange={(e) => updateKmi(kmi.id, { target: e.target.value })} placeholder="Target" />
                 <input className="col-span-2 border rounded px-2 py-1 text-sm" value={kmi.owner} onChange={(e) => updateKmi(kmi.id, { owner: e.target.value })} placeholder="Owner" />
@@ -603,26 +784,26 @@ function Step2Content({ data, color, onUpdate }) {
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        ℹ️ <strong>Cosa fare:</strong> Elenca le perdite che impattano il KPI con la loro % di impatto. Le perdite più alte sono il "vital few" su cui focalizzarti.
+        <strong>Cosa fare:</strong> Elenca le perdite che impattano il KPI con la loro % di impatto. Le perdite più alte sono il "vital few" su cui focalizzarti.
       </div>
       <div className="flex justify-between items-center">
-        <h4 className="font-semibold text-sm uppercase text-gray-700">📉 Top Losses</h4>
+        <h4 className="font-semibold text-sm uppercase text-gray-700">Top Losses</h4>
         <button onClick={addLoss} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi Loss</button>
       </div>
       {sortedLosses.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessuna perdita identificata. Click "+ Aggiungi Loss" per iniziare.</div>
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessuna perdita identificata.</div>
       ) : (
         <div className="space-y-2">
           {sortedLosses.map((loss, idx) => (
             <div key={loss.id} className="bg-white p-3 rounded-lg border">
               <div className="grid grid-cols-12 gap-2 items-center">
                 <div className="col-span-1 text-center font-bold text-gray-400">#{idx + 1}</div>
-                <input className="col-span-5 border rounded px-2 py-1 text-sm font-medium" value={loss.label} onChange={(e) => updateLoss(loss.id, { label: e.target.value })} placeholder="Es: Microfermate" />
+                <input className="col-span-5 border rounded px-2 py-1 text-sm font-medium" value={loss.label} onChange={(e) => updateLoss(loss.id, { label: e.target.value })} />
                 <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={loss.percent_impact} onChange={(e) => updateLoss(loss.id, { percent_impact: e.target.value })} placeholder="%" />
                 <select className="col-span-3 border rounded px-2 py-1 text-sm" value={loss.magnitude} onChange={(e) => updateLoss(loss.id, { magnitude: e.target.value })}>
-                  <option value="alto">🔴 Alto</option>
-                  <option value="medio">🟡 Medio</option>
-                  <option value="basso">🟢 Basso</option>
+                  <option value="alto">Alto</option>
+                  <option value="medio">Medio</option>
+                  <option value="basso">Basso</option>
                 </select>
                 <button onClick={() => removeLoss(loss.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
               </div>
@@ -662,25 +843,25 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        ℹ️ <strong>Cosa fare:</strong> Pianifica i progetti (Kaizen) che chiuderanno il gap del KPI. Collega ogni progetto a una loss dello Step 2 e specifica saving atteso, owner, deadline.
+        <strong>Cosa fare:</strong> Pianifica i progetti (Kaizen) che chiuderanno il gap del KPI.
       </div>
       {progetti.length > 0 && (
         <div className="bg-white p-3 rounded-lg border-2 border-dashed flex justify-between items-center">
-          <span className="text-sm text-gray-600">📊 Saving totale pianificato:</span>
+          <span className="text-sm text-gray-600">Saving totale pianificato:</span>
           <span className="text-2xl font-bold" style={{ color }}>{totalPlanned.toLocaleString('it-IT')} €</span>
         </div>
       )}
       {lossesStep2.length === 0 && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
-          ⚠️ Non hai ancora compilato lo <strong>Step 2 (Pareto)</strong>. Senza losses i progetti non possono essere collegati alle perdite da chiudere.
+          Non hai ancora compilato lo <strong>Step 2 (Pareto)</strong>.
         </div>
       )}
       <div className="flex justify-between items-center">
-        <h4 className="font-semibold text-sm uppercase text-gray-700">🎯 Progetti pianificati ({progetti.length})</h4>
+        <h4 className="font-semibold text-sm uppercase text-gray-700">Progetti pianificati ({progetti.length})</h4>
         <button onClick={addProject} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Pianifica progetto</button>
       </div>
       {progetti.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun progetto pianificato. Inizia ora la pianificazione dei Kaizen per chiudere il gap KPI.</div>
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun progetto pianificato.</div>
       ) : (
         <div className="space-y-2">
           {progetti.map((p, idx) => {
@@ -690,8 +871,8 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
               <div key={p.id} className="bg-white p-3 rounded-lg border-l-4 border" style={{ borderLeftColor: color }}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-bold text-gray-400 text-sm">#{idx + 1}</span>
-                  <input className="flex-1 border rounded px-2 py-1 text-sm font-medium" value={p.label} onChange={(e) => updateProject(p.id, { label: e.target.value })} placeholder="Titolo del progetto / Kaizen" />
-                  <span className={`px-2 py-1 rounded text-xs font-bold border ${statusInfo.color}`}>{statusInfo.icon} {statusInfo.label}</span>
+                  <input className="flex-1 border rounded px-2 py-1 text-sm font-medium" value={p.label} onChange={(e) => updateProject(p.id, { label: e.target.value })} />
+                  <span className={`px-2 py-1 rounded text-xs font-bold border ${statusInfo.color}`}>{statusInfo.label}</span>
                   <button onClick={() => removeProject(p.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
                 </div>
                 <div className="grid grid-cols-12 gap-2">
@@ -704,11 +885,11 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Kaizen #</label>
-                    <input className="w-full border rounded px-2 py-1 text-xs font-mono" value={p.kaizen_numero} onChange={(e) => updateProject(p.id, { kaizen_numero: e.target.value })} placeholder="MAJ-001" />
+                    <input className="w-full border rounded px-2 py-1 text-xs font-mono" value={p.kaizen_numero} onChange={(e) => updateProject(p.id, { kaizen_numero: e.target.value })} />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Saving Planned €</label>
-                    <input type="number" className="w-full border rounded px-2 py-1 text-xs" value={p.saving_planned !== undefined ? p.saving_planned : (p.saving_atteso || '')} onChange={(e) => updateProject(p.id, { saving_planned: e.target.value })} placeholder="25000" />
+                    <input type="number" className="w-full border rounded px-2 py-1 text-xs" value={p.saving_planned !== undefined ? p.saving_planned : (p.saving_atteso || '')} onChange={(e) => updateProject(p.id, { saving_planned: e.target.value })} />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Deadline</label>
@@ -716,7 +897,7 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
                   </div>
                   <div className="col-span-3">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Owner</label>
-                    <input className="w-full border rounded px-2 py-1 text-xs" value={p.owner || ''} onChange={(e) => updateProject(p.id, { owner: e.target.value })} placeholder="Responsabile" />
+                    <input className="w-full border rounded px-2 py-1 text-xs" value={p.owner || ''} onChange={(e) => updateProject(p.id, { owner: e.target.value })} />
                   </div>
                 </div>
               </div>
@@ -727,7 +908,8 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
     </div>
   )
 }
-  function Step4Content({ data, color, onUpdate, allStepsData }) {
+
+function Step4Content({ data, color, onUpdate, allStepsData }) {
   const step3Progetti = allStepsData?.step3_target_definition?.progetti || []
   const progettiActual = data.progetti_actual || []
 
@@ -787,16 +969,16 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        ℹ️ <strong>Cosa fare:</strong> Monitora l'implementazione dei progetti pianificati nello Step 3.
+        <strong>Cosa fare:</strong> Monitora l'implementazione dei progetti pianificati nello Step 3.
       </div>
       {progettiActual.length > 0 && (
         <div className="bg-white rounded-lg border-2 p-4" style={{ borderColor: color }}>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
-            <SummaryBlock label="📋 Pianificati" value={summary.pianificati} color="indigo" />
-            <SummaryBlock label="🆕 Aggiunti" value={summary.aggiunti} color="purple" />
-            <SummaryBlock label="🟡 In corso" value={summary.in_corso} color="yellow" />
-            <SummaryBlock label="🟢 Completati" value={summary.completati} color="green" />
-            <SummaryBlock label="🚧 Bloccati" value={summary.bloccati} color="orange" />
+            <SummaryBlock label="Pianificati" value={summary.pianificati} color="indigo" />
+            <SummaryBlock label="Aggiunti" value={summary.aggiunti} color="purple" />
+            <SummaryBlock label="In corso" value={summary.in_corso} color="yellow" />
+            <SummaryBlock label="Completati" value={summary.completati} color="green" />
+            <SummaryBlock label="Bloccati" value={summary.bloccati} color="orange" />
           </div>
           <div className="grid grid-cols-3 gap-3 pt-3 border-t">
             <div className="text-center"><div className="text-xs text-gray-500 uppercase">Total Planned €</div><div className="text-xl font-bold text-gray-700">{summary.totalPlanned.toLocaleString('it-IT')} €</div></div>
@@ -806,11 +988,11 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
         </div>
       )}
       <div className="flex justify-between items-center">
-        <h4 className="font-semibold text-sm uppercase text-gray-700">🚧 Tracking implementazione ({progettiActual.length})</h4>
+        <h4 className="font-semibold text-sm uppercase text-gray-700">Tracking implementazione ({progettiActual.length})</h4>
         <button onClick={addNewProject} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi progetto nuovo</button>
       </div>
       {progettiActual.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun progetto in tracking. I progetti dello Step 3 verranno sincronizzati automaticamente.</div>
+        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun progetto in tracking.</div>
       ) : (
         <div className="space-y-2">
           {progettiActual.map((p, idx) => {
@@ -824,14 +1006,14 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
               <div key={p.id} className="bg-white p-3 rounded-lg border-l-4 border" style={{ borderLeftColor: isOrphan ? '#ef4444' : color }}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-bold text-gray-400 text-sm">#{idx + 1}</span>
-                  {p.source === 'step3' ? <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold whitespace-nowrap">📋 Pianificato</span> : <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold whitespace-nowrap">🆕 Aggiunto in Step 4</span>}
-                  {isOrphan && <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold whitespace-nowrap">⚠️ Step 3 rimosso</span>}
+                  {p.source === 'step3' ? <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold whitespace-nowrap">Pianificato</span> : <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold whitespace-nowrap">Aggiunto in Step 4</span>}
+                  {isOrphan && <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold whitespace-nowrap">Step 3 rimosso</span>}
                   {p.source === 'step3' ? (
                     <div className="flex-1 px-2 py-1 text-sm font-medium text-gray-700">{planned.label || '(senza titolo)'}{planned.kaizen_numero && <span className="ml-2 font-mono text-xs text-gray-500">[{planned.kaizen_numero}]</span>}</div>
                   ) : (
-                    <input className="flex-1 border rounded px-2 py-1 text-sm font-medium" value={p.label} onChange={(e) => updateActual(p.id, { label: e.target.value })} placeholder="Titolo del progetto / Kaizen" />
+                    <input className="flex-1 border rounded px-2 py-1 text-sm font-medium" value={p.label} onChange={(e) => updateActual(p.id, { label: e.target.value })} />
                   )}
-                  <span className={`px-2 py-1 rounded text-xs font-bold border ${statusInfo.color}`}>{statusInfo.icon} {statusInfo.label}</span>
+                  <span className={`px-2 py-1 rounded text-xs font-bold border ${statusInfo.color}`}>{statusInfo.label}</span>
                   <button onClick={() => removeActual(p.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
                 </div>
                 {p.source === 'step3' && !isOrphan && (
@@ -844,19 +1026,19 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
                 )}
                 {p.source === 'step4_new' && (
                   <div className="grid grid-cols-12 gap-2 mb-2">
-                    <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Loss target</label><input className="w-full border rounded px-2 py-1 text-xs" value={p.loss_target_label} onChange={(e) => updateActual(p.id, { loss_target_label: e.target.value })} placeholder="Es: Microfermate" /></div>
-                    <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Kaizen #</label><input className="w-full border rounded px-2 py-1 text-xs font-mono" value={p.kaizen_numero} onChange={(e) => updateActual(p.id, { kaizen_numero: e.target.value })} placeholder="MAJ-001" /></div>
-                    <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Planned €</label><input type="number" className="w-full border rounded px-2 py-1 text-xs" value={p.saving_planned} onChange={(e) => updateActual(p.id, { saving_planned: e.target.value })} placeholder="0" /></div>
+                    <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Loss target</label><input className="w-full border rounded px-2 py-1 text-xs" value={p.loss_target_label} onChange={(e) => updateActual(p.id, { loss_target_label: e.target.value })} /></div>
+                    <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Kaizen #</label><input className="w-full border rounded px-2 py-1 text-xs font-mono" value={p.kaizen_numero} onChange={(e) => updateActual(p.id, { kaizen_numero: e.target.value })} /></div>
+                    <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Planned €</label><input type="number" className="w-full border rounded px-2 py-1 text-xs" value={p.saving_planned} onChange={(e) => updateActual(p.id, { saving_planned: e.target.value })} /></div>
                     <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Deadline</label><input type="date" className="w-full border rounded px-2 py-1 text-xs" value={p.deadline} onChange={(e) => updateActual(p.id, { deadline: e.target.value })} /></div>
-                    <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Owner</label><input className="w-full border rounded px-2 py-1 text-xs" value={p.owner} onChange={(e) => updateActual(p.id, { owner: e.target.value })} placeholder="Responsabile" /></div>
+                    <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Owner</label><input className="w-full border rounded px-2 py-1 text-xs" value={p.owner} onChange={(e) => updateActual(p.id, { owner: e.target.value })} /></div>
                   </div>
                 )}
                 <div className="grid grid-cols-12 gap-2">
-                  <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Status</label><select className="w-full border rounded px-2 py-1 text-xs" value={p.actual_status || 'not_started'} onChange={(e) => updateActual(p.id, { actual_status: e.target.value })}>{ACTUAL_STATUS.map(s => <option key={s.value} value={s.value}>{s.icon} {s.label}</option>)}</select></div>
-                  <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Saving €</label><input type="number" className="w-full border rounded px-2 py-1 text-xs" value={p.actual_saving} onChange={(e) => updateActual(p.id, { actual_saving: e.target.value })} placeholder="0" /></div>
+                  <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Status</label><select className="w-full border rounded px-2 py-1 text-xs" value={p.actual_status || 'not_started'} onChange={(e) => updateActual(p.id, { actual_status: e.target.value })}>{ACTUAL_STATUS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+                  <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Saving €</label><input type="number" className="w-full border rounded px-2 py-1 text-xs" value={p.actual_saving} onChange={(e) => updateActual(p.id, { actual_saving: e.target.value })} /></div>
                   <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Gap vs Planned</label><div className={`w-full border rounded px-2 py-1 text-xs font-bold text-center ${gap >= 0 ? 'bg-green-50 border-green-300 text-green-700' : 'bg-red-50 border-red-300 text-red-700'}`}>{gap >= 0 ? '+' : ''}{gap.toLocaleString('it-IT')} €</div></div>
                   <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Completion Date</label><input type="date" className="w-full border rounded px-2 py-1 text-xs" value={p.actual_completion_date || ''} onChange={(e) => updateActual(p.id, { actual_completion_date: e.target.value })} /></div>
-                  <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Note implementazione</label><input className="w-full border rounded px-2 py-1 text-xs" value={p.notes_implementation || ''} onChange={(e) => updateActual(p.id, { notes_implementation: e.target.value })} placeholder="Issues, contromisure..." /></div>
+                  <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Note implementazione</label><input className="w-full border rounded px-2 py-1 text-xs" value={p.notes_implementation || ''} onChange={(e) => updateActual(p.id, { notes_implementation: e.target.value })} /></div>
                 </div>
               </div>
             )
@@ -909,13 +1091,13 @@ function Step5Content({ data, color, onUpdate, allStepsData }) {
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        ℹ️ <strong>Cosa fare:</strong> Il Bridge chart si compila automaticamente dagli step precedenti.
+        <strong>Cosa fare:</strong> Il Bridge chart si compila automaticamente dagli step precedenti.
       </div>
       <div className="bg-white rounded-lg border-2 p-4" style={{ borderColor: color }}>
         <div className="flex items-center justify-between mb-2">
-          <h4 className="font-bold text-sm uppercase" style={{ color }}>🏁 Risultato globale — KPI {kpiPrincipale.label || 'Principale'}</h4>
+          <h4 className="font-bold text-sm uppercase" style={{ color }}>Risultato globale — KPI {kpiPrincipale.label || 'Principale'}</h4>
           <span className={`px-3 py-1 rounded-full text-xs font-bold ${coveragePercent >= 100 ? 'bg-green-100 text-green-700' : coveragePercent >= 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-            {coveragePercent >= 100 ? '✅ Target raggiunto' : coveragePercent >= 80 ? '⚠️ Vicino al target' : '🔴 Sotto target'}
+            {coveragePercent >= 100 ? 'Target raggiunto' : coveragePercent >= 80 ? 'Vicino al target' : 'Sotto target'}
           </span>
         </div>
         <div className="grid grid-cols-4 gap-3">
@@ -926,9 +1108,9 @@ function Step5Content({ data, color, onUpdate, allStepsData }) {
         </div>
       </div>
       {!kpiPrincipale.label && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">⚠️ Non hai ancora definito il KPI principale nello Step 1.</div>
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">Non hai ancora definito il KPI principale nello Step 1.</div>
       )}
-      <h4 className="font-semibold text-sm uppercase text-gray-700 mt-4">📊 Bridge Chart per KPI / KMI</h4>
+      <h4 className="font-semibold text-sm uppercase text-gray-700 mt-4">Bridge Chart per KPI / KMI</h4>
       {bridgeRows.length === 0 ? (
         <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun KPI definito.</div>
       ) : (
@@ -942,7 +1124,7 @@ function Step5Content({ data, color, onUpdate, allStepsData }) {
             return (
               <div key={row.key} className="bg-white p-3 rounded-lg border-l-4" style={{ borderLeftColor: row.isMain ? color : '#9ca3af' }}>
                 <div className="flex items-center gap-2 mb-2">
-                  {row.isMain ? <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold whitespace-nowrap">🎯 KPI Principale</span> : <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold whitespace-nowrap">📊 KMI</span>}
+                  {row.isMain ? <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold whitespace-nowrap">KPI Principale</span> : <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold whitespace-nowrap">KMI</span>}
                   <span className="font-bold text-sm">{row.label}</span>
                   {row.unit && <span className="text-xs text-gray-500">[{row.unit}]</span>}
                 </div>
@@ -953,7 +1135,7 @@ function Step5Content({ data, color, onUpdate, allStepsData }) {
                   <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Gap</label><div className={`w-full border rounded px-2 py-1 text-xs font-bold text-center ${rowGap >= 0 ? 'bg-green-50 border-green-300 text-green-700' : 'bg-red-50 border-red-300 text-red-700'}`}>{rowGap >= 0 ? '+' : ''}{rowGap.toLocaleString('it-IT')}</div></div>
                 </div>
                 {rowGap < 0 && (
-                  <div className="mt-2"><label className="block text-[10px] font-medium text-red-600 uppercase mb-0.5">⚠️ Motivo del gap</label><input className="w-full border border-red-300 rounded px-2 py-1 text-xs" value={gapReason} onChange={(e) => updateOverride(row.key, 'gap_reason', e.target.value)} placeholder="Es: Ritardo fornitore, mancanza risorse..." /></div>
+                  <div className="mt-2"><label className="block text-[10px] font-medium text-red-600 uppercase mb-0.5">Motivo del gap</label><input className="w-full border border-red-300 rounded px-2 py-1 text-xs" value={gapReason} onChange={(e) => updateOverride(row.key, 'gap_reason', e.target.value)} /></div>
                 )}
               </div>
             )
@@ -961,8 +1143,8 @@ function Step5Content({ data, color, onUpdate, allStepsData }) {
         </div>
       )}
       <div className="bg-white p-3 rounded-lg border mt-4">
-        <label className="block text-xs font-medium text-gray-600 uppercase mb-1">💡 Lezioni apprese (Close the Loop)</label>
-        <textarea value={data.lezioni_apprese || ''} onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })} rows={4} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Cosa abbiamo imparato? Cosa replicheremo?" />
+        <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Lezioni apprese (Close the Loop)</label>
+        <textarea value={data.lezioni_apprese || ''} onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })} rows={4} className="w-full border rounded-lg px-3 py-2 text-sm" />
       </div>
     </div>
   )
@@ -983,33 +1165,41 @@ function BridgeCell({ label, value, autoValue, isOverridden, onChange, onReset, 
     </div>
   )
 }
-
 function KaizenList({ kaizens, pillar }) {
   if (kaizens.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow p-12 text-center">
-        <div className="text-5xl mb-3">📋</div>
         <h3 className="font-semibold mb-1">Nessun Kaizen collegato</h3>
         <p className="text-sm text-gray-500 mb-3">Crea un Kaizen e collegalo al Pillar <strong>{pillar.sigla}</strong></p>
-        <Link to="/kaizen" className="text-primary hover:underline text-sm">→ Vai a Kaizen</Link>
+        <Link to="/kaizen" className="text-primary hover:underline text-sm">Vai a Kaizen</Link>
       </div>
     )
   }
   return (
     <div className="bg-white rounded-xl shadow overflow-hidden">
-      <div className="px-4 py-3 border-b bg-gray-50"><h3 className="font-bold">📋 Kaizen collegati al Pillar {pillar.sigla} <span className="text-xs font-normal text-gray-500">({kaizens.length})</span></h3></div>
+      <div className="px-4 py-3 border-b bg-gray-50">
+        <h3 className="font-bold">Kaizen collegati al Pillar {pillar.sigla} <span className="text-xs font-normal text-gray-500">({kaizens.length})</span></h3>
+      </div>
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500"><tr><th className="px-4 py-2 text-left w-24">Numero</th><th className="px-4 py-2 text-left">Titolo</th><th className="px-4 py-2 text-left w-32">Livello</th><th className="px-4 py-2 text-left w-28">Stato</th><th className="px-4 py-2 text-left w-32">Reparto</th><th className="px-4 py-2 text-right w-24">Azioni</th></tr></thead>
+        <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
+          <tr>
+            <th className="px-4 py-2 text-left w-24">Numero</th>
+            <th className="px-4 py-2 text-left">Titolo</th>
+            <th className="px-4 py-2 text-left w-32">Livello</th>
+            <th className="px-4 py-2 text-left w-28">Stato</th>
+            <th className="px-4 py-2 text-left w-32">Reparto</th>
+            <th className="px-4 py-2 text-right w-24">Azioni</th>
+          </tr>
+        </thead>
         <tbody>
           {kaizens.map(k => {
             const livello = k.livello || (k.tipo?.includes('Major') ? 'Major' : k.tipo?.includes('Standard') ? 'Standard' : 'Quick')
-            const livelloIcon = livello === 'Major' ? '🏆' : livello === 'Standard' ? '📊' : '⚡'
             const livelloColor = livello === 'Major' ? 'bg-purple-100 text-purple-700' : livello === 'Standard' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
             return (
               <tr key={k._id} className="border-b hover:bg-gray-50">
                 <td className="px-4 py-2 font-mono text-xs text-primary font-bold">{k.numero}</td>
                 <td className="px-4 py-2">{k.titolo}</td>
-                <td className="px-4 py-2"><span className={`px-2 py-0.5 rounded-full text-xs ${livelloColor}`}>{livelloIcon} {livello}</span></td>
+                <td className="px-4 py-2"><span className={`px-2 py-0.5 rounded-full text-xs ${livelloColor}`}>{livello}</span></td>
                 <td className="px-4 py-2"><span className={`px-2 py-0.5 rounded-full text-xs ${k.stato === 'Aperto' ? 'bg-blue-100 text-blue-700' : k.stato === 'In Corso' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{k.stato}</span></td>
                 <td className="px-4 py-2 text-xs text-gray-600">{k.reparto || '—'}</td>
                 <td className="px-4 py-2 text-right"><Link to={`/kaizen/${k._id}`} className="text-primary hover:underline text-xs">Apri →</Link></td>
@@ -1025,11 +1215,9 @@ function KaizenList({ kaizens, pillar }) {
 function MaturityPlaceholder({ color }) {
   return (
     <div className="bg-white rounded-xl shadow p-8 text-center">
-      <div className="text-6xl mb-3">📈</div>
       <h2 className="text-2xl font-bold mb-1">Maturity Grid</h2>
       <p className="text-sm text-gray-500 mb-4">Audit JIPM World-Class Manufacturing</p>
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-400 p-4 rounded-r-lg max-w-lg mx-auto">
-        <div className="text-2xl mb-1">🚧</div>
         <div className="font-bold text-blue-900 mb-1">In sviluppo futuro</div>
       </div>
     </div>
@@ -1140,12 +1328,12 @@ function MasterPlanTab({ pillar, color, onSaved }) {
       <div className="bg-white rounded-xl shadow p-4">
         <div className="flex justify-between items-start mb-3">
           <div>
-            <h3 className="font-bold text-lg flex items-center gap-2">📅 Pillar Master Plan</h3>
+            <h3 className="font-bold text-lg">Pillar Master Plan</h3>
             <p className="text-xs text-gray-500">Pianificazione multi-anno per trimestri — Pillar <strong>{pillar.sigla}</strong></p>
           </div>
           <div className="flex items-center gap-3 text-xs">
-            {saving ? <span className="text-blue-600">⏳ Salvataggio...</span> : hasUnsavedChanges ? <span className="text-orange-600 font-medium">⚠️ Non salvato</span> : lastSaved ? <span className="text-green-600">💾 Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> : <span className="text-gray-400">Pronto</span>}
-            <button onClick={() => doSave(false)} disabled={saving} className="text-white px-3 py-1 rounded text-xs shadow" style={{ backgroundColor: color }}>💾 Salva ora</button>
+            {saving ? <span className="text-blue-600">Salvataggio...</span> : hasUnsavedChanges ? <span className="text-orange-600 font-medium">Non salvato</span> : lastSaved ? <span className="text-green-600">Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> : <span className="text-gray-400">Pronto</span>}
+            <button onClick={() => doSave(false)} disabled={saving} className="text-white px-3 py-1 rounded text-xs shadow" style={{ backgroundColor: color }}>Salva ora</button>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end pt-3 border-t">
@@ -1158,7 +1346,7 @@ function MasterPlanTab({ pillar, color, onSaved }) {
           {CELL_STATES.map(s => (
             <div key={s.value} className="flex items-center gap-1"><div className="w-4 h-4 border rounded" style={{ backgroundColor: s.color || 'white' }} /><span>{s.label}</span></div>
           ))}
-          <span className="ml-auto text-gray-500 italic">💡 Click su cella per cambiare stato</span>
+          <span className="ml-auto text-gray-500 italic">Click su cella per cambiare stato</span>
         </div>
       </div>
       <div className="bg-white rounded-xl shadow overflow-x-auto">
@@ -1205,7 +1393,6 @@ function MasterPlanTab({ pillar, color, onSaved }) {
           ))}
           {data.steps.length === 0 && (
             <div className="text-center py-12 text-gray-400">
-              <div className="text-4xl mb-2">📅</div>
               <p>Nessuno step. Aggiungi il primo!</p>
             </div>
           )}
@@ -1214,5 +1401,3 @@ function MasterPlanTab({ pillar, color, onSaved }) {
     </div>
   )
 }
-
-
