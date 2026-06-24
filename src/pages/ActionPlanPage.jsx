@@ -466,7 +466,8 @@ function ListView({ plans, onSelect, onEdit, onDelete, onCancel, onRestore, onQu
             <th className="px-3 py-2 text-left w-32">Responsabile</th>
             <th className="px-3 py-2 text-left w-32">Stato</th>
             <th className="px-3 py-2 text-left w-28">Scadenza</th>
-            <th className="px-3 py-2 text-center w-40">Azioni</th>
+            <th className="px-3 py-2 text-left w-32">Collegato a</th>
+            <th className="px-3 py-2 text-center w-20">Azioni</th>
           </tr>
         </thead>
         <tbody>
@@ -539,19 +540,27 @@ function ListView({ plans, onSelect, onEdit, onDelete, onCancel, onRestore, onQu
                     </div>
                   ) : '—'}
                 </td>
+                <td className="px-3 py-2 text-xs">
+                  {p.parent_type && p.parent_type !== 'standalone' ? (
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                      p.parent_type === 'pillar' ? 'bg-indigo-100 text-indigo-700' :
+                      p.parent_type === 'kaizen' ? 'bg-emerald-100 text-emerald-700' :
+                      p.parent_type === 'dashboard' ? 'bg-purple-100 text-purple-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {p.parent_type === 'pillar' && 'Pillar'}
+                      {p.parent_type === 'kaizen' && 'Kaizen'}
+                      {p.parent_type === 'dashboard' && 'Meeting'}
+                      {p.parent_label && ` · ${p.parent_label}`}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-center gap-1">
-                    <button onClick={() => onSelect(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Dettaglio"><Eye size={14} /></button>
-                    {!p.is_cancelled && (
-                      <>
-                        <button onClick={() => onEdit(p)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica"><Edit2 size={14} /></button>
-                        <button onClick={() => onCancel(p)} className="p-1 hover:bg-orange-100 rounded text-orange-600" title="🚫 Annulla AP">🚫</button>
-                      </>
-                    )}
-                    {p.is_cancelled && (
-                      <button onClick={() => onRestore(p)} className="p-1 hover:bg-green-100 rounded text-green-600" title="♻️ Ripristina">♻️</button>
-                    )}
-                    <button onClick={() => onDelete(p._id)} className="p-1 hover:bg-red-100 rounded text-red-600" title="🗑️ Elimina definitivamente"><Trash2 size={14} /></button>
+                    <button onClick={() => onSelect(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Apri dettaglio"><Eye size={14} /></button>
+                    <button onClick={() => onEdit(p)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica"><Edit2 size={14} /></button>
                   </div>
                 </td>
               </tr>
