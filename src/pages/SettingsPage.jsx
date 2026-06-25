@@ -917,6 +917,7 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
     icon: item?.icon || '',
     color: item?.color || '',
     attivo: item?.attivo !== false,
+    is_terminal: item?.is_terminal === true,
   })
   const [saving, setSaving] = useState(false)
 
@@ -977,6 +978,25 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
             <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
             <span className="text-sm">Attivo</span>
           </label>
+
+          {tipo === 'stato_ap' && (
+            <label className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_terminal}
+                onChange={(e) => setForm({ ...form, is_terminal: e.target.checked })}
+                className="w-4 h-4 mt-0.5"
+              />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-orange-900">Stato terminale</div>
+                <div className="text-xs text-orange-700 mt-0.5">
+                  Quando un Action Plan raggiunge questo stato diventa read-only.
+                  Sarà comunque possibile riaprirlo per tornare modificabile.
+                </div>
+              </div>
+            </label>
+          )}
+
           <div className="flex justify-end gap-2 pt-3 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
             <button type="submit" disabled={saving} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50 flex items-center gap-2">
