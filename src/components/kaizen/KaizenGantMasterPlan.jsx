@@ -70,8 +70,8 @@ function groupColsByYear(columns) {
  * KaizenGantMasterPlan — Gant configurabile (settimana/mese/trimestre)
  */
 export default function KaizenGantMasterPlan({ kaizen, onSaved, value, onChange }) {
-  const isControlled = value !== undefined && typeof onChange === 'function'
-  const savedGant = isControlled ? value : (kaizen?.gant_master_plan || null)
+  const isControlled = typeof onChange === 'function'
+  const savedGant = isControlled ? (value || null) : (kaizen?.gant_master_plan || null)
   const [data, setData] = useState(savedGant || getDefaultGantData())
   const [editingStepId, setEditingStepId] = useState(null)
   const [saving, setSaving] = useState(false)
