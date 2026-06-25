@@ -86,6 +86,22 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
   const { configs } = useAllConfigurations()
   const statiConfig = configs.stato_ap || []
 
+  // Detection stato terminale (read-only)
+  const statoCorrente = statiConfig.find(s => s.label === detail.stato)
+  const isLocked = !!(statoCorrente && statoCorrente.is_terminal)
+
+  // Stato a cui tornare quando si riapre (primo stato non-terminal disponibile)
+  const statoRiapertura =
+    statiConfig.find(s => s.label === 'Aperto' && !s.is_terminal)?.label ||
+    statiConfig.find(s => !s.is_terminal)?.label ||
+    'Aperto'
+
+  async function riapriAP() {
+    if (!confirm(`Riaprire questo Action Plan?\nLo stato tornerà a "${statoRiapertura}".`)) return
+    await api.patch(`/action-plans/${plan._id}/stato`, { stato: statoRiapertura })
+    reload()
+  }
+
   useEffect(() => {
     api.get(`/action-plans/${plan._id}`).then(res => setDetail(res.data)).catch(() => {})
   }, [plan._id])
@@ -220,6 +236,20 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
             <h2 className="text-xl font-bold">{detail.titolo}</h2>
           </div>
 
+          {isLocked && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="text-sm text-yellow-900">
+                <strong>Action Plan chiuso</strong> — read-only. Per modificarlo riaprilo.
+              </div>
+              <button
+                onClick={riapriAP}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap"
+              >
+                Riapri
+              </button>
+            </div>
+          )}
+
           <div className="p-6 space-y-6">
             <Section title="Descrizione">
               {detail.descrizione ? (
@@ -257,22 +287,30 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
               <div className="space-y-1">
                 {(detail.checklist || []).map(item => (
                   <div key={item.id} className="flex items-center gap-2 group">
-                    <button onClick={() => toggleChecklist(item.id, !item.completato)}>
+                    <button
+                      onClick={() => toggleChecklist(item.id, !item.completato)}
+                      disabled={isLocked}
+                      className={isLocked ? 'cursor-not-allowed' : ''}
+                    >
                       {item.completato ? <CheckSquare size={18} className="text-green-600" /> : <Square size={18} className="text-gray-400" />}
                     </button>
                     <span className={`flex-1 text-sm ${item.completato ? 'line-through text-gray-400' : ''}`}>{item.testo}</span>
-                    <button onClick={() => removeChecklist(item.id)} className="opacity-0 group-hover:opacity-100 text-red-500">
-                      <Trash2 size={14} />
-                    </button>
+                    {!isLocked && (
+                      <button onClick={() => removeChecklist(item.id)} className="opacity-0 group-hover:opacity-100 text-red-500">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
-              <div className="flex gap-2 mt-2">
-                <input value={nuovoChecklistItem} onChange={(e) => setNuovoChecklistItem(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem())}
-                  placeholder="Aggiungi item..." className="flex-1 border rounded px-3 py-1.5 text-sm" />
-                <button onClick={addChecklistItem} className="px-3 py-1.5 bg-gray-200 rounded text-sm hover:bg-gray-300">+ Item</button>
-              </div>
+              {!isLocked && (
+                <div className="flex gap-2 mt-2">
+                  <input value={nuovoChecklistItem} onChange={(e) => setNuovoChecklistItem(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem())}
+                    placeholder="Aggiungi item..." className="flex-1 border rounded px-3 py-1.5 text-sm" />
+                  <button onClick={addChecklistItem} className="px-3 py-1.5 bg-gray-200 rounded text-sm hover:bg-gray-300">+ Item</button>
+                </div>
+              )}
             </Section>
 
             {/* 🆕 ALLEGATI */}
@@ -290,11 +328,14 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                         onClick={() => setLightboxImg(img)}
                       />
                       <button
-                        onClick={() => removeAllegato(img.id, img.nome)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                        {!isLocked && (
+                        <button
+                          onClick={() => removeAllegato(img.id, img.nome)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -317,18 +358,21 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                         {(doc.dimensione / 1024).toFixed(0)} KB
                       </span>
                       <button
-                        onClick={() => removeAllegato(doc.id, doc.nome)}
-                        className="opacity-0 group-hover:opacity-100 text-red-500"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                        {!isLocked && (
+                        <button
+                          onClick={() => removeAllegato(doc.id, doc.nome)}
+                          className="opacity-0 group-hover:opacity-100 text-red-500"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
 
               {/* Bottoni upload */}
-              {allegati.length < 10 && (
+              {allegati.length < 10 && !isLocked && (
                 <div className="flex gap-2">
                   <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 text-sm text-gray-600">
                     <Paperclip size={16} />
@@ -382,13 +426,16 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                 )}
               </div>
               <div className="flex gap-2">
-                <textarea value={nuovoCommento} onChange={(e) => setNuovoCommento(e.target.value)}
-                  placeholder="Scrivi un commento"
-                  rows={2} className="flex-1 border rounded-lg px-3 py-2 text-sm" />
-                <button onClick={addCommento} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light self-end">
-                  <Send size={16} />
-                </button>
-              </div>
+                {!isLocked && (
+                <div className="flex gap-2">
+                  <textarea value={nuovoCommento} onChange={(e) => setNuovoCommento(e.target.value)}
+                    placeholder="Scrivi un commento"
+                    rows={2} className="flex-1 border rounded-lg px-3 py-2 text-sm" />
+                  <button onClick={addCommento} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light self-end">
+                    <Send size={16} />
+                  </button>
+                </div>
+              )}
             </Section>
           </div>
         </div>
@@ -398,22 +445,22 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
           <div className="flex justify-between items-center pb-2 border-b">
             <span className="text-sm font-medium">Dettagli</span>
             <div className="flex gap-1">
-              {!detail.is_cancelled && onCancel && (
+              {!isLocked && !detail.is_cancelled && onCancel && (
                 <button onClick={() => onCancel(detail)} className="p-1.5 hover:bg-orange-100 rounded text-orange-600" title="Annulla">
                   <AlertCircle size={14} />
                 </button>
               )}
-              {detail.is_cancelled && onRestore && (
+              {!isLocked && detail.is_cancelled && onRestore && (
                 <button onClick={() => onRestore(detail)} className="p-1.5 hover:bg-green-100 rounded text-green-600" title="Ripristina">
                   ↺
                 </button>
               )}
-              {onDelete && (
+              {!isLocked && onDelete && (
                 <button onClick={() => onDelete(detail._id)} className="p-1.5 hover:bg-red-100 rounded text-red-600" title="Elimina">
                   <Trash2 size={14} />
                 </button>
               )}
-              {onEdit && (
+              {!isLocked && onEdit && (
                 <button onClick={() => onEdit(detail)} className="p-1.5 hover:bg-gray-200 rounded" title="Modifica">
                   <Edit2 size={14} />
                 </button>
