@@ -308,7 +308,7 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                       <FileText size={16} className="text-gray-500 flex-shrink-0" />
                       <a
                         {doc.data}
-                        download={doc.nome}
+                        href={doc.data}
                         className="flex-1 truncate text-blue-600 hover:underline"
                       >
                         {doc.nome}
@@ -561,7 +561,9 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
             <X size={24} />
           </button>
           {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
-          {lightboxImg.data}={lightboxImg.nome}
+          <img
+            src={lightboxImg.data}
+            alt={lightboxImg.nome}
             className="max-w-full max-h-full object-contain"
             onClick={(e) => e.stopPropagation()}
           />
