@@ -135,7 +135,6 @@ export default function DashboardDetailPage() {
           />
         )
       default:
-      default:
         return <div className="bg-white p-4">Widget sconosciuto</div>
     }
   }
