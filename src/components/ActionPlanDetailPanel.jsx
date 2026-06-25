@@ -283,7 +283,9 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                   {immagini.map(img => (
                     <div key={img.id} className="relative group">
                       {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
-                      {img.data}={img.nome}
+                      <img
+                        src={img.data}
+                        alt={img.nome}
                         className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80"
                         onClick={() => setLightboxImg(img)}
                       />
