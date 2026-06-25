@@ -1435,3 +1435,6 @@ function PillarPreview({ form }) {
       alt: 'Preview',
       className: 'w-full h-full object-contain',
     })
+  }
+  return <span>{form.icon || form.sigla?.charAt(0) || '?'}</span>
+}
