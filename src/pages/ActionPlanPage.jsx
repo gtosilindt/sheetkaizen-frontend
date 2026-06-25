@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, User, AlertCircle, CheckCircle2, Clock, X, Edit2,
   Trash2, MessageSquare, TrendingUp, Link2, Tag, AtSign, ChevronDown,
   Calendar, Flag, Activity, CheckSquare, Square, Send, MoreHorizontal,
-  Shield, Zap, Bug, Wrench, Eye
+  Shield, Zap, Bug, Wrench, Eye, Lock
 } from 'lucide-react'
 import api from '../services/api'
 import { useAllConfigurations } from '../hooks/useConfigurations'
@@ -560,7 +560,23 @@ function ListView({ plans, onSelect, onEdit, onDelete, onCancel, onRestore, onQu
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-center gap-1">
                     <button onClick={() => onSelect(p)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Apri dettaglio"><Eye size={14} /></button>
-                    <button onClick={() => onEdit(p)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica"><Edit2 size={14} /></button>
+                    {(() => {
+                      const statoCorrente = statiConfig.find(s => s.label === p.stato)
+                      const isLocked = !!(statoCorrente && statoCorrente.is_terminal) || p.is_cancelled
+                      return isLocked ? (
+                        <button
+                          disabled
+                          className="p-1 rounded text-gray-300 cursor-not-allowed"
+                          title="Action Plan chiuso — apri il dettaglio per riaprirlo"
+                        >
+                          <Lock size={14} />
+                        </button>
+                      ) : (
+                        <button onClick={() => onEdit(p)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600" title="Modifica">
+                          <Edit2 size={14} />
+                        </button>
+                      )
+                    })()}
                   </div>
                 </td>
               </tr>
