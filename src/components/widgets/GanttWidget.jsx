@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
-import GanttMasterPlan from '../GanttMasterPlan'; // ⚠️ stesso del Kaizen
+import GanttMasterPlan from '../kaizen/GanttMasterPlan'; // ⚠️ stesso del Kaizen
 import api from '../../services/api';
 
 export default function GanttWidget({ config = {}, dashboardId, dashboardName, title = 'Gantt' }) {
