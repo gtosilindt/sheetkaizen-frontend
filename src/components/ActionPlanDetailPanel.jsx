@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import api from '../services/api'
 import { useAllConfigurations } from '../hooks/useConfigurations'
- 
+
 const PRIORITA_BG = {
   Lowest: 'bg-gray-100 text-gray-700',
   Low: 'bg-blue-100 text-blue-700',
@@ -40,7 +40,6 @@ async function compressImage(file, maxSize = 1280, quality = 0.8) {
       const img = new Image()
       img.onload = () => {
         let { width, height } = img
-        // Ridimensiona se più grande di maxSize
         if (width > maxSize || height > maxSize) {
           if (width > height) {
             height = Math.round((height * maxSize) / width)
@@ -55,7 +54,6 @@ async function compressImage(file, maxSize = 1280, quality = 0.8) {
         canvas.height = height
         const ctx = canvas.getContext('2d')
         ctx.drawImage(img, 0, 0, width, height)
-        // Converti in JPEG con qualità 80%
         const dataUrl = canvas.toDataURL('image/jpeg', quality)
         resolve(dataUrl)
       }
@@ -67,7 +65,6 @@ async function compressImage(file, maxSize = 1280, quality = 0.8) {
   })
 }
 
-// Lettura file generico in base64
 async function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -90,7 +87,7 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
   const statoCorrente = statiConfig.find(s => s.label === detail.stato)
   const isLocked = !!(statoCorrente && statoCorrente.is_terminal)
 
-  // Stato a cui tornare quando si riapre (primo stato non-terminal disponibile)
+  // Stato a cui tornare quando si riapre
   const statoRiapertura =
     statiConfig.find(s => s.label === 'Aperto' && !s.is_terminal)?.label ||
     statiConfig.find(s => !s.is_terminal)?.label ||
@@ -141,9 +138,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
     reload()
   }
 
-  // ─────────────────────────────────────────────
-  // ALLEGATI: upload + delete
-  // ─────────────────────────────────────────────
   async function handleFileUpload(e) {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -151,14 +145,12 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
     setUploadingAllegato(true)
     try {
       for (const file of files) {
-        // Verifica limite allegati
         const totaleAttuale = (detail.allegati || []).length
         if (totaleAttuale >= 10) {
           alert('Massimo 10 allegati per Action Plan')
           break
         }
 
-        // Verifica tipo
         const isImage = file.type.startsWith('image/')
         const isPdf = file.type === 'application/pdf'
         const isDoc = file.type.includes('word') || file.type.includes('excel') ||
@@ -169,19 +161,16 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
           continue
         }
 
-        // Verifica dimensione (2 MB per non-immagini, 10 MB per immagini prima della compressione)
         const maxBytes = isImage ? 10 * 1024 * 1024 : 2 * 1024 * 1024
         if (file.size > maxBytes) {
           alert(`File troppo grande: ${file.name}\nMax: ${isImage ? '10 MB (immagini)' : '2 MB'}`)
           continue
         }
 
-        // Conversione in base64 (con compressione per immagini)
         const base64Data = isImage
           ? await compressImage(file)
           : await fileToBase64(file)
 
-        // Stima dimensione finale (base64 ~33% in più del binario)
         const dimensioneFinale = Math.round((base64Data.length * 3) / 4)
 
         await api.post(`/action-plans/${plan._id}/allegati`, {
@@ -198,7 +187,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
       alert('Errore upload: ' + (err.response?.data?.detail || err.message))
     } finally {
       setUploadingAllegato(false)
-      // Reset input file
       e.target.value = ''
     }
   }
@@ -313,22 +301,19 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
               )}
             </Section>
 
-            {/* 🆕 ALLEGATI */}
+            {/* ALLEGATI */}
             <Section title={`Allegati ${allegati.length > 0 ? `(${allegati.length}/10)` : ''}`}>
-              {/* Immagini in griglia */}
               {immagini.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   {immagini.map(img => (
                     <div key={img.id} className="relative group">
-                      {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
                       <img
                         src={img.data}
                         alt={img.nome}
                         className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80"
                         onClick={() => setLightboxImg(img)}
                       />
-                      <button
-                        {!isLocked && (
+                      {!isLocked && (
                         <button
                           onClick={() => removeAllegato(img.id, img.nome)}
                           className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -341,7 +326,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                 </div>
               )}
 
-              {/* Documenti come lista */}
               {documenti.length > 0 && (
                 <div className="space-y-1 mb-3">
                   {documenti.map(doc => (
@@ -358,6 +342,7 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                         {(doc.dimensione / 1024).toFixed(0)} KB
                       </span>
                       {!isLocked && (
+                        <button
                           onClick={() => removeAllegato(doc.id, doc.nome)}
                           className="opacity-0 group-hover:opacity-100 text-red-500"
                         >
@@ -369,7 +354,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                 </div>
               )}
 
-              {/* Bottoni upload */}
               {allegati.length < 10 && !isLocked && (
                 <div className="flex gap-2">
                   <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 text-sm text-gray-600">
@@ -396,11 +380,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                       className="hidden"
                     />
                   </label>
-                </div>
-              )}
-
-              {allegati.length === 0 && !uploadingAllegato && (
-                <div className="text-xs text-gray-400 italic mt-1">
                 </div>
               )}
             </Section>
@@ -437,7 +416,7 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
           </div>
         </div>
 
-        {/* COLONNA DX (invariata) */}
+        {/* COLONNA DX */}
         <div className="overflow-y-auto bg-gray-50 p-4 space-y-4">
           <div className="flex justify-between items-center pb-2 border-b">
             <span className="text-sm font-medium">Dettagli</span>
@@ -603,7 +582,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
           >
             <X size={24} />
           </button>
-          {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
           <img
             src={lightboxImg.data}
             alt={lightboxImg.nome}
