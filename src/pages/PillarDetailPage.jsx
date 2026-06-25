@@ -520,13 +520,21 @@ function InfoRow({ label, value, mono = false }) {
 
 function AnagraficaTab({ pillar }) {
   const [savingPresenze, setSavingPresenze] = useState(false)
+  const [presenzeConfig, setPresenzeConfig] = useState(pillar.presenze_config || {})
+
+  // Sincronizza quando il pillar cambia (dopo reload del parent)
+  useEffect(() => {
+    setPresenzeConfig(pillar.presenze_config || {})
+  }, [pillar.presenze_config])
 
   async function handlePresenzeChange(newConfig) {
+    setPresenzeConfig(newConfig)  // ottimistico: mantieni in UI
     setSavingPresenze(true)
     try {
-      await api.put(`/pillars/${pillar._id}`, {
+      const res = await api.put(`/pillars/${pillar._id}`, {
         presenze_config: newConfig,
       })
+      console.log('Salvato presenze_config:', res.data?.presenze_config)
     } catch (err) {
       console.error('Errore salvataggio presenze:', err)
       alert('Errore salvataggio: ' + (err.response?.data?.detail || err.message))
@@ -598,7 +606,7 @@ function AnagraficaTab({ pillar }) {
         </div>
         <div style={{ minHeight: '300px' }}>
           <PresenzeWidget
-            config={pillar.presenze_config || {}}
+            config={presenzeConfig}
             editMode={true}
             onChange={handlePresenzeChange}
           />
