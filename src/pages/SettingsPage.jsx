@@ -1351,7 +1351,9 @@ function PillarsManager({ onChange }) {
               <tr key={p._id} className={`border-b hover:bg-gray-50 ${!p.attivo ? 'opacity-50' : ''}`}>
                 <td className="px-3 py-2">
                   {p.icon_image ? (
-                    {p.icon_image}alt={p.sigla}
+                    <img
+                      src={p.icon_image}
+                      alt={p.sigla}
                       className="w-10 h-10 rounded-lg object-contain border"
                       style={{ backgroundColor: p.color || '#6366f1' }}
                     />
