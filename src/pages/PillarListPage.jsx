@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { usePillars } from '../hooks/usePillars'
@@ -175,10 +175,17 @@ function PillarCard({ pillar, stats, onOpen }) {
       >
         <div className="flex items-start gap-3">
           <div
-            className="w-14 h-14 rounded-lg flex items-center justify-center text-3xl flex-shrink-0 shadow-sm"
+            className="w-14 h-14 rounded-lg flex items-center justify-center text-3xl flex-shrink-0 shadow-sm overflow-hidden"
             style={{ backgroundColor: color, color: 'white' }}
           >
-            {pillar.icon || '🏛️'}
+            {pillar.icon_image
+              ? React.createElement('img', {
+                  src: pillar.icon_image,
+                  alt: pillar.sigla,
+                  className: 'w-full h-full object-contain',
+                })
+              : (pillar.icon || pillar.sigla?.charAt(0) || 'P')
+            }
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-mono font-black text-2xl" style={{ color }}>
