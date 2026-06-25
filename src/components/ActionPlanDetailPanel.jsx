@@ -330,6 +330,8 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                       <button
                         {!isLocked && (
                         <button
+                          {!isLocked && (
+                        <button
                           onClick={() => removeAllegato(img.id, img.nome)}
                           className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
@@ -357,8 +359,7 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                       <span className="text-xs text-gray-400">
                         {(doc.dimensione / 1024).toFixed(0)} KB
                       </span>
-                      <button
-                        {!isLocked && (
+                      {!isLocked && (
                         <button
                           onClick={() => removeAllegato(doc.id, doc.nome)}
                           className="opacity-0 group-hover:opacity-100 text-red-500"
@@ -425,8 +426,7 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                   <div className="text-sm text-gray-400 italic">Nessun commento</div>
                 )}
               </div>
-              <div className="flex gap-2">
-                {!isLocked && (
+              {!isLocked && (
                 <div className="flex gap-2">
                   <textarea value={nuovoCommento} onChange={(e) => setNuovoCommento(e.target.value)}
                     placeholder="Scrivi un commento"
