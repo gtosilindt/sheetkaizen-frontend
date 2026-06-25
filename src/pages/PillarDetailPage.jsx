@@ -4,6 +4,7 @@ import api from '../services/api'
 import { ArrowLeft, User, Calendar, Users, Edit2, Plus, Trash2, ClipboardList, Link2, AlertCircle, CheckSquare, Bug, TrendingUp, Shield, Wrench } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import ActionPlanDetailPanel from '../components/ActionPlanDetailPanel'
+import PresenzeWidget from '../components/widgets/PresenzeWidget'
 
 export default function PillarDetailPage() {
   const { id } = useParams()
@@ -518,23 +519,95 @@ function InfoRow({ label, value, mono = false }) {
 }
 
 function AnagraficaTab({ pillar }) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-white rounded-xl shadow p-6">
-        <h3 className="font-bold text-lg mb-4">Informazioni Pillar</h3>
-        <div className="space-y-3 text-sm">
-          <InfoRow label="Sigla" value={pillar.sigla} mono />
-          <InfoRow label="Nome completo" value={pillar.label} />
-          <InfoRow label="Anno di riferimento" value={pillar.anno || '—'} />
-          <InfoRow label="Codice colore" value={pillar.color || '—'} mono />
-          <InfoRow label="Stato" value={pillar.attivo ? 'Attivo' : 'Disattivo'} />
-          {pillar.descrizione && (
-            <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Descrizione</div>
-              <div className="bg-gray-50 p-3 rounded text-sm">{pillar.descrizione}</div>
-            </div>
-          )}
+  const [savingPresenze, setSavingPresenze] = useState(false)
+
+  // Salva il calendario presenze nel pillar
+  async function handlePresenzeCh</div>  async function handlePresenzeChange(newConfig) {
+      </div>
+
+      {/* Riga 2: Note (se presente, full width) */}
+      {pillar.note && (
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="font-bold text-lg mb-3">Note</h3>
+          <div className="bg-gray-50 p-4 rounded text-sm whitespace-pre-wrap">{pillar.note}</div>
         </div>
+      )}
+
+      {/* Riga 3: Calendario Presenze (full width) */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-lg">Calendario Presenze riunioni Pillar</h3>
+          {savingPresenze && <span className="text-xs text-blue-600">Salvataggio...</span>}
+        </div>
+        <div style={{ minHeight: '300px' }}>
+          <PresenzeWidget
+            config={pillar.presenze_config || {}}
+            editMode={true}
+            onChange={handlePresenzeChange}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+    setSavingPresenze(true)
+    try {
+      await api.put(`/pillars/${pillar._id}`, {
+        presenze_config: newConfig,
+      })
+    } catch (err) {
+      console.error('Errore salvataggio presenze:', err)
+      alert('Errore salvataggio: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setSavingPresenze(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Riga 1: Info + Team */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="font-bold text-lg mb-4">Informazioni Pillar</h3>
+          <div className="space-y-3 text-sm">
+            <InfoRow label="Sigla" value={pillar.sigla} mono />
+            <InfoRow label="Nome completo" value={pillar.label} />
+            <InfoRow label="Anno di riferimento" value={pillar.anno || '—'} />
+            <InfoRow label="Codice colore" value={pillar.color || '—'} mono />
+            <InfoRow label="Stato" value={pillar.attivo ? 'Attivo' : 'Disattivo'} />
+            {pillar.descrizione && (
+              <div>
+                <div className="text-gray-500 text-xs uppercase mb-1">Descrizione</div>
+                <div className="bg-gray-50 p-3 rounded text-sm">{pillar.descrizione}</div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow p-6">
+          <h3 className="font-bold text-lg mb-4">Team del Pillar</h3>
+          <div className="space-y-3">
+            {pillar.leader && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                <div className="text-xs text-yellow-700 font-bold uppercase mb-1">Pillar Leader</div>
+                <div className="font-semibold text-gray-800">{pillar.leader}</div>
+              </div>
+            )}
+            {pillar.members?.length > 0 ? (
+              <div>
+                <div className="text-xs text-gray-500 uppercase font-medium mb-2">Membri del Team ({pillar.members.length})</div>
+                <div className="space-y-1">
+                  {pillar.members.map((m, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
+                      <User size={14} className="text-gray-400" />{m}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 italic text-center py-4">Nessun membro nel team</div>
+            )}
+          </div>
+
       </div>
       <div className="bg-white rounded-xl shadow p-6">
         <h3 className="font-bold text-lg mb-4">Team del Pillar</h3>
