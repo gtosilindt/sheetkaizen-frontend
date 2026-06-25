@@ -1349,7 +1349,16 @@ function PillarsManager({ onChange }) {
           <tbody>
             {pillars.map(p => (
               <tr key={p._id} className={`border-b hover:bg-gray-50 ${!p.attivo ? 'opacity-50' : ''}`}>
-                <td className="px-3 py-2 text-2xl">{p.icon || '🏛️'}</td>
+                <td className="px-3 py-2">
+                  {p.icon_image ? (
+                    {p.icon_image}alt={p.sigla}
+                      className="w-10 h-10 rounded-lg object-contain border"
+                      style={{ backgroundColor: p.color || '#6366f1' }}
+                    />
+                  ) : (
+                    <span className="text-2xl">{p.icon || '🏛️'}</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 font-mono font-bold text-primary">
                   {p.color && (
                     <span 
@@ -1429,6 +1438,7 @@ function PillarForm({ pillar, onClose, onSaved }) {
     label: pillar?.label || '',
     descrizione: pillar?.descrizione || '',
     icon: pillar?.icon || '🏛️',
+    icon_image: pillar?.icon_image || '',
     color: pillar?.color || '#6366f1',
     leader: pillar?.leader || '',
     leader_email: pillar?.leader_email || '',
@@ -1437,6 +1447,34 @@ function PillarForm({ pillar, onClose, onSaved }) {
     note: pillar?.note || '',
   })
   const [saving, setSaving] = useState(false)
+
+  // Upload immagine come base64
+  function handleImageUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Verifica tipo
+    if (!file.type.startsWith('image/')) {
+      alert('Seleziona un file immagine valido (PNG, JPG, SVG, ecc.)')
+      return
+    }
+
+    // Verifica dimensione (max 500KB)
+    if (file.size > 500 * 1024) {
+      alert(`File troppo grande (${(file.size / 1024).toFixed(0)} KB). Massimo 500 KB.\n\nSuggerimento: usa un'immagine 200×200 px.`)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setForm({ ...form, icon_image: event.target.result })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function removeImage() {
+    setForm({ ...form, icon_image: '' })
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -1532,15 +1570,66 @@ function PillarForm({ pillar, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">
-                Icon <span className="text-xs text-gray-500 font-normal">(emoji)</span>
+                Icona
+                <span className="text-xs text-gray-500 font-normal ml-1">(immagine o emoji)</span>
               </label>
-              <input
-                value={form.icon}
-                onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2 text-2xl text-center"
-                placeholder="🎯"
-                maxLength={4}
-              />
+
+              {/* Preview + upload */}
+              <div className="flex gap-2 items-start">
+                {/* Preview cerchio */}
+                <div
+                  className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 shadow-sm overflow-hidden border-2"
+                  style={{
+                    backgroundColor: form.color || '#6366f1',
+                    color: 'white',
+                    borderColor: form.color || '#6366f1'
+                  }}
+                >
+                  {form.icon_image ? (
+                    {form.icon_image}alt="Preview"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    form.icon || form.sigla?.charAt(0) || '?'
+                  )}
+                </div>
+
+                {/* Bottoni upload/rimuovi + emoji input */}
+                <div className="flex-1 space-y-1">
+                  <label className="block cursor-pointer">
+                    <span className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 rounded inline-block">
+                      📁 Carica immagine
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {form.icon_image && (
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded block"
+                    >
+                      ✕ Rimuovi immagine
+                    </button>
+                  )}
+                  {!form.icon_image && (
+                    <input
+                      value={form.icon}
+                      onChange={(e) => setForm({ ...form, icon: e.target.value })}
+                      className="w-full border rounded px-2 py-1 text-lg text-center"
+                      placeholder="Emoji 🏛️"
+                      maxLength={4}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="text-[10px] text-gray-400 mt-1">
+                Max 500 KB · Consigliato 200×200 px PNG/SVG
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Colore</label>
