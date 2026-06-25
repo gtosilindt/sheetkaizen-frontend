@@ -307,8 +307,8 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                     <div key={doc.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm group">
                       <FileText size={16} className="text-gray-500 flex-shrink-0" />
                       <a
-                        {doc.data}
                         href={doc.data}
+                        download={doc.nome}
                         className="flex-1 truncate text-blue-600 hover:underline"
                       >
                         {doc.nome}
