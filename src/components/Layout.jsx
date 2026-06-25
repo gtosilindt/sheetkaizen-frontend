@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Home, FileText, ClipboardList, LayoutDashboard, Settings, Menu, X, BookOpen, Cog, Columns } from 'lucide-react'
 import { useState } from 'react'
+import { APP_NAME } from '../config/app'
 
 export default function Layout() {
   const location = useLocation()
@@ -21,7 +22,7 @@ export default function Layout() {
     <div className="flex h-screen bg-gray-100">
       <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-primary text-white transition-all duration-300 flex flex-col`}>
         <div className="p-4 flex justify-between items-center border-b border-primary-light">
-          {sidebarOpen && <h1 className="text-lg font-bold">🏭 SheetKaizen</h1>}
+          {sidebarOpen && <h1 className="text-lg font-bold">{APP_NAME}</h1>}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white hover:bg-primary-light p-1 rounded">
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -45,7 +46,7 @@ export default function Layout() {
           })}
         </nav>
         <div className="p-3 text-xs text-gray-300 border-t border-primary-light">
-          {sidebarOpen && 'SheetKaizen v1.0'}
+          {sidebarOpen && `${APP_NAME} v1.0`}
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto p-6">
