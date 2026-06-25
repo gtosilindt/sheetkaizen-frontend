@@ -69,8 +69,9 @@ function groupColsByYear(columns) {
 /**
  * KaizenGantMasterPlan — Gant configurabile (settimana/mese/trimestre)
  */
-export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
-  const savedGant = kaizen.gant_master_plan || null
+export default function KaizenGantMasterPlan({ kaizen, onSaved, value, onChange }) {
+  const isControlled = value !== undefined && typeof onChange === 'function'
+  const savedGant = isControlled ? value : (kaizen?.gant_master_plan || null)
   const [data, setData] = useState(savedGant || getDefaultGantData())
   const [editingStepId, setEditingStepId] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -81,6 +82,15 @@ export default function KaizenGantMasterPlan({ kaizen, onSaved }) {
   useEffect(() => { dataRef.current = data }, [data])
 
   async function doSave(silent = false) {
+    // Modalità controlled (widget): salva via onChange, no chiamata API
+    if (isControlled) {
+      onChange(dataRef.current)
+      if (!silent) {
+        setLastSaved(new Date())
+        setHasUnsavedChanges(false)
+      }
+      return
+    }
     if (!silent) setSaving(true)
     try {
       await api.put(`/kaizens/${kaizen._id}`, {
