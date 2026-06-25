@@ -1,21 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Settings, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Search, GripVertical, ChevronRight, ChevronDown, Info, Factory, Cpu } from 'lucide-react'
+import { Settings, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Search, GripVertical, ChevronRight, ChevronDown, Info, Factory, Cpu, Upload } from 'lucide-react'
 import api from '../services/api'
 
-// ──────────────────────────────────────────────────────────
-// CONFIG: definisce le sezioni raggruppate
-// ──────────────────────────────────────────────────────────
 const SECTIONS = [
   {
     id: 'struttura',
     label: 'Struttura Aziendale',
-    icon: '🏗️',
     color: 'indigo',
     tabs: [
       {
         id: 'pillars',
         label: 'Pillars',
-        icon: '🏛️',
         color: 'indigo',
         isPillar: true,
         description: 'Pilastri TPM Lindt (FI, AM, PM, QM, ecc.)',
@@ -24,44 +19,39 @@ const SECTIONS = [
       },
       {
         id: 'reparti_linee',
-        label: 'Reparti → Linee → Macchine',
-        icon: '🏭',
+        label: 'Reparti / Linee / Macchine',
         color: 'indigo',
-        isRepartiTree: true,  // 🆕 placeholder per F2
+        isRepartiTree: true,
         description: 'Struttura gerarchica della fabbrica (3 livelli)',
         usedIn: ['Action Plan', 'Kaizen', 'Documenti', 'Filtri'],
-        examples: 'Reparto Cioccolato → Linea Bindler 11 → Macchina Conca 1',
+        examples: 'Reparto Cioccolato / Linea Bindler 11 / Macchina Conca 1',
       },
     ],
   },
   {
     id: 'action_plan',
     label: 'Action Plan',
-    icon: '🎯',
     color: 'green',
     tabs: [
       {
         id: 'tipi_action_plan',
         label: 'Tipo',
-        icon: '🏷️',
         color: 'green',
         description: 'Tipologia funzionale dell\'Action Plan',
         usedIn: ['Form Action Plan (campo "Tipo")', 'Filtri /action-plan'],
-        examples: 'Sicurezza, Productivity, Manutenzione, Qualità, Ambiente',
+        examples: 'Sicurezza, Productivity, Manutenzione, Qualita, Ambiente',
       },
       {
         id: 'priorita_ap',
-        label: 'Priorità',
-        icon: '🎚️',
+        label: 'Priorita',
         color: 'green',
-        description: 'Livelli di priorità per l\'Action Plan',
-        usedIn: ['Form Action Plan (campo "Priorità")', 'Filtri /action-plan', 'Kanban color'],
+        description: 'Livelli di priorita per l\'Action Plan',
+        usedIn: ['Form Action Plan (campo "Priorita")', 'Filtri /action-plan', 'Kanban color'],
         examples: 'Low, Medium, High, Critical',
       },
       {
         id: 'stato_ap',
         label: 'Stato',
-        icon: '📍',
         color: 'green',
         description: 'Stati del flusso di lavoro Action Plan',
         usedIn: ['Form Action Plan', 'Kanban board', 'Filtri'],
@@ -72,24 +62,21 @@ const SECTIONS = [
   {
     id: 'kaizen',
     label: 'Kaizen',
-    icon: '📋',
     color: 'red',
     tabs: [
       {
         id: 'categorie_perdita',
         label: 'Categoria Perdita (TPM)',
-        icon: '💥',
         color: 'red',
-        description: 'Le 6 grandi perdite TPM — condivisa Kaizen + Action Plan',
+        description: 'Le 6 grandi perdite TPM, condivisa Kaizen + Action Plan',
         usedIn: ['Kaizen (Ishikawa)', 'Action Plan', 'Step 2 Pareto Pillar'],
         examples: 'OEE, Guasti, Setup, Microfermate, Scarti, Riavvii',
       },
       {
         id: 'argomenti',
         label: 'Argomenti / Tag',
-        icon: '🏷️',
         color: 'pink',
-        description: 'Tag trasversali per #hashtag in Kaizen e Action Plan',
+        description: 'Tag trasversali per hashtag in Kaizen e Action Plan',
         usedIn: ['Kaizen (hashtag)', 'Action Plan (tag)', 'Ricerca globale'],
         examples: 'sicurezza, efficienza, OEE, 5S, leantools',
       },
@@ -98,17 +85,15 @@ const SECTIONS = [
   {
     id: 'documenti',
     label: 'Documenti',
-    icon: '📄',
     color: 'purple',
     tabs: [
       {
         id: 'categorie_documento',
         label: 'Categorie Documenti',
-        icon: '📂',
         color: 'purple',
         description: 'Categorizzazione dei documenti OPL/SOP/WI',
         usedIn: ['Documenti', 'Filtri Document Manager'],
-        examples: 'Operativa, Sicurezza, Manutenzione, Qualità',
+        examples: 'Operativa, Sicurezza, Manutenzione, Qualita',
       },
     ],
   },
@@ -131,12 +116,8 @@ const SECTION_BG = {
   purple: 'bg-purple-50',
 }
 
-// Lookup tutti i tab (flat)
 const ALL_TABS = SECTIONS.flatMap(s => s.tabs)
 
-// ──────────────────────────────────────────────────────────
-// MAIN PAGE — Sidebar split layout
-// ──────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const [activeTabId, setActiveTabId] = useState(ALL_TABS[0].id)
   const [stats, setStats] = useState({})
@@ -154,7 +135,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      {/* HEADER */}
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Settings size={28} /> Settings
@@ -164,23 +144,19 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {/* LAYOUT SPLIT: Sidebar + Detail */}
       <div className="grid grid-cols-12 gap-4">
-        {/* === SIDEBAR === */}
         <div className="col-span-12 md:col-span-3 lg:col-span-3">
           <div className="bg-white rounded-lg shadow-sm overflow-hidden sticky top-4">
             {SECTIONS.map(section => (
               <div key={section.id} className="border-b last:border-b-0">
-                {/* Section header */}
-                <div className={`px-3 py-2 ${SECTION_BG[section.color]} border-l-4 border-${section.color}-500`}
-                  style={{ borderLeftColor: section.color === 'indigo' ? '#6366f1' : 
-                            section.color === 'green' ? '#10b981' : 
-                            section.color === 'red' ? '#ef4444' : '#a855f7' }}>
-                  <div className="text-xs font-bold uppercase tracking-wide text-gray-600 flex items-center gap-1">
-                    <span>{section.icon}</span> {section.label}
+                <div className={`px-3 py-2 ${SECTION_BG[section.color]}`}
+                  style={{ borderLeft: `4px solid ${section.color === 'indigo' ? '#6366f1' :
+                            section.color === 'green' ? '#10b981' :
+                            section.color === 'red' ? '#ef4444' : '#a855f7'}` }}>
+                  <div className="text-xs font-bold uppercase tracking-wide text-gray-600">
+                    {section.label}
                   </div>
                 </div>
-                {/* Section tabs */}
                 <div className="py-1">
                   {section.tabs.map(tab => {
                     const isActive = activeTabId === tab.id
@@ -196,10 +172,7 @@ export default function SettingsPage() {
                             : 'text-gray-600 hover:bg-gray-50 border-l-2 border-transparent'
                         }`}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-base">{tab.icon}</span>
-                          <span className="truncate">{tab.label}</span>
-                        </div>
+                        <span className="truncate">{tab.label}</span>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {totale > 0 && (
                             <span className={`text-xs px-1.5 py-0.5 rounded-full ${
@@ -219,26 +192,22 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* === DETAIL === */}
         <div className="col-span-12 md:col-span-9 lg:col-span-9 space-y-4">
-          {/* Info box */}
           <div className={`p-4 rounded-lg border-l-4 ${TAB_COLORS[currentTab.color]}`}>
             <div className="flex items-start gap-3">
               <Info size={20} className="flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <div className="font-bold text-base mb-1">
-                  {currentTab.icon} {currentTab.label}
-                </div>
+                <div className="font-bold text-base mb-1">{currentTab.label}</div>
                 <p className="text-sm mb-2">{currentTab.description}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                   <div>
-                    <div className="font-semibold uppercase opacity-70 mb-0.5">📍 Usato in:</div>
+                    <div className="font-semibold uppercase opacity-70 mb-0.5">Usato in:</div>
                     <ul className="list-disc list-inside ml-1 space-y-0.5">
                       {currentTab.usedIn.map((u, i) => <li key={i}>{u}</li>)}
                     </ul>
                   </div>
                   <div>
-                    <div className="font-semibold uppercase opacity-70 mb-0.5">💡 Esempi:</div>
+                    <div className="font-semibold uppercase opacity-70 mb-0.5">Esempi:</div>
                     <p className="italic ml-1">{currentTab.examples}</p>
                   </div>
                 </div>
@@ -246,7 +215,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* CONTENUTO */}
           {currentTab.isPillar ? (
             <PillarsManager onChange={loadStats} />
           ) : currentTab.isRepartiTree ? (
@@ -267,7 +235,7 @@ export default function SettingsPage() {
 }
 
 // ──────────────────────────────────────────────────────────
-// REPARTI TREE — Reparti → Linee → Macchine (gerarchico)
+// REPARTI TREE
 // ──────────────────────────────────────────────────────────
 function RepartiTreePlaceholder() {
   const [reparti, setReparti] = useState([])
@@ -285,11 +253,8 @@ function RepartiTreePlaceholder() {
     try {
       const res = await api.get('/reparti/')
       setReparti(res.data)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
   }
 
   function toggleReparto(id) {
@@ -309,7 +274,7 @@ function RepartiTreePlaceholder() {
   }
 
   async function handleDeleteReparto(reparto) {
-    if (!confirm(`🗑️ Eliminare il reparto "${reparto.nome}" e tutte le sue linee/macchine?`)) return
+    if (!confirm(`Eliminare il reparto "${reparto.nome}" e tutte le sue linee/macchine?`)) return
     try {
       await api.delete(`/reparti/${reparto._id}`)
       load()
@@ -322,12 +287,9 @@ function RepartiTreePlaceholder() {
     try {
       await api.put(`/reparti/${reparto._id}`, { attivo: !reparto.attivo })
       load()
-    } catch (err) {
-      alert('Errore: ' + err.message)
-    }
+    } catch (err) { alert('Errore: ' + err.message) }
   }
 
-  // Filtro ricerca
   const filtered = search.trim()
     ? reparti.filter(r =>
         r.nome?.toLowerCase().includes(search.toLowerCase()) ||
@@ -339,7 +301,6 @@ function RepartiTreePlaceholder() {
       )
     : reparti
 
-  // Counters totali
   const totLinee = reparti.reduce((sum, r) => sum + (r.linee?.length || 0), 0)
   const totMacchine = reparti.reduce(
     (sum, r) => sum + (r.linee?.reduce((s, l) => s + (l.macchine?.length || 0), 0) || 0),
@@ -348,7 +309,6 @@ function RepartiTreePlaceholder() {
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
-      {/* Toolbar */}
       <div className="p-4 border-b flex justify-between items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
@@ -361,9 +321,9 @@ function RepartiTreePlaceholder() {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-xs text-gray-500 flex gap-3">
-            <span>🏭 {reparti.length} Reparti</span>
-            <span>🔹 {totLinee} Linee</span>
-            <span>⚙️ {totMacchine} Macchine</span>
+            <span>{reparti.length} Reparti</span>
+            <span>{totLinee} Linee</span>
+            <span>{totMacchine} Macchine</span>
           </div>
           <button
             onClick={() => { setEditingReparto(null); setShowRepartoForm(true) }}
@@ -374,27 +334,20 @@ function RepartiTreePlaceholder() {
         </div>
       </div>
 
-      {/* Lista gerarchica */}
       {loading ? (
-        <div className="p-12 text-center text-gray-400">⏳ Caricamento...</div>
+        <div className="p-12 text-center text-gray-400">Caricamento...</div>
       ) : filtered.length === 0 ? (
         <div className="p-12 text-center">
-          <div className="text-6xl mb-2">🏭</div>
           <p className="text-gray-500 mb-3">
             {search ? 'Nessun risultato' : 'Nessun reparto configurato'}
           </p>
           {!search && (
-            <>
-              <p className="text-xs text-gray-400 mb-3">
-                💡 Configura la struttura aziendale a 3 livelli: Reparti → Linee → Macchine
-              </p>
-              <button
-                onClick={() => { setEditingReparto(null); setShowRepartoForm(true) }}
-                className="text-primary hover:underline"
-              >
-                + Aggiungi il primo Reparto
-              </button>
-            </>
+            <button
+              onClick={() => { setEditingReparto(null); setShowRepartoForm(true) }}
+              className="text-primary hover:underline"
+            >
+              + Aggiungi il primo Reparto
+            </button>
           )}
         </div>
       ) : (
@@ -416,7 +369,6 @@ function RepartiTreePlaceholder() {
         </div>
       )}
 
-      {/* Modal Reparto */}
       {showRepartoForm && (
         <RepartoFormModal
           reparto={editingReparto}
@@ -428,9 +380,6 @@ function RepartiTreePlaceholder() {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// CARD REPARTO (espandibile)
-// ──────────────────────────────────────────────────────────
 function RepartoCard({ reparto, expanded, onToggle, expandedLinee, onToggleLinea, onEdit, onDelete, onToggleAttivo, onChange }) {
   const [showLineaForm, setShowLineaForm] = useState(false)
   const [editingLinea, setEditingLinea] = useState(null)
@@ -438,7 +387,7 @@ function RepartoCard({ reparto, expanded, onToggle, expandedLinee, onToggleLinea
   const totMacchine = linee.reduce((s, l) => s + (l.macchine?.length || 0), 0)
 
   async function handleDeleteLinea(linea) {
-    if (!confirm(`🗑️ Eliminare la linea "${linea.nome}" e tutte le sue macchine?`)) return
+    if (!confirm(`Eliminare la linea "${linea.nome}" e tutte le sue macchine?`)) return
     try {
       await api.delete(`/reparti/${reparto._id}/linee/${linea.id}`)
       onChange()
@@ -449,7 +398,6 @@ function RepartoCard({ reparto, expanded, onToggle, expandedLinee, onToggleLinea
 
   return (
     <div className={`border rounded-lg overflow-hidden transition-all ${!reparto.attivo ? 'opacity-60' : ''}`}>
-      {/* Header reparto */}
       <div className="bg-indigo-50 border-l-4 border-indigo-500 px-3 py-2 flex items-center gap-2">
         <button onClick={onToggle} className="p-1 hover:bg-indigo-100 rounded">
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -464,7 +412,7 @@ function RepartoCard({ reparto, expanded, onToggle, expandedLinee, onToggleLinea
               </span>
             )}
             <span className="text-xs text-gray-500">
-              · {linee.length} linee · {totMacchine} macchine
+              {linee.length} linee, {totMacchine} macchine
             </span>
           </div>
           {reparto.descrizione && (
@@ -488,12 +436,11 @@ function RepartoCard({ reparto, expanded, onToggle, expandedLinee, onToggleLinea
         </div>
       </div>
 
-      {/* Linee espanse */}
       {expanded && (
         <div className="p-3 bg-white space-y-1.5">
           {linee.length === 0 ? (
             <div className="text-center py-4 text-xs text-gray-400 italic">
-              Nessuna linea. Aggiungi la prima!
+              Nessuna linea
             </div>
           ) : (
             linee.map(linea => (
@@ -518,7 +465,6 @@ function RepartoCard({ reparto, expanded, onToggle, expandedLinee, onToggleLinea
         </div>
       )}
 
-      {/* Modal Linea */}
       {showLineaForm && (
         <LineaFormModal
           reparto={reparto}
@@ -531,16 +477,13 @@ function RepartoCard({ reparto, expanded, onToggle, expandedLinee, onToggleLinea
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// CARD LINEA (espandibile)
-// ──────────────────────────────────────────────────────────
 function LineaCard({ reparto, linea, expanded, onToggle, onEdit, onDelete, onChange }) {
   const [showMacchinaForm, setShowMacchinaForm] = useState(false)
   const [editingMacchina, setEditingMacchina] = useState(null)
   const macchine = linea.macchine || []
 
   async function handleDeleteMacchina(macchina) {
-    if (!confirm(`🗑️ Eliminare la macchina "${macchina.nome}"?`)) return
+    if (!confirm(`Eliminare la macchina "${macchina.nome}"?`)) return
     try {
       await api.delete(`/reparti/${reparto._id}/linee/${linea.id}/macchine/${macchina.id}`)
       onChange()
@@ -551,12 +494,10 @@ function LineaCard({ reparto, linea, expanded, onToggle, onEdit, onDelete, onCha
 
   return (
     <div className={`border-l-2 border-blue-300 ml-2 rounded transition-all ${!linea.attivo ? 'opacity-50' : ''}`}>
-      {/* Header linea */}
       <div className="bg-blue-50 px-3 py-1.5 flex items-center gap-2 rounded-r">
         <button onClick={onToggle} className="p-0.5 hover:bg-blue-100 rounded">
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
-        <span className="text-blue-600">🔹</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-blue-900 text-sm">{linea.nome}</span>
@@ -565,7 +506,7 @@ function LineaCard({ reparto, linea, expanded, onToggle, onEdit, onDelete, onCha
                 {linea.codice}
               </span>
             )}
-            <span className="text-[10px] text-gray-500">· {macchine.length} macchine</span>
+            <span className="text-[10px] text-gray-500">{macchine.length} macchine</span>
           </div>
           {linea.descrizione && (
             <div className="text-[10px] text-gray-600 truncate">{linea.descrizione}</div>
@@ -581,12 +522,11 @@ function LineaCard({ reparto, linea, expanded, onToggle, onEdit, onDelete, onCha
         </div>
       </div>
 
-      {/* Macchine espanse */}
       {expanded && (
         <div className="p-2 bg-white space-y-1 ml-2">
           {macchine.length === 0 ? (
             <div className="text-center py-2 text-[10px] text-gray-400 italic">
-              Nessuna macchina. Aggiungi la prima!
+              Nessuna macchina
             </div>
           ) : (
             macchine.map(m => (
@@ -600,7 +540,7 @@ function LineaCard({ reparto, linea, expanded, onToggle, onEdit, onDelete, onCha
                     </span>
                   )}
                   {m.descrizione && (
-                    <span className="text-[10px] text-gray-500 ml-2">· {m.descrizione}</span>
+                    <span className="text-[10px] text-gray-500 ml-2">{m.descrizione}</span>
                   )}
                 </div>
                 <button
@@ -629,7 +569,6 @@ function LineaCard({ reparto, linea, expanded, onToggle, onEdit, onDelete, onCha
         </div>
       )}
 
-      {/* Modal Macchina */}
       {showMacchinaForm && (
         <MacchinaFormModal
           reparto={reparto}
@@ -643,9 +582,6 @@ function LineaCard({ reparto, linea, expanded, onToggle, onEdit, onDelete, onCha
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// MODAL REPARTO
-// ──────────────────────────────────────────────────────────
 function RepartoFormModal({ reparto, onClose, onSaved }) {
   const [form, setForm] = useState({
     nome: reparto?.nome || '',
@@ -677,43 +613,21 @@ function RepartoFormModal({ reparto, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="bg-indigo-600 text-white px-5 py-3 flex justify-between items-center">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Factory size={20} /> {reparto ? `Modifica Reparto` : 'Nuovo Reparto'}
-          </h2>
+          <h2 className="font-semibold">{reparto ? 'Modifica Reparto' : 'Nuovo Reparto'}</h2>
           <button onClick={onClose}><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
           <div>
             <label className="block text-sm font-medium mb-1">Nome <span className="text-red-500">*</span></label>
-            <input
-              required
-              autoFocus
-              value={form.nome}
-              onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="Es: Reparto Cioccolato"
-            />
+            <input required autoFocus value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Codice <span className="text-xs text-gray-500 font-normal ml-1">(opzionale)</span>
-            </label>
-            <input
-              value={form.codice}
-              onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
-              className="w-full border rounded-lg px-3 py-2 font-mono"
-              placeholder="Es: CIO"
-            />
+            <label className="block text-sm font-medium mb-1">Codice</label>
+            <input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })} className="w-full border rounded-lg px-3 py-2 font-mono" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Descrizione</label>
-            <textarea
-              value={form.descrizione}
-              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
-              rows={2}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Es: Produzione cioccolato fondente e al latte"
-            />
+            <textarea value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
             <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
@@ -732,9 +646,6 @@ function RepartoFormModal({ reparto, onClose, onSaved }) {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// MODAL LINEA
-// ──────────────────────────────────────────────────────────
 function LineaFormModal({ reparto, linea, onClose, onSaved }) {
   const [form, setForm] = useState({
     nome: linea?.nome || '',
@@ -751,9 +662,7 @@ function LineaFormModal({ reparto, linea, onClose, onSaved }) {
     try {
       if (linea?.id) {
         await api.put(`/reparti/${reparto._id}/linee/${linea.id}`, {
-          ...form,
-          id: linea.id,
-          macchine: linea.macchine || [],
+          ...form, id: linea.id, macchine: linea.macchine || [],
         })
       } else {
         await api.post(`/reparti/${reparto._id}/linee`, { ...form, macchine: [] })
@@ -770,43 +679,21 @@ function LineaFormModal({ reparto, linea, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="bg-blue-600 text-white px-5 py-3 flex justify-between items-center">
-          <h2 className="font-semibold flex items-center gap-2">
-            🔹 {linea ? 'Modifica Linea' : 'Nuova Linea'} <span className="text-xs opacity-70">in {reparto.nome}</span>
-          </h2>
+          <h2 className="font-semibold">{linea ? 'Modifica Linea' : 'Nuova Linea'} in {reparto.nome}</h2>
           <button onClick={onClose}><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
           <div>
             <label className="block text-sm font-medium mb-1">Nome <span className="text-red-500">*</span></label>
-            <input
-              required
-              autoFocus
-              value={form.nome}
-              onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="Es: Linea Bindler 11"
-            />
+            <input required autoFocus value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Codice <span className="text-xs text-gray-500 font-normal ml-1">(opzionale)</span>
-            </label>
-            <input
-              value={form.codice}
-              onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
-              className="w-full border rounded-lg px-3 py-2 font-mono"
-              placeholder="Es: B11"
-            />
+            <label className="block text-sm font-medium mb-1">Codice</label>
+            <input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })} className="w-full border rounded-lg px-3 py-2 font-mono" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Descrizione</label>
-            <textarea
-              value={form.descrizione}
-              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
-              rows={2}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Es: Tavolette 100g cioccolato fondente"
-            />
+            <textarea value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
             <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
@@ -825,9 +712,6 @@ function LineaFormModal({ reparto, linea, onClose, onSaved }) {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// MODAL MACCHINA
-// ──────────────────────────────────────────────────────────
 function MacchinaFormModal({ reparto, linea, macchina, onClose, onSaved }) {
   const [form, setForm] = useState({
     nome: macchina?.nome || '',
@@ -844,8 +728,7 @@ function MacchinaFormModal({ reparto, linea, macchina, onClose, onSaved }) {
     try {
       if (macchina?.id) {
         await api.put(`/reparti/${reparto._id}/linee/${linea.id}/macchine/${macchina.id}`, {
-          ...form,
-          id: macchina.id,
+          ...form, id: macchina.id,
         })
       } else {
         await api.post(`/reparti/${reparto._id}/linee/${linea.id}/macchine`, form)
@@ -862,44 +745,21 @@ function MacchinaFormModal({ reparto, linea, macchina, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="bg-gray-600 text-white px-5 py-3 flex justify-between items-center">
-          <h2 className="font-semibold flex items-center gap-2">
-            <Cpu size={20} /> {macchina ? 'Modifica Macchina' : 'Nuova Macchina'} 
-            <span className="text-xs opacity-70">in {linea.nome}</span>
-          </h2>
+          <h2 className="font-semibold">{macchina ? 'Modifica Macchina' : 'Nuova Macchina'} in {linea.nome}</h2>
           <button onClick={onClose}><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
           <div>
             <label className="block text-sm font-medium mb-1">Nome <span className="text-red-500">*</span></label>
-            <input
-              required
-              autoFocus
-              value={form.nome}
-              onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="Es: Conca 1"
-            />
+            <input required autoFocus value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Codice <span className="text-xs text-gray-500 font-normal ml-1">(opzionale)</span>
-            </label>
-            <input
-              value={form.codice}
-              onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
-              className="w-full border rounded-lg px-3 py-2 font-mono"
-              placeholder="Es: CON-01"
-            />
+            <label className="block text-sm font-medium mb-1">Codice</label>
+            <input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })} className="w-full border rounded-lg px-3 py-2 font-mono" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Descrizione</label>
-            <textarea
-              value={form.descrizione}
-              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
-              rows={2}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Es: Conca rotativa 2000kg"
-            />
+            <textarea value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <label className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg cursor-pointer">
             <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
@@ -919,7 +779,7 @@ function MacchinaFormModal({ reparto, linea, macchina, onClose, onSaved }) {
 }
 
 // ──────────────────────────────────────────────────────────
-// CONFIG MANAGER (CRUD generico per tutti i tab)
+// CONFIG MANAGER
 // ──────────────────────────────────────────────────────────
 function ConfigManager({ tipo, label, color, onChange }) {
   const [items, setItems] = useState([])
@@ -937,11 +797,8 @@ function ConfigManager({ tipo, label, color, onChange }) {
       if (search) params.append('search', search)
       const res = await api.get(`/configurazioni/?${params.toString()}`)
       setItems(res.data)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
   }
 
   async function handleDelete(id, itemLabel) {
@@ -960,14 +817,11 @@ function ConfigManager({ tipo, label, color, onChange }) {
       await api.patch(`/configurazioni/${id}/toggle`)
       load()
       onChange?.()
-    } catch (err) {
-      alert('Errore: ' + err.message)
-    }
+    } catch (err) { alert('Errore: ' + err.message) }
   }
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
-      {/* Toolbar */}
       <div className="p-4 border-b flex justify-between items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
@@ -986,20 +840,15 @@ function ConfigManager({ tipo, label, color, onChange }) {
         </button>
       </div>
 
-      {/* Lista */}
       {loading ? (
-        <div className="p-12 text-center text-gray-400">⏳ Caricamento...</div>
+        <div className="p-12 text-center text-gray-400">Caricamento...</div>
       ) : items.length === 0 ? (
         <div className="p-12 text-center">
-          <div className="text-6xl mb-2">📭</div>
           <p className="text-gray-500 mb-3">
-            {search ? 'Nessun risultato' : `Nessuna voce ancora configurata`}
+            {search ? 'Nessun risultato' : 'Nessuna voce ancora configurata'}
           </p>
           {!search && (
-            <button
-              onClick={() => { setEditing(null); setShowForm(true) }}
-              className="text-primary hover:underline"
-            >
+            <button onClick={() => { setEditing(null); setShowForm(true) }} className="text-primary hover:underline">
               + Aggiungi la prima voce
             </button>
           )}
@@ -1020,23 +869,18 @@ function ConfigManager({ tipo, label, color, onChange }) {
           <tbody>
             {items.map(item => (
               <tr key={item._id} className={`border-b hover:bg-gray-50 ${!item.attivo ? 'opacity-50' : ''}`}>
-                <td className="px-3 py-2 text-gray-300">
-                  <GripVertical size={16} />
-                </td>
-                <td className="px-3 py-2 text-2xl">{item.icon || '—'}</td>
+                <td className="px-3 py-2 text-gray-300"><GripVertical size={16} /></td>
+                <td className="px-3 py-2 text-2xl">{item.icon || '-'}</td>
                 <td className="px-3 py-2 font-medium">
                   <div className="flex items-center gap-2">
                     {item.color && (
-                      <span 
-                        className="w-3 h-3 rounded-full inline-block" 
-                        style={{ backgroundColor: item.color }}
-                      />
+                      <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: item.color }} />
                     )}
                     {item.label}
                   </div>
                 </td>
                 <td className="px-3 py-2 font-mono text-xs text-gray-500">{item.codice}</td>
-                <td className="px-3 py-2 text-xs text-gray-600 truncate max-w-md">{item.descrizione || '—'}</td>
+                <td className="px-3 py-2 text-xs text-gray-600 truncate max-w-md">{item.descrizione || '-'}</td>
                 <td className="px-3 py-2">
                   <button
                     onClick={() => handleToggle(item._id)}
@@ -1044,30 +888,18 @@ function ConfigManager({ tipo, label, color, onChange }) {
                       item.attivo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
                     }`}
                   >
-                    {item.attivo ? '✅ Attivo' : '⏸️ Disattivo'}
+                    {item.attivo ? 'Attivo' : 'Disattivo'}
                   </button>
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex justify-center gap-1">
-                    <button
-                      onClick={() => handleToggle(item._id)}
-                      className="p-1 hover:bg-gray-100 rounded"
-                      title={item.attivo ? 'Disattiva' : 'Attiva'}
-                    >
+                    <button onClick={() => handleToggle(item._id)} className="p-1 hover:bg-gray-100 rounded">
                       {item.attivo ? <Eye size={14} /> : <EyeOff size={14} />}
                     </button>
-                    <button
-                      onClick={() => { setEditing(item); setShowForm(true) }}
-                      className="p-1 hover:bg-yellow-100 rounded text-yellow-600"
-                      title="Modifica"
-                    >
+                    <button onClick={() => { setEditing(item); setShowForm(true) }} className="p-1 hover:bg-yellow-100 rounded text-yellow-600">
                       <Edit2 size={14} />
                     </button>
-                    <button
-                      onClick={() => handleDelete(item._id, item.label)}
-                      className="p-1 hover:bg-red-100 rounded text-red-600"
-                      title="Elimina"
-                    >
+                    <button onClick={() => handleDelete(item._id, item.label)} className="p-1 hover:bg-red-100 rounded text-red-600">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -1078,7 +910,6 @@ function ConfigManager({ tipo, label, color, onChange }) {
         </table>
       )}
 
-      {/* Form Modal */}
       {showForm && (
         <ConfigForm
           tipo={tipo}
@@ -1091,9 +922,7 @@ function ConfigManager({ tipo, label, color, onChange }) {
     </div>
   )
 }
-// ──────────────────────────────────────────────────────────
-// FORM CREATE/EDIT
-// ──────────────────────────────────────────────────────────
+
 function ConfigForm({ tipo, label, item, onClose, onSaved }) {
   const [form, setForm] = useState({
     label: item?.label || '',
@@ -1110,11 +939,7 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
     if (!form.label.trim()) return alert('Label obbligatoria')
     setSaving(true)
     try {
-      const payload = {
-        ...form,
-        tipo,
-        codice: form.codice.trim() || null,
-      }
+      const payload = { ...form, tipo, codice: form.codice.trim() || null }
       if (item?._id) {
         await api.put(`/configurazioni/${item._id}`, payload)
       } else {
@@ -1132,104 +957,43 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="bg-primary text-white px-5 py-3 flex justify-between items-center">
-          <h2 className="font-semibold">
-            {item ? '✏️ Modifica' : '➕ Nuova voce'} — {label}
-          </h2>
+          <h2 className="font-semibold">{item ? 'Modifica' : 'Nuova voce'} - {label}</h2>
           <button onClick={onClose}><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Label <span className="text-red-500">*</span>
-            </label>
-            <input
-              required
-              autoFocus
-              value={form.label}
-              onChange={(e) => setForm({ ...form, label: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="Es: Sicurezza"
-            />
+            <label className="block text-sm font-medium mb-1">Label <span className="text-red-500">*</span></label>
+            <input required autoFocus value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
           </div>
-
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Codice
-              <span className="text-xs text-gray-500 font-normal ml-1">(auto se vuoto)</span>
-            </label>
-            <input
-              value={form.codice}
-              onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })}
-              className="w-full border rounded-lg px-3 py-2 font-mono"
-              placeholder="Es: SIC"
-            />
+            <label className="block text-sm font-medium mb-1">Codice</label>
+            <input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })} className="w-full border rounded-lg px-3 py-2 font-mono" />
           </div>
-
           <div>
             <label className="block text-sm font-medium mb-1">Descrizione</label>
-            <textarea
-              value={form.descrizione}
-              onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
-              rows={2}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Es: Interventi per sicurezza sul lavoro"
-            />
+            <textarea value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Icon <span className="text-xs text-gray-500 font-normal">(emoji)</span>
-              </label>
-              <input
-                value={form.icon}
-                onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2 text-2xl text-center"
-                placeholder="📋"
-                maxLength={4}
-              />
+              <label className="block text-sm font-medium mb-1">Icon (emoji)</label>
+              <input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-2xl text-center" maxLength={4} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Colore</label>
               <div className="flex gap-1">
-                <input
-                  type="color"
-                  value={form.color || '#3b82f6'}
-                  onChange={(e) => setForm({ ...form, color: e.target.value })}
-                  className="w-12 h-10 border rounded cursor-pointer"
-                />
-                <input
-                  value={form.color}
-                  onChange={(e) => setForm({ ...form, color: e.target.value })}
-                  className="flex-1 border rounded-lg px-2 py-2 text-sm font-mono"
-                  placeholder="#3b82f6"
-                />
+                <input type="color" value={form.color || '#3b82f6'} onChange={(e) => setForm({ ...form, color: e.target.value })} className="w-12 h-10 border rounded cursor-pointer" />
+                <input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="flex-1 border rounded-lg px-2 py-2 text-sm font-mono" />
               </div>
             </div>
           </div>
-
           <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.attivo}
-              onChange={(e) => setForm({ ...form, attivo: e.target.checked })}
-              className="w-4 h-4"
-            />
-            <span className="text-sm">
-              Attivo <span className="text-xs text-gray-500">(visibile nei menu/tendine)</span>
-            </span>
+            <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
+            <span className="text-sm">Attivo</span>
           </label>
-
           <div className="flex justify-end gap-2 pt-3 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">
-              Annulla
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50 flex items-center gap-2"
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
+            <button type="submit" disabled={saving} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50 flex items-center gap-2">
               <Save size={16} />
               {saving ? 'Salvataggio...' : (item ? 'Salva' : 'Crea')}
             </button>
@@ -1241,7 +1005,7 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
 }
 
 // ──────────────────────────────────────────────────────────
-// PILLARS MANAGER (componente dedicato per Pillar TPM)
+// PILLARS MANAGER
 // ──────────────────────────────────────────────────────────
 function PillarsManager({ onChange }) {
   const [pillars, setPillars] = useState([])
@@ -1259,19 +1023,15 @@ function PillarsManager({ onChange }) {
       if (search) params.append('search', search)
       const res = await api.get(`/pillars/?${params.toString()}`)
       setPillars(res.data)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
   }
 
   async function handleDelete(pillar) {
-    const confirmMsg = `🗑️ Eliminare il Pillar "${pillar.sigla} - ${pillar.label}"?\n\n⚠️ I Kaizen collegati a questo pillar perderanno il riferimento (ma non saranno eliminati).`
-    if (!confirm(confirmMsg)) return
+    if (!confirm(`Eliminare il Pillar "${pillar.sigla} - ${pillar.label}"?\nI Kaizen collegati perderanno il riferimento.`)) return
     try {
       const res = await api.delete(`/pillars/${pillar._id}`)
-      alert(`✅ Pillar eliminato. ${res.data?.kaizens_scollegati || 0} Kaizen scollegati.`)
+      alert(`Pillar eliminato. ${res.data?.kaizens_scollegati || 0} Kaizen scollegati.`)
       load()
       onChange?.()
     } catch (err) {
@@ -1284,14 +1044,11 @@ function PillarsManager({ onChange }) {
       await api.put(`/pillars/${pillar._id}`, { attivo: !pillar.attivo })
       load()
       onChange?.()
-    } catch (err) {
-      alert('Errore: ' + err.message)
-    }
+    } catch (err) { alert('Errore: ' + err.message) }
   }
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
-      {/* Toolbar */}
       <div className="p-4 border-b flex justify-between items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
@@ -1310,27 +1067,17 @@ function PillarsManager({ onChange }) {
         </button>
       </div>
 
-      {/* Lista */}
       {loading ? (
-        <div className="p-12 text-center text-gray-400">⏳ Caricamento...</div>
+        <div className="p-12 text-center text-gray-400">Caricamento...</div>
       ) : pillars.length === 0 ? (
         <div className="p-12 text-center">
-          <div className="text-6xl mb-2">🏛️</div>
           <p className="text-gray-500 mb-3">
             {search ? 'Nessun pillar trovato' : 'Nessun pillar configurato'}
           </p>
           {!search && (
-            <>
-              <p className="text-xs text-gray-400 mb-3">
-                💡 I Pillar sono le funzioni TPM (FI, AM, PM, ecc.) che organizzano i Kaizen e il 5 Step KPI Management
-              </p>
-              <button
-                onClick={() => { setEditing(null); setShowForm(true) }}
-                className="text-primary hover:underline"
-              >
-                + Aggiungi il primo Pillar
-              </button>
-            </>
+            <button onClick={() => { setEditing(null); setShowForm(true) }} className="text-primary hover:underline">
+              + Aggiungi il primo Pillar
+            </button>
           )}
         </div>
       ) : (
@@ -1350,19 +1097,11 @@ function PillarsManager({ onChange }) {
             {pillars.map(p => (
               <tr key={p._id} className={`border-b hover:bg-gray-50 ${!p.attivo ? 'opacity-50' : ''}`}>
                 <td className="px-3 py-2">
-                  {p.icon_image && (
-                    {p.icon_image}={p.sigla} className="w-10 h-10 rounded-lg object-contain border" style={{ backgroundColor: p.color || '#6366f1' }} />
-                  )}
-                  {!p.icon_image && (
-                    <span className="text-2xl">{p.icon || '🏛️'}</span>
-                  )}
+                  <PillarIcon pillar={p} size={40} />
                 </td>
                 <td className="px-3 py-2 font-mono font-bold text-primary">
                   {p.color && (
-                    <span 
-                      className="inline-block w-2 h-2 rounded-full mr-1" 
-                      style={{ backgroundColor: p.color }}
-                    />
+                    <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: p.color }} />
                   )}
                   {p.sigla}
                 </td>
@@ -1372,8 +1111,8 @@ function PillarsManager({ onChange }) {
                     <div className="text-xs text-gray-500 truncate max-w-md">{p.descrizione}</div>
                   )}
                 </td>
-                <td className="px-3 py-2 text-xs">{p.leader || '—'}</td>
-                <td className="px-3 py-2 text-xs">{p.anno || '—'}</td>
+                <td className="px-3 py-2 text-xs">{p.leader || '-'}</td>
+                <td className="px-3 py-2 text-xs">{p.anno || '-'}</td>
                 <td className="px-3 py-2">
                   <button
                     onClick={() => handleToggleActive(p)}
@@ -1381,30 +1120,18 @@ function PillarsManager({ onChange }) {
                       p.attivo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
                     }`}
                   >
-                    {p.attivo ? '✅ Attivo' : '⏸️ Disattivo'}
+                    {p.attivo ? 'Attivo' : 'Disattivo'}
                   </button>
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex justify-center gap-1">
-                    <button
-                      onClick={() => handleToggleActive(p)}
-                      className="p-1 hover:bg-gray-100 rounded"
-                      title={p.attivo ? 'Disattiva' : 'Attiva'}
-                    >
+                    <button onClick={() => handleToggleActive(p)} className="p-1 hover:bg-gray-100 rounded">
                       {p.attivo ? <Eye size={14} /> : <EyeOff size={14} />}
                     </button>
-                    <button
-                      onClick={() => { setEditing(p); setShowForm(true) }}
-                      className="p-1 hover:bg-yellow-100 rounded text-yellow-600"
-                      title="Modifica"
-                    >
+                    <button onClick={() => { setEditing(p); setShowForm(true) }} className="p-1 hover:bg-yellow-100 rounded text-yellow-600">
                       <Edit2 size={14} />
                     </button>
-                    <button
-                      onClick={() => handleDelete(p)}
-                      className="p-1 hover:bg-red-100 rounded text-red-600"
-                      title="Elimina"
-                    >
+                    <button onClick={() => handleDelete(p)} className="p-1 hover:bg-red-100 rounded text-red-600">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -1415,7 +1142,6 @@ function PillarsManager({ onChange }) {
         </table>
       )}
 
-      {/* Modal Form */}
       {showForm && (
         <PillarForm
           pillar={editing}
@@ -1427,15 +1153,41 @@ function PillarsManager({ onChange }) {
   )
 }
 
+// Componente icona riusabile (gestisce sia immagine che fallback)
+function PillarIcon({ pillar, size = 40 }) {
+  if (pillar.icon_image) {
+    return (
+      {pillar.icon_image}
+        alt={pillar.sigla}
+        style={{ width: size, height: size, backgroundColor: pillar.color || '#6366f1' }}
+        className="rounded-lg object-contain border"
+      />
+    )
+  }
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: pillar.color || '#6366f1',
+        fontSize: size * 0.5,
+      }}
+      className="rounded-lg flex items-center justify-center text-white font-bold"
+    >
+      {pillar.icon || pillar.sigla?.charAt(0) || 'P'}
+    </div>
+  )
+}
+
 // ──────────────────────────────────────────────────────────
-// PILLAR FORM (create/edit) — invariato dal tuo file
+// PILLAR FORM
 // ──────────────────────────────────────────────────────────
 function PillarForm({ pillar, onClose, onSaved }) {
   const [form, setForm] = useState({
     sigla: pillar?.sigla || '',
     label: pillar?.label || '',
     descrizione: pillar?.descrizione || '',
-    icon: pillar?.icon || '🏛️',
+    icon: pillar?.icon || '',
     icon_image: pillar?.icon_image || '',
     color: pillar?.color || '#6366f1',
     leader: pillar?.leader || '',
@@ -1446,23 +1198,17 @@ function PillarForm({ pillar, onClose, onSaved }) {
   })
   const [saving, setSaving] = useState(false)
 
-  // Upload immagine come base64
   function handleImageUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Verifica tipo
     if (!file.type.startsWith('image/')) {
       alert('Seleziona un file immagine valido (PNG, JPG, SVG, ecc.)')
       return
     }
-
-    // Verifica dimensione (max 500KB)
     if (file.size > 500 * 1024) {
-      alert(`File troppo grande (${(file.size / 1024).toFixed(0)} KB). Massimo 500 KB.\n\nSuggerimento: usa un'immagine 200×200 px.`)
+      alert(`File troppo grande (${(file.size / 1024).toFixed(0)} KB). Massimo 500 KB.\nSuggerimento: usa un'immagine 200x200 px.`)
       return
     }
-
     const reader = new FileReader()
     reader.onload = (event) => {
       setForm({ ...form, icon_image: event.target.result })
@@ -1502,10 +1248,8 @@ function PillarForm({ pillar, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto">
-        <div className="bg-indigo-600 text-white px-5 py-3 flex justify-between items-center">
-          <h2 className="font-semibold flex items-center gap-2">
-            🏛️ {pillar ? `Modifica Pillar ${pillar.sigla}` : 'Nuovo Pillar'}
-          </h2>
+        <div className="bg-indigo-600 text-white px-5 py-3 flex justify-between items-center sticky top-0 z-10">
+          <h2 className="font-semibold">{pillar ? `Modifica Pillar ${pillar.sigla}` : 'Nuovo Pillar'}</h2>
           <button onClick={onClose}><X size={20} /></button>
         </div>
 
@@ -1514,7 +1258,6 @@ function PillarForm({ pillar, onClose, onSaved }) {
             <div>
               <label className="block text-sm font-medium mb-1">
                 Sigla <span className="text-red-500">*</span>
-                <span className="text-xs text-gray-500 font-normal ml-1">(2-4 lettere)</span>
               </label>
               <input
                 required
@@ -1523,13 +1266,10 @@ function PillarForm({ pillar, onClose, onSaved }) {
                 value={form.sigla}
                 onChange={(e) => setForm({ ...form, sigla: e.target.value.toUpperCase() })}
                 className="w-full border rounded-lg px-3 py-2 font-mono font-bold text-lg uppercase"
-                placeholder="FI"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Anno di riferimento
-              </label>
+              <label className="block text-sm font-medium mb-1">Anno di riferimento</label>
               <input
                 type="number"
                 value={form.anno}
@@ -1550,7 +1290,6 @@ function PillarForm({ pillar, onClose, onSaved }) {
               value={form.label}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
               className="w-full border rounded-lg px-3 py-2"
-              placeholder="Focused Improvement"
             />
           </div>
 
@@ -1561,49 +1300,32 @@ function PillarForm({ pillar, onClose, onSaved }) {
               onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
               rows={2}
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Es: Pilastro focalizzato sull'eliminazione delle perdite tramite progetti mirati"
             />
           </div>
 
+          {/* ICONA + COLORE */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Icona
-                <span className="text-xs text-gray-500 font-normal ml-1">(immagine o emoji)</span>
-              </label>
-
-              {/* Preview + upload */}
+              <label className="block text-sm font-medium mb-1">Icona</label>
               <div className="flex gap-2 items-start">
-                {/* Preview cerchio */}
+                {/* Preview */}
                 <div
-                  className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0 shadow-sm overflow-hidden border-2"
+                  className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 shadow-sm overflow-hidden border-2 text-white font-bold"
                   style={{
                     backgroundColor: form.color || '#6366f1',
-                    color: 'white',
-                    borderColor: form.color || '#6366f1'
+                    borderColor: form.color || '#6366f1',
                   }}
                 >
-                  {form.icon_image ? (
-                    {form.icon_image}alt="Preview"
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    form.icon || form.sigla?.charAt(0) || '?'
-                  )}
+                  <PillarPreview form={form} />
                 </div>
 
-                {/* Bottoni upload/rimuovi + emoji input */}
+                {/* Bottoni */}
                 <div className="flex-1 space-y-1">
                   <label className="block cursor-pointer">
-                    <span className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 rounded inline-block">
-                      📁 Carica immagine
+                    <span className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 rounded inline-flex items-center gap-1">
+                      <Upload size={12} /> Carica immagine
                     </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   </label>
                   {form.icon_image && (
                     <button
@@ -1611,7 +1333,7 @@ function PillarForm({ pillar, onClose, onSaved }) {
                       onClick={removeImage}
                       className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded block"
                     >
-                      ✕ Rimuovi immagine
+                      Rimuovi immagine
                     </button>
                   )}
                   {!form.icon_image && (
@@ -1619,14 +1341,14 @@ function PillarForm({ pillar, onClose, onSaved }) {
                       value={form.icon}
                       onChange={(e) => setForm({ ...form, icon: e.target.value })}
                       className="w-full border rounded px-2 py-1 text-lg text-center"
-                      placeholder="Emoji 🏛️"
+                      placeholder="Emoji"
                       maxLength={4}
                     />
                   )}
                 </div>
               </div>
               <div className="text-[10px] text-gray-400 mt-1">
-                Max 500 KB · Consigliato 200×200 px PNG/SVG
+                Max 500 KB, consigliato 200x200 px PNG/SVG
               </div>
             </div>
             <div>
@@ -1642,7 +1364,6 @@ function PillarForm({ pillar, onClose, onSaved }) {
                   value={form.color}
                   onChange={(e) => setForm({ ...form, color: e.target.value })}
                   className="flex-1 border rounded-lg px-2 py-2 text-sm font-mono"
-                  placeholder="#6366f1"
                 />
               </div>
             </div>
@@ -1655,7 +1376,6 @@ function PillarForm({ pillar, onClose, onSaved }) {
                 value={form.leader}
                 onChange={(e) => setForm({ ...form, leader: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2"
-                placeholder="Maurizio Rota"
               />
             </div>
             <div>
@@ -1665,21 +1385,16 @@ function PillarForm({ pillar, onClose, onSaved }) {
                 value={form.leader_email}
                 onChange={(e) => setForm({ ...form, leader_email: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2"
-                placeholder="mrota@lindt.com"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Membri del team
-              <span className="text-xs text-gray-500 font-normal ml-1">(separati da virgola)</span>
-            </label>
+            <label className="block text-sm font-medium mb-1">Membri del team</label>
             <input
               value={form.members}
               onChange={(e) => setForm({ ...form, members: e.target.value })}
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Giovanni Tosi, Antonio Palma, Mirko De Simone"
             />
           </div>
 
@@ -1690,7 +1405,6 @@ function PillarForm({ pillar, onClose, onSaved }) {
               onChange={(e) => setForm({ ...form, note: e.target.value })}
               rows={2}
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Note opzionali..."
             />
           </div>
 
@@ -1711,4 +1425,17 @@ function PillarForm({ pillar, onClose, onSaved }) {
       </div>
     </div>
   )
+}
+
+// Componente helper per il preview nel form
+function PillarPreview({ form }) {
+  if (form.icon_image) {
+    return (
+      {form.icon_image}
+        alt="Preview"
+        className="w-full h-full object-contain"
+      />
+    )
+  }
+  return <span>{form.icon || form.sigla?.charAt(0) || '?'}</span>
 }
