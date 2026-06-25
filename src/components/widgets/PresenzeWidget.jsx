@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Plus, X, Settings as SettingsIcon } from 'lucide-react'
 
 const DEFAULT_STATI = [
@@ -15,20 +15,40 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
   const stati = config?.stati || DEFAULT_STATI
 
   const [showSettings, setShowSettings] = useState(false)
+  const [activeCell, setActiveCell] = useState(null)  // {partecipante, data} per dropdown
+  const [dropdownPos, setDropdownPos] = useState({ x: 0, y: 0 })
+  const dropdownRef = useRef(null)
 
-  function cycleCell(partecipante, data) {
-    const key = `${partecipante}_${data}`
-    const currentStato = presenze[key]
-    const currentIdx = stati.findIndex(s => s.id === currentStato)
-    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % (stati.length + 1)
+  // Chiudi dropdown se click fuori
+  useEffect(() => {
+    if (!activeCell) return
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setActiveCell(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [activeCell])
 
+  function openCellMenu(partecipante, data, e) {
+    e.stopPropagation()
+    const rect = e.currentTarget.getBoundingClientRect()
+    setDropdownPos({ x: rect.left, y: rect.bottom + 4 })
+    setActiveCell({ partecipante, data })
+  }
+
+  function setStatoCell(statoId) {
+    if (!activeCell) return
+    const key = `${activeCell.partecipante}_${activeCell.data}`
     const newPresenze = { ...presenze }
-    if (nextIdx === stati.length) {
-      delete newPresenze[key]
+    if (statoId === null) {
+      delete newPresenze[key]  // svuota
     } else {
-      newPresenze[key] = stati[nextIdx].id
+      newPresenze[key] = statoId
     }
     onChange?.({ ...config, presenze: newPresenze })
+    setActiveCell(null)
   }
 
   function getColorForCell(partecipante, data) {
@@ -47,6 +67,7 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
     return stato?.label || '—'
   }
 
+  // Statistiche presenze: conta TUTTI gli stati "positivi" (default: solo presente)
   const statsPerPartecipante = useMemo(() => {
     const result = {}
     partecipanti.forEach(p => {
@@ -118,12 +139,12 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
                       return (
                         <td key={d} className="border-r border-b p-0">
                           <button
-                            onClick={() => cycleCell(p, d)}
+                            onClick={(e) => openCellMenu(p, d, e)}
                             onMouseDown={(e) => e.stopPropagation()}
                             className="widget-action-btn w-full h-full hover:opacity-75 transition-opacity"
                             style={{
                               backgroundColor: bg || 'transparent',
-                              minHeight: '24px',
+                              minHeight: '28px',
                             }}
                             title={`${p} · ${formatShortDate(d)}: ${getLabelForCell(p, d)}`}
                           />
@@ -164,8 +185,45 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
             <span>Non registrato</span>
           </div>
           <span className="ml-auto text-gray-400 italic">
-            Click su cella per cambiare stato
+            Click su cella per scegliere stato
           </span>
+        </div>
+      )}
+
+      {/* Dropdown menu (popup vicino alla cella cliccata) */}
+      {activeCell && (
+        <div
+          ref={dropdownRef}
+          className="widget-action-btn fixed bg-white rounded-lg shadow-2xl border-2 border-gray-200 p-2 z-50 min-w-[160px]"
+          style={{ left: dropdownPos.x, top: dropdownPos.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1 px-2">
+            {activeCell.partecipante} · {formatShortDate(activeCell.data)}
+          </div>
+          <div className="space-y-1">
+            {stati.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setStatoCell(s.id)}
+                className="widget-action-btn w-full flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 rounded text-xs"
+              >
+                <div
+                  className="w-4 h-4 rounded border flex-shrink-0"
+                  style={{ backgroundColor: s.color }}
+                />
+                <span>{s.label}</span>
+              </button>
+            ))}
+            <button
+              onClick={() => setStatoCell(null)}
+              className="widget-action-btn w-full flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 rounded text-xs text-gray-500 italic border-t mt-1 pt-2"
+            >
+              <div className="w-4 h-4 rounded border border-gray-300 bg-white flex-shrink-0" />
+              <span>Non registrato</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -192,36 +250,26 @@ function PresenzeSettingsModal({ config, onClose, onSave }) {
   const [partecipantiText, setPartecipantiText] = useState(
     (config?.partecipanti || []).join('\n')
   )
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [dateText, setDateText] = useState(
-    (config?.date || []).join('\n')
-  )
+  const [date, setDate] = useState(config?.date || [])
+  const [nuovaData, setNuovaData] = useState('')
   const [stati, setStati] = useState(config?.stati || DEFAULT_STATI)
 
-  function generaDateRange() {
-    if (!dateFrom || !dateTo) {
-      alert('Inserisci data inizio e fine')
+  function aggiungiData() {
+    if (!nuovaData) {
+      alert('Seleziona una data')
       return
     }
-    const start = new Date(dateFrom)
-    const end = new Date(dateTo)
-    if (start > end) {
-      alert('Data inizio deve essere prima della fine')
+    if (date.includes(nuovaData)) {
+      alert('Data già presente')
       return
     }
-    const dates = []
-    const current = new Date(start)
-    while (current <= end) {
-      const dayOfWeek = current.getDay()
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        dates.push(current.toISOString().slice(0, 10))
-      }
-      current.setDate(current.getDate() + 1)
-    }
-    const existing = dateText.split('\n').filter(d => d.trim())
-    const merged = [...new Set([...existing, ...dates])].sort()
-    setDateText(merged.join('\n'))
+    const nuove = [...date, nuovaData].sort()
+    setDate(nuove)
+    setNuovaData('')
+  }
+
+  function rimuoviData(d) {
+    setDate(date.filter(x => x !== d))
   }
 
   function updateStato(idx, field, value) {
@@ -243,12 +291,11 @@ function PresenzeSettingsModal({ config, onClose, onSave }) {
 
   function handleSave() {
     const partecipanti = partecipantiText.split('\n').map(p => p.trim()).filter(Boolean)
-    const date = dateText.split('\n').map(d => d.trim()).filter(Boolean).sort()
     onSave({
       ...config,
       titolo,
       partecipanti,
-      date,
+      date: date.sort(),
       stati,
     })
   }
@@ -260,7 +307,7 @@ function PresenzeSettingsModal({ config, onClose, onSave }) {
       onClick={(e) => e.stopPropagation()}
     >
       <div
-        className="widget-action-btn bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+        className="widget-action-btn bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="bg-primary text-white px-5 py-3 flex justify-between items-center sticky top-0 z-10">
@@ -294,60 +341,59 @@ function PresenzeSettingsModal({ config, onClose, onSave }) {
               value={partecipantiText}
               onChange={(e) => setPartecipantiText(e.target.value)}
               onMouseDown={(e) => e.stopPropagation()}
-              rows={6}
+              rows={5}
               className="widget-action-btn w-full border rounded-lg px-3 py-2 text-sm font-mono"
-              placeholder={'Mario Rossi\nLuca Verdi\nAntonio Palma\nGiovanni Tosi'}
             />
           </div>
 
           {/* Date */}
           <div>
             <label className="block text-sm font-medium mb-1">Date</label>
-            <div className="bg-gray-50 p-3 rounded-lg mb-2 border">
-              <div className="text-xs font-medium text-gray-600 mb-2">
-                Genera date in automatico (solo giorni feriali)
-              </div>
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-600 mb-1">Da</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    className="widget-action-btn w-full border rounded px-2 py-1 text-sm"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-600 mb-1">A</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    className="widget-action-btn w-full border rounded px-2 py-1 text-sm"
-                  />
-                </div>
-                <button
-                  onClick={generaDateRange}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  className="widget-action-btn bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary-light"
-                >
-                  + Aggiungi
-                </button>
-              </div>
+            <div className="flex gap-2 items-center mb-2">
+              <input
+                type="date"
+                value={nuovaData}
+                onChange={(e) => setNuovaData(e.target.value)}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="widget-action-btn flex-1 border rounded px-3 py-2 text-sm"
+              />
+              <button
+                onClick={aggiungiData}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="widget-action-btn bg-primary text-white px-4 py-2 rounded text-sm hover:bg-primary-light flex items-center gap-1"
+              >
+                <Plus size={14} /> Aggiungi data
+              </button>
             </div>
-            <textarea
-              value={dateText}
-              onChange={(e) => setDateText(e.target.value)}
-              onMouseDown={(e) => e.stopPropagation()}
-              rows={4}
-              className="widget-action-btn w-full border rounded-lg px-3 py-2 text-sm font-mono"
-              placeholder={'2026-06-17\n2026-06-18\n2026-06-19'}
-            />
-            <div className="text-xs text-gray-500 mt-1">
-              Una data per riga (formato YYYY-MM-DD). Puoi anche modificare manualmente.
-            </div>
+
+            {date.length === 0 ? (
+              <div className="text-xs text-gray-400 italic text-center py-3 bg-gray-50 rounded border">
+                Nessuna data aggiunta
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded border p-2 max-h-48 overflow-y-auto">
+                <div className="text-xs text-gray-600 mb-2">
+                  {date.length} dat{date.length === 1 ? 'a' : 'e'}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {date.map(d => (
+                    <span
+                      key={d}
+                      className="bg-white border rounded px-2 py-1 text-xs flex items-center gap-1"
+                    >
+                      {new Date(d).toLocaleDateString('it-IT')}
+                      <button
+                        onClick={() => rimuoviData(d)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="widget-action-btn text-red-500 hover:bg-red-50 rounded p-0.5"
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Stati */}
@@ -368,13 +414,11 @@ function PresenzeSettingsModal({ config, onClose, onSave }) {
                     onChange={(e) => updateStato(idx, 'label', e.target.value)}
                     onMouseDown={(e) => e.stopPropagation()}
                     className="widget-action-btn flex-1 border rounded px-2 py-1 text-sm"
-                    placeholder="Nome stato"
                   />
                   <button
                     onClick={() => removeStato(idx)}
                     onMouseDown={(e) => e.stopPropagation()}
                     className="widget-action-btn p-1 text-red-500 hover:bg-red-50 rounded"
-                    title="Elimina stato"
                   >
                     <X size={14} />
                   </button>
