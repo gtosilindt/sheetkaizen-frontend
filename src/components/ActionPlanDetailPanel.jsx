@@ -359,7 +359,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
 
               {allegati.length === 0 && !uploadingAllegato && (
                 <div className="text-xs text-gray-400 italic mt-1">
-                  Max 10 allegati · Immagini, PDF, Word, Excel
                 </div>
               )}
             </Section>
@@ -379,12 +378,12 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                   </div>
                 ))}
                 {(!detail.commenti || detail.commenti.length === 0) && (
-                  <div className="text-sm text-gray-400 italic">Nessun commento ancora — sii il primo!</div>
+                  <div className="text-sm text-gray-400 italic">Nessun commento</div>
                 )}
               </div>
               <div className="flex gap-2">
                 <textarea value={nuovoCommento} onChange={(e) => setNuovoCommento(e.target.value)}
-                  placeholder="Scrivi un commento... usa @nome per taggare e #argomento per categorizzare"
+                  placeholder="Scrivi un commento"
                   rows={2} className="flex-1 border rounded-lg px-3 py-2 text-sm" />
                 <button onClick={addCommento} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light self-end">
                   <Send size={16} />
