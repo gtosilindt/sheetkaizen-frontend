@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   X, Edit2, Trash2, MessageSquare, Link2, AtSign, CheckSquare, Square,
-  Send, Calendar, AlertCircle, Bug, TrendingUp, Shield, Wrench
+  Send, Calendar, AlertCircle, Bug, TrendingUp, Shield, Wrench, Paperclip, Camera, FileText, ImageIcon
 } from 'lucide-react'
 import api from '../services/api'
 import { useAllConfigurations } from '../hooks/useConfigurations'
@@ -32,22 +32,57 @@ const TIPO_COLORS = {
   Sicurezza: 'text-yellow-600',
 }
 
-// ──────────────────────────────────────────────────────────
-// ActionPlanDetailPanel — pannello dettaglio AP riutilizzabile
-//
-// Props:
-//   - plan: l'AP iniziale (verrà ricaricato dal server al mount)
-//   - onClose: callback alla chiusura del modal
-//   - onUpdated: callback dopo modifiche (per ricaricare la lista padre)
-//   - onEdit(plan): callback per aprire il form di modifica
-//   - onCancel(plan): callback annulla AP
-//   - onRestore(plan): callback ripristina AP annullato
-//   - onDelete(id): callback elimina AP definitivamente
-// ──────────────────────────────────────────────────────────
+// Compressione automatica immagini (max 1280px, qualità 80%)
+async function compressImage(file, maxSize = 1280, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        let { width, height } = img
+        // Ridimensiona se più grande di maxSize
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round((height * maxSize) / width)
+            width = maxSize
+          } else {
+            width = Math.round((width * maxSize) / height)
+            height = maxSize
+          }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+        // Converti in JPEG con qualità 80%
+        const dataUrl = canvas.toDataURL('image/jpeg', quality)
+        resolve(dataUrl)
+      }
+      img.onerror = reject
+      img.src = e.target.result
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+// Lettura file generico in base64
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => resolve(e.target.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit, onCancel, onRestore, onDelete }) {
   const [detail, setDetail] = useState(plan)
   const [nuovoCommento, setNuovoCommento] = useState('')
   const [nuovoChecklistItem, setNuovoChecklistItem] = useState('')
+  const [uploadingAllegato, setUploadingAllegato] = useState(false)
+  const [lightboxImg, setLightboxImg] = useState(null)
   const { configs } = useAllConfigurations()
   const statiConfig = configs.stato_ap || []
 
@@ -90,17 +125,91 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
     reload()
   }
 
+  // ─────────────────────────────────────────────
+  // ALLEGATI: upload + delete
+  // ─────────────────────────────────────────────
+  async function handleFileUpload(e) {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    setUploadingAllegato(true)
+    try {
+      for (const file of files) {
+        // Verifica limite allegati
+        const totaleAttuale = (detail.allegati || []).length
+        if (totaleAttuale >= 10) {
+          alert('Massimo 10 allegati per Action Plan')
+          break
+        }
+
+        // Verifica tipo
+        const isImage = file.type.startsWith('image/')
+        const isPdf = file.type === 'application/pdf'
+        const isDoc = file.type.includes('word') || file.type.includes('excel') ||
+                      file.type.includes('sheet') || file.type.includes('document')
+
+        if (!isImage && !isPdf && !isDoc) {
+          alert(`Tipo file non supportato: ${file.name}\nSupportati: immagini, PDF, Word, Excel`)
+          continue
+        }
+
+        // Verifica dimensione (2 MB per non-immagini, 10 MB per immagini prima della compressione)
+        const maxBytes = isImage ? 10 * 1024 * 1024 : 2 * 1024 * 1024
+        if (file.size > maxBytes) {
+          alert(`File troppo grande: ${file.name}\nMax: ${isImage ? '10 MB (immagini)' : '2 MB'}`)
+          continue
+        }
+
+        // Conversione in base64 (con compressione per immagini)
+        const base64Data = isImage
+          ? await compressImage(file)
+          : await fileToBase64(file)
+
+        // Stima dimensione finale (base64 ~33% in più del binario)
+        const dimensioneFinale = Math.round((base64Data.length * 3) / 4)
+
+        await api.post(`/action-plans/${plan._id}/allegati`, {
+          nome: file.name,
+          tipo: file.type,
+          dimensione: dimensioneFinale,
+          data: base64Data,
+          autore: 'Default User',
+        })
+      }
+      reload()
+    } catch (err) {
+      console.error(err)
+      alert('Errore upload: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setUploadingAllegato(false)
+      // Reset input file
+      e.target.value = ''
+    }
+  }
+
+  async function removeAllegato(allegatoId, nome) {
+    if (!confirm(`Eliminare l'allegato "${nome}"?`)) return
+    try {
+      await api.delete(`/action-plans/${plan._id}/allegati/${allegatoId}`)
+      reload()
+    } catch (err) {
+      alert('Errore: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
   const TipoIcon = TIPO_ICONS[detail.tipo] || CheckSquare
   const checklistCompletati = detail.checklist?.filter(c => c.completato).length || 0
   const checklistTotali = detail.checklist?.length || 0
   const checklistPercent = checklistTotali ? Math.round((checklistCompletati / checklistTotali) * 100) : 0
+  const allegati = detail.allegati || []
+  const immagini = allegati.filter(a => a.tipo?.startsWith('image/'))
+  const documenti = allegati.filter(a => !a.tipo?.startsWith('image/'))
 
   return (
     <Modal onClose={onClose}>
       <div className="grid grid-cols-3 gap-0 h-[85vh]">
-        {/* COLONNA SX: contenuto principale */}
+        {/* COLONNA SX */}
         <div className="col-span-2 overflow-y-auto border-r">
-          {/* Header viola */}
           <div className="bg-gradient-to-r from-primary to-primary-light text-white p-4">
             <div className="flex items-center gap-2 text-sm opacity-90 mb-2">
               <TipoIcon size={16} />
@@ -111,7 +220,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
             <h2 className="text-xl font-bold">{detail.titolo}</h2>
           </div>
 
-          {/* Descrizione + Tags + Checklist + Commenti */}
           <div className="p-6 space-y-6">
             <Section title="Descrizione">
               {detail.descrizione ? (
@@ -167,6 +275,93 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
               </div>
             </Section>
 
+            {/* 🆕 ALLEGATI */}
+            <Section title={`Allegati ${allegati.length > 0 ? `(${allegati.length}/10)` : ''}`}>
+              {/* Immagini in griglia */}
+              {immagini.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {immagini.map(img => (
+                    <div key={img.id} className="relative group">
+                      {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+                      {img.data}={img.nome}
+                        className="w-full h-24 object-cover rounded border cursor-pointer hover:opacity-80"
+                        onClick={() => setLightboxImg(img)}
+                      />
+                      <button
+                        onClick={() => removeAllegato(img.id, img.nome)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Documenti come lista */}
+              {documenti.length > 0 && (
+                <div className="space-y-1 mb-3">
+                  {documenti.map(doc => (
+                    <div key={doc.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm group">
+                      <FileText size={16} className="text-gray-500 flex-shrink-0" />
+                      <a
+                        {doc.data}
+                        download={doc.nome}
+                        className="flex-1 truncate text-blue-600 hover:underline"
+                      >
+                        {doc.nome}
+                      </a>
+                      <span className="text-xs text-gray-400">
+                        {(doc.dimensione / 1024).toFixed(0)} KB
+                      </span>
+                      <button
+                        onClick={() => removeAllegato(doc.id, doc.nome)}
+                        className="opacity-0 group-hover:opacity-100 text-red-500"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Bottoni upload */}
+              {allegati.length < 10 && (
+                <div className="flex gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 text-sm text-gray-600">
+                    <Paperclip size={16} />
+                    {uploadingAllegato ? 'Caricamento...' : 'Aggiungi file'}
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={handleFileUpload}
+                      disabled={uploadingAllegato}
+                      className="hidden"
+                    />
+                  </label>
+                  <label className="flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:bg-blue-50 text-sm text-blue-600">
+                    <Camera size={16} />
+                    Foto
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleFileUpload}
+                      disabled={uploadingAllegato}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {allegati.length === 0 && !uploadingAllegato && (
+                <div className="text-xs text-gray-400 italic mt-1">
+                  Max 10 allegati · Immagini, PDF, Word, Excel
+                </div>
+              )}
+            </Section>
+
             <Section title={`Commenti (${detail.commenti?.length || 0})`}>
               <div className="space-y-3 mb-3">
                 {(detail.commenti || []).slice().reverse().map(c => (
@@ -197,14 +392,13 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
           </div>
         </div>
 
-        {/* COLONNA DX: sidebar dettagli */}
+        {/* COLONNA DX (invariata) */}
         <div className="overflow-y-auto bg-gray-50 p-4 space-y-4">
-          {/* Header dettagli con azioni */}
           <div className="flex justify-between items-center pb-2 border-b">
             <span className="text-sm font-medium">Dettagli</span>
             <div className="flex gap-1">
               {!detail.is_cancelled && onCancel && (
-                <button onClick={() => onCancel(detail)} className="p-1.5 hover:bg-orange-100 rounded text-orange-600" title="Annulla Action Plan">
+                <button onClick={() => onCancel(detail)} className="p-1.5 hover:bg-orange-100 rounded text-orange-600" title="Annulla">
                   <AlertCircle size={14} />
                 </button>
               )}
@@ -214,7 +408,7 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
                 </button>
               )}
               {onDelete && (
-                <button onClick={() => onDelete(detail._id)} className="p-1.5 hover:bg-red-100 rounded text-red-600" title="Elimina definitivamente">
+                <button onClick={() => onDelete(detail._id)} className="p-1.5 hover:bg-red-100 rounded text-red-600" title="Elimina">
                   <Trash2 size={14} />
                 </button>
               )}
@@ -292,7 +486,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
             <span className="text-xs">{detail.categoria_perdita || detail.tipo_perdita || '—'}</span>
           </SidebarRow>
 
-          {/* Collegamento a parent */}
           {detail.parent_type && detail.parent_type !== 'standalone' && (
             <SidebarRow label="Collegato a">
               <div className="text-xs text-right">
@@ -339,7 +532,6 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
             </SidebarRow>
           )}
 
-          {/* Feed attività */}
           <div className="pt-3 border-t">
             <div className="text-xs font-medium mb-2">Attività</div>
             <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -353,12 +545,35 @@ export default function ActionPlanDetailPanel({ plan, onClose, onUpdated, onEdit
           </div>
         </div>
       </div>
+
+      {/* Lightbox per immagini */}
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] p-4"
+          onClick={() => setLightboxImg(null)}
+        >
+          <button
+            onClick={() => setLightboxImg(null)}
+            className="absolute top-4 right-4 text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full"
+          >
+            <X size={24} />
+          </button>
+          {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
+          {lightboxImg.data}={lightboxImg.nome}
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded text-sm">
+            {lightboxImg.nome}
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }
 
 // ──────────────────────────────────────────────────────────
-// HELPERS (componenti UI interni)
+// HELPERS
 // ──────────────────────────────────────────────────────────
 function Modal({ children, onClose }) {
   return (
