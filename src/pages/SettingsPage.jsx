@@ -37,6 +37,7 @@ const SECTIONS = [
         color: 'green',
         description: 'Tipologia funzionale dell\'Action Plan',
         usedIn: ['Form Action Plan (campo "Tipo")', 'Filtri /action-plan'],
+      },
       {
         id: 'priorita_ap',
         label: 'Priorita',
