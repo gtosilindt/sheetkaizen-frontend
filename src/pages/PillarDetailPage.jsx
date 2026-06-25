@@ -76,8 +76,16 @@ export default function PillarDetailPage() {
         <div className="px-6 py-5" style={{ backgroundColor: `${color}15` }}>
           <div className="flex justify-between items-start gap-4">
             <div className="flex items-start gap-4 flex-1 min-w-0">
-              <div className="w-20 h-20 rounded-xl flex items-center justify-center text-5xl flex-shrink-0 shadow-md" style={{ backgroundColor: color, color: 'white' }}>
-                {pillar.icon || pillar.sigla?.charAt(0) || 'P'}
+              <div className="w-20 h-20 rounded-xl flex items-center justify-center text-5xl flex-shrink-0 shadow-md overflow-hidden" style={{ backgroundColor: color, color: 'white' }}>
+                {pillar.icon_image ? (
+                  <img
+                    src={pillar.icon_image}
+                    alt={pillar.sigla}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  pillar.icon || pillar.sigla?.charAt(0) || 'P'
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-1">
