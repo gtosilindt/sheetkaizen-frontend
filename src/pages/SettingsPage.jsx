@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Settings, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Search, GripVertical, ChevronRight, ChevronDown, Info, Factory, Cpu, Upload } from 'lucide-react'
 import api from '../services/api'
 
@@ -1156,13 +1156,12 @@ function PillarsManager({ onChange }) {
 // Componente icona riusabile (gestisce sia immagine che fallback)
 function PillarIcon({ pillar, size = 40 }) {
   if (pillar.icon_image) {
-    return (
-      {pillar.icon_image}
-        alt={pillar.sigla}
-        style={{ width: size, height: size, backgroundColor: pillar.color || '#6366f1' }}
-        className="rounded-lg object-contain border"
-      />
-    )
+    return React.createElement('img', {
+      src: pillar.icon_image,
+      alt: pillar.sigla,
+      style: { width: size, height: size, backgroundColor: pillar.color || '#6366f1' },
+      className: 'rounded-lg object-contain border',
+    })
   }
   return (
     <div
@@ -1427,15 +1426,12 @@ function PillarForm({ pillar, onClose, onSaved }) {
   )
 }
 
+
 // Componente helper per il preview nel form
 function PillarPreview({ form }) {
   if (form.icon_image) {
-    return (
-      {form.icon_image}
-        alt="Preview"
-        className="w-full h-full object-contain"
-      />
-    )
-  }
-  return <span>{form.icon || form.sigla?.charAt(0) || '?'}</span>
-}
+    return React.createElement('img', {
+      src: form.icon_image,
+      alt: 'Preview',
+      className: 'w-full h-full object-contain',
+    })
