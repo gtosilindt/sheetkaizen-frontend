@@ -1,8 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, FileText, ClipboardList, LayoutDashboard, Settings, Menu, X, BookOpen, Cog, Columns } from 'lucide-react'
+import { Home, FileText, ClipboardList, LayoutDashboard, Settings, Menu, X, BookOpen, Cog, Columns, Users } from 'lucide-react'
 import { useState } from 'react'
 import { APP_NAME } from '../config/app'
-import { ..., Users } from 'lucide-react'
 
 export default function Layout() {
   const location = useLocation()
