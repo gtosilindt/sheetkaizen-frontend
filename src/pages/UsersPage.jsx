@@ -206,7 +206,10 @@ export default function UsersPage() {
               {filtered.map(u => {
                 const ruoloInfo = RUOLI.find(r => r.value === u.role) || RUOLI[2]
                 const userPillars = pillars.filter(p =>
-                  u.pillar_ids?.includes(p._id) || u.pillar_leader_of?.includes(p._id)
+                  p.members_ids?.includes(u.id) ||
+                  p.leader_id === u.id ||
+                  p.members?.includes(u.full_name) ||
+                  p.leader === u.full_name
                 )
                 return (
                   <tr key={u.id} className={`border-b hover:bg-gray-50 ${!u.is_active ? 'opacity-60' : ''}`}>
@@ -252,7 +255,7 @@ export default function UsersPage() {
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {userPillars.slice(0, 3).map(p => {
-                            const isLeader = u.pillar_leader_of?.includes(p._id)
+                            const isLeader = p.leader_id === u.id || p.leader === u.full_name
                             return (
                               <span
                                 key={p._id}
@@ -351,8 +354,6 @@ function UserForm({ user, pillars, reparti, onClose, onSaved }) {
     linee: user?.linee || [],
     team: user?.team || '',
     macchine: user?.macchine || [],
-    pillar_ids: user?.pillar_ids || [],
-    pillar_leader_of: user?.pillar_leader_of || [],
   })
   const [saving, setSaving] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -391,24 +392,6 @@ function UserForm({ user, pillars, reparti, onClose, onSaved }) {
       macchine: f.macchine.includes(nome)
         ? f.macchine.filter(m => m !== nome)
         : [...f.macchine, nome]
-    }))
-  }
-
-  function togglePillar(pillarId) {
-    setForm(f => ({
-      ...f,
-      pillar_ids: f.pillar_ids.includes(pillarId)
-        ? f.pillar_ids.filter(p => p !== pillarId)
-        : [...f.pillar_ids, pillarId]
-    }))
-  }
-
-  function togglePillarLeader(pillarId) {
-    setForm(f => ({
-      ...f,
-      pillar_leader_of: f.pillar_leader_of.includes(pillarId)
-        ? f.pillar_leader_of.filter(p => p !== pillarId)
-        : [...f.pillar_leader_of, pillarId]
     }))
   }
 
@@ -612,54 +595,6 @@ function UserForm({ user, pillars, reparti, onClose, onSaved }) {
                 placeholder="es: Turno A, Manutenzione, TPM"
               />
             </Field>
-          </Section>
-
-          {/* PILLAR */}
-          <Section title="Associazione Pillar (per ufficio/manager)">
-            {pillars.length === 0 ? (
-              <div className="text-sm text-gray-400 italic">Nessun Pillar configurato</div>
-            ) : (
-              <div className="space-y-2">
-                {pillars.filter(p => p.attivo !== false).map(p => {
-                  const isMember = form.pillar_ids.includes(p._id)
-                  const isLeader = form.pillar_leader_of.includes(p._id)
-                  return (
-                    <div key={p._id} className="flex items-center gap-3 p-2 border rounded-lg">
-                      <div
-                        className="w-8 h-8 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                        style={{ backgroundColor: p.color || '#6366f1' }}
-                      >
-                        {p.sigla?.charAt(0) || 'P'}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-mono text-sm font-bold" style={{ color: p.color || '#6366f1' }}>
-                          {p.sigla}
-                        </div>
-                        <div className="text-xs text-gray-600">{p.label}</div>
-                      </div>
-                      <label className="flex items-center gap-1 text-xs cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={isMember}
-                          onChange={() => togglePillar(p._id)}
-                          className="w-4 h-4"
-                        />
-                        Membro
-                      </label>
-                      <label className="flex items-center gap-1 text-xs cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={isLeader}
-                          onChange={() => togglePillarLeader(p._id)}
-                          className="w-4 h-4"
-                        />
-                        Leader
-                      </label>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
           </Section>
 
           {/* BOTTONI */}
