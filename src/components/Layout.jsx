@@ -16,7 +16,6 @@ export default function Layout() {
     { to: '/documenti', icon: BookOpen, label: 'Documenti' },
     { to: '/users', icon: Users, label: 'Utenti' },
     { to: '/settings', icon: Cog, label: 'Settings' },
-    { to: '/admin', icon: Settings, label: 'Admin' },
   ]
 
   return (
