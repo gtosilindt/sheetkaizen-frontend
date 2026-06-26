@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Settings, Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Search, GripVertical, ChevronRight, ChevronDown, Info, Factory, Cpu, Upload } from 'lucide-react'
 import api from '../services/api'
+import UserPicker from '../components/UserPicker'
 
 const SECTIONS = [
   {
@@ -926,11 +927,15 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
     if (!form.label.trim()) return alert('Label obbligatoria')
     setSaving(true)
     try {
-      const payload = { ...form, tipo, codice: form.codice.trim() || null }
-      if (item?._id) {
-        await api.put(`/configurazioni/${item._id}`, payload)
-      } else {
-        await api.post('/configurazioni/', payload)
+      // Rimuovi members_data dal payload (è solo per UI)
+      const { members_data, ...formClean } = form
+      const payload = {
+        ...formClean,
+        sigla: form.sigla.trim().toUpperCase(),
+        members: Array.isArray(form.members)
+          ? form.members
+          : (form.members || '').split(',').map(m => m.trim()).filter(Boolean),
+        anno: parseInt(form.anno) || new Date().getFullYear(),
       }
       onSaved()
     } catch (err) {
@@ -1196,11 +1201,25 @@ function PillarForm({ pillar, onClose, onSaved }) {
     icon_image: pillar?.icon_image || '',
     color: pillar?.color || '#6366f1',
     leader: pillar?.leader || '',
+    leader_id: pillar?.leader_id || null,
     leader_email: pillar?.leader_email || '',
-    members: pillar?.members?.join(', ') || '',
+    members: pillar?.members || [],         // ora è un array di stringhe
+    members_ids: pillar?.members_ids || [], // array di id utenti
+    members_data: pillar?.members_data || [], // array di {id, name} per UserPicker
     anno: pillar?.anno || new Date().getFullYear(),
     note: pillar?.note || '',
   })
+
+  // Inizializza members_data dai vecchi dati se presente
+  useEffect(() => {
+    if (pillar?.members_ids && pillar?.members && pillar.members.length > 0) {
+      const data = pillar.members.map((name, idx) => ({
+        id: pillar.members_ids[idx] || `legacy-${idx}`,
+        name: name,
+      }))
+      setForm(f => ({ ...f, members_data: data }))
+    }
+  }, [pillar])
   const [saving, setSaving] = useState(false)
 
   function handleImageUpload(e) {
@@ -1376,22 +1395,42 @@ function PillarForm({ pillar, onClose, onSaved }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1">Leader</label>
-              <input
-                value={form.leader}
-                onChange={(e) => setForm({ ...form, leader: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Email Leader</label>
-              <input
-                type="email"
-                value={form.leader_email}
-                onChange={(e) => setForm({ ...form, leader_email: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2"
-              />
-            </div>
+              <div>
+            <label className="block text-sm font-medium mb-1">Leader (Pillar Manager)</label>
+            <UserPicker
+              value={form.leader_id ? { id: form.leader_id, name: form.leader } : null}
+              onChange={(selected) => {
+                if (selected) {
+                  setForm({ ...form, leader_id: selected.id, leader: selected.name })
+                } else {
+                  setForm({ ...form, leader_id: null, leader: '' })
+                }
+              }}
+              mode="single"
+              roles={['office', 'manager', 'admin']}
+              placeholder="Cerca leader (office/manager/admin)..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Membri del Team
+              <span className="text-xs text-gray-500 font-normal ml-1">({form.members_data.length})</span>
+            </label>
+            <UserPicker
+              value={form.members_data}
+              onChange={(selected) => {
+                setForm({
+                  ...form,
+                  members_data: selected,
+                  members: selected.map(s => s.name),
+                  members_ids: selected.map(s => s.id),
+                })
+              }}
+              mode="multi"
+              placeholder="Aggiungi membri al team..."
+            />
+          </div>
           </div>
 
           <div>
