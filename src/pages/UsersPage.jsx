@@ -58,6 +58,25 @@ export default function UsersPage() {
     }
   }
 
+  async function handleResetPassword(user) {
+    const newPassword = prompt(
+      `Reset password per "${user.full_name}"\n\nInserisci la nuova password (minimo 4 caratteri):`,
+      'Demo2026!'
+    )
+    if (!newPassword || newPassword.trim().length < 4) {
+      if (newPassword !== null) alert('Password troppo corta (min 4 caratteri)')
+      return
+    }
+    try {
+      await api.post(`/users/${user.id}/reset-password`, {
+        new_password: newPassword.trim(),
+      })
+      alert(`Password resettata con successo per ${user.full_name}.\n\nNuova password: ${newPassword.trim()}\n\nComunica la password all'utente.`)
+    } catch (err) {
+      alert('Errore reset password: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
   async function handleReactivate(user) {
     try {
       await api.put(`/users/${user.id}`, { is_active: true })
@@ -267,6 +286,13 @@ export default function UsersPage() {
                           title="Modifica"
                         >
                           <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleResetPassword(u)}
+                          className="p-1 hover:bg-blue-100 rounded text-blue-600"
+                          title="Reset password"
+                        >
+                          <Lock size={14} />
                         </button>
                         {u.is_active ? (
                           <button
