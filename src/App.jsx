@@ -14,6 +14,7 @@ import SettingsPage from './pages/SettingsPage'
 import PillarListPage from './pages/PillarListPage'
 import PillarDetailPage from './pages/PillarDetailPage'
 import AdminPage from './pages/AdminPage'
+import UsersPage from './pages/UsersPage'
 
 
 export default function App() {
@@ -42,6 +43,16 @@ export default function App() {
           <Route path="pillars" element={<PillarListPage />} />
           <Route path="pillars/:id" element={<PillarDetailPage />} />
           <Route path="settings" element={<SettingsPage />} />
+
+          {/* Gestione Utenti: solo admin */}
+          <Route
+            path="users"
+            element={
+              <ProtectedRoute requireRole="admin">
+                <UsersPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Admin: solo per role=admin */}
           <Route
