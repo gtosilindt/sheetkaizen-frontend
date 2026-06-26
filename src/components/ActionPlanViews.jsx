@@ -93,22 +93,40 @@ function CollegatoBadge({ ap }) {
   )
 }
 
-function StatoColorClass(stato, statiConfig = []) {
+function getStatoStyle(stato, statiConfig = []) {
   const cfg = statiConfig.find(s => s.label === stato)
+
+  // Se Settings ha colore custom, usa stile inline
   if (cfg?.color) {
-    // se Settings ha colore custom, ritorna stile inline
-    return null
+    const hex = cfg.color
+    return {
+      className: 'border font-medium',
+      style: {
+        backgroundColor: hex + '20',  // sfondo chiaro (20 = ~12% opacità)
+        color: hex,
+        borderColor: hex + '60',      // bordo medio
+      },
+    }
   }
+
+  // Altrimenti mapping default basato sul nome
   const defaultMap = {
     'Da Valutare': 'bg-gray-100 text-gray-700 border-gray-300',
+    'Da valutare': 'bg-gray-100 text-gray-700 border-gray-300',
     Aperto: 'bg-blue-100 text-blue-700 border-blue-300',
     'In Corso': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+    'In corso': 'bg-indigo-100 text-indigo-700 border-indigo-300',
     'In Verifica': 'bg-purple-100 text-purple-700 border-purple-300',
+    'In verifica': 'bg-purple-100 text-purple-700 border-purple-300',
     Done: 'bg-green-100 text-green-700 border-green-300',
     Chiuso: 'bg-green-100 text-green-700 border-green-300',
     Cancelled: 'bg-gray-100 text-gray-500 border-gray-300',
+    Annullato: 'bg-gray-100 text-gray-500 border-gray-300',
   }
-  return defaultMap[stato] || 'bg-gray-100 text-gray-700 border-gray-300'
+  return {
+    className: defaultMap[stato] || 'bg-gray-100 text-gray-700 border-gray-300',
+    style: {},
+  }
 }
 
 // ──────────────────────────────────────────────────────────
@@ -307,19 +325,25 @@ function ListView({
                   <Avatar name={ap.responsabile} />
                 </td>
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                  <select
-                    value={ap.stato || ''}
-                    onChange={(e) => onChangeStato?.(ap, e.target.value)}
-                    className={`text-xs px-1.5 py-1 rounded border font-medium ${StatoColorClass(ap.stato, statiConfig)}`}
-                  >
-                    {statiConfig.length === 0 ? (
-                      <option value={ap.stato || ''}>{ap.stato || '— Configura stati —'}</option>
-                    ) : (
-                      statiConfig.map(s => (
-                        <option key={s._id} value={s.label}>{s.label}</option>
-                      ))
-                    )}
-                  </select>
+                  {(() => {
+                    const statoStyle = getStatoStyle(ap.stato, statiConfig)
+                    return (
+                      <select
+                        value={ap.stato || ''}
+                        onChange={(e) => onChangeStato?.(ap, e.target.value)}
+                        className={`text-xs px-1.5 py-1 rounded ${statoStyle.className}`}
+                        style={statoStyle.style}
+                      >
+                        {statiConfig.length === 0 ? (
+                          <option value={ap.stato || ''}>{ap.stato || '— Configura stati —'}</option>
+                        ) : (
+                          statiConfig.map(s => (
+                            <option key={s._id} value={s.label}>{s.label}</option>
+                          ))
+                        )}
+                      </select>
+                    )
+                  })()}
                 </td>
                 <td className="px-3 py-2 text-xs">
                   {ap.data_scadenza ? (
@@ -417,12 +441,27 @@ function KanbanView({ plans, statiConfig, onSelectAP, onChangeStato }) {
 
   const columns = statiConfig.map((s, idx) => {
     const palette = KANBAN_PALETTE[idx % KANBAN_PALETTE.length]
+    // Se lo stato ha colore custom dai Settings, usalo
+    const hex = s.color
+    if (hex) {
+      return {
+        id: s.label,
+        label: s.label,
+        isTerminal: !!s.is_terminal,
+        color: 'border',
+        colorStyle: { backgroundColor: hex + '15', borderColor: hex + '60' },
+        headerColor: '',
+        headerStyle: { backgroundColor: hex + '40', color: hex },
+      }
+    }
     return {
       id: s.label,
       label: s.label,
       isTerminal: !!s.is_terminal,
       color: palette.color,
       headerColor: palette.headerColor,
+      colorStyle: {},
+      headerStyle: {},
     }
   })
 
@@ -460,8 +499,15 @@ function KanbanView({ plans, statiConfig, onSelectAP, onChangeStato }) {
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-3" style={{ minHeight: '70vh' }}>
           {columns.map(col => (
-            <div key={col.id} className={`flex-shrink-0 w-72 rounded-lg border-2 ${col.color} flex flex-col`}>
-              <div className={`${col.headerColor} px-3 py-2 rounded-t-md font-semibold text-sm flex justify-between items-center`}>
+            <div
+              key={col.id}
+              className={`flex-shrink-0 w-72 rounded-lg border-2 ${col.color} flex flex-col`}
+              style={col.colorStyle}
+            >
+              <div
+                className={`${col.headerColor} px-3 py-2 rounded-t-md font-semibold text-sm flex justify-between items-center`}
+                style={col.headerStyle}
+              >
                 <span>{col.label}</span>
                 <span className="bg-white bg-opacity-50 px-2 py-0.5 rounded-full text-xs">{grouped[col.id].length}</span>
               </div>
