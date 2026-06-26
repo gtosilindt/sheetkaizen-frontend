@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Home, FileText, ClipboardList, LayoutDashboard, Settings, Menu, X, BookOpen, Cog, Columns } from 'lucide-react'
 import { useState } from 'react'
 import { APP_NAME } from '../config/app'
+import { ..., Users } from 'lucide-react'
 
 export default function Layout() {
   const location = useLocation()
@@ -14,6 +15,7 @@ export default function Layout() {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Meetings' },
     { to: '/pillars', icon: Columns, label: 'Pillars' },
     { to: '/documenti', icon: BookOpen, label: 'Documenti' },
+    { to: '/users', icon: Users, label: 'Utenti' },
     { to: '/settings', icon: Cog, label: 'Settings' },
     { to: '/admin', icon: Settings, label: 'Admin' },
   ]
