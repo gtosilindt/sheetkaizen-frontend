@@ -105,6 +105,18 @@ export default function KaizenDetailPage() {
     } catch (err) { console.error(err) }
   }
 
+  const saveKaizen = async () => {
+    setSaving(true)
+    try {
+      await api.put(`/kaizens/${id}`, kaizen)
+      alert('✅ Kaizen salvato!')
+    } catch (err) {
+      console.error(err)
+      alert('❌ Errore salvataggio: ' + (err.response?.data?.detail || err.message))
+    }
+    setSaving(false)
+  }
+
   const riapriKaizen = async () => {
     if (!confirm(`Riaprire il Kaizen "${kaizen.numero}"?\n\nLo stato tornerà a "Aperto" e sarà nuovamente modificabile.`)) return
     try {
