@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../services/api'
-import { Save, ChevronDown, X, History, RefreshCw } from 'lucide-react'
+import { Save, ChevronDown, X, History, RefreshCw, Lock, RotateCcw } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import IshikawaDiagram from '../components/kaizen/IshikawaDiagram'
 import FiveWhysFlowChart from '../components/kaizen/FiveWhysFlowChart'
@@ -88,6 +88,9 @@ export default function KaizenDetailPage() {
   const indiceLivello = LIVELLI.indexOf(livelloAttuale)
   const tabs = buildTabsForLivello(livelloAttuale)
 
+  // 🔒 Lock totale quando il Kaizen è chiuso
+  const isLocked = kaizen?.stato === 'Chiuso' || kaizen?.stato === 'Cancelled'
+
   useEffect(() => {
     if (kaizen && !tabs.find(t => t.id === activeTab)) {
       setActiveTab(tabs[0]?.id || 'quickkaizen')
@@ -102,13 +105,28 @@ export default function KaizenDetailPage() {
     } catch (err) { console.error(err) }
   }
 
-  const saveKaizen = async () => {
-    setSaving(true)
+  const riapriKaizen = async () => {
+    if (!confirm(`Riaprire il Kaizen "${kaizen.numero}"?\n\nLo stato tornerà a "Aperto" e sarà nuovamente modificabile.`)) return
     try {
-      await api.put(`/kaizens/${id}`, kaizen)
-      alert('Kaizen salvato!')
-    } catch (err) { console.error(err) }
-    setSaving(false)
+      await api.put(`/kaizens/${id}`, { stato: 'Aperto' })
+      await loadKaizen()
+      alert('✅ Kaizen riaperto')
+    } catch (err) {
+      console.error(err)
+      alert('❌ Errore riapertura: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  const chiudiKaizen = async () => {
+    if (!confirm(`Chiudere il Kaizen "${kaizen.numero}"?\n\nDiventerà read-only e tutti i campi saranno bloccati.\nPotrai riaprirlo in seguito se necessario.`)) return
+    try {
+      await api.put(`/kaizens/${id}`, { stato: 'Chiuso' })
+      await loadKaizen()
+      alert('✅ Kaizen chiuso')
+    } catch (err) {
+      console.error(err)
+      alert('❌ Errore chiusura: ' + (err.response?.data?.detail || err.message))
+    }
   }
 
   const updateField = (section, field, value) => {
@@ -157,7 +175,8 @@ export default function KaizenDetailPage() {
             <div className="flex gap-4 mt-2 text-sm text-gray-200 flex-wrap">
               <span>📋 {kaizen.numero}</span>
               <span>📊 {kaizen.stato}</span>
-              <span>👤 {kaizen.creatore_nome}</span>
+              {kaizen.creatore_nome && <span>👤 Creatore: {kaizen.creatore_nome}</span>}
+              {kaizen.team_leader_nome && <span>🎯 Leader: {kaizen.team_leader_nome}</span>}
               {kaizen.reparto && <span>🏭 {kaizen.reparto}</span>}
               {kaizen.linea && <span>📍 {kaizen.linea}</span>}
               {kaizen.macchina && <span>⚙️ {kaizen.macchina}</span>}
@@ -172,10 +191,32 @@ export default function KaizenDetailPage() {
               )}
             </div>
           </div>
-          <button onClick={saveKaizen} disabled={saving}
-            className="bg-white text-primary px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-100">
-            <Save size={18} /> {saving ? 'Salvataggio...' : 'Salva'}
-          </button>
+          <div className="flex gap-2">
+            {isLocked ? (
+              <button
+                onClick={riapriKaizen}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium"
+              >
+                <RotateCcw size={18} /> Riapri Kaizen
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={saveKaizen}
+                  disabled={saving}
+                  className="bg-white text-primary px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-100 disabled:opacity-50"
+                >
+                  <Save size={18} /> {saving ? 'Salvataggio...' : 'Salva'}
+                </button>
+                <button
+                  onClick={chiudiKaizen}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <Lock size={18} /> Chiudi Kaizen
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="bg-white bg-opacity-10 rounded-lg p-4">
@@ -217,6 +258,28 @@ export default function KaizenDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* 🔒 Banner Kaizen chiuso */}
+      {isLocked && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg p-4 mb-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Lock size={24} className="text-yellow-600 flex-shrink-0" />
+            <div>
+              <div className="font-bold text-yellow-900">Kaizen chiuso — Modalità sola lettura</div>
+              <div className="text-sm text-yellow-700">
+                Tutti i campi sono bloccati. Per modificare, riapri il Kaizen.
+                {kaizen.data_chiusura && ` Chiuso il ${new Date(kaizen.data_chiusura).toLocaleDateString('it-IT')}.`}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={riapriKaizen}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap flex items-center gap-2"
+          >
+            <RotateCcw size={16} /> Riapri
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-6">
         <div className="relative transform-dropdown">
@@ -372,6 +435,9 @@ export default function KaizenDetailPage() {
           </button>
         ))}
       </div>
+
+      {/* 🔒 Wrapper che disabilita TUTTI i campi quando isLocked */}
+      <fieldset disabled={isLocked} className={isLocked ? 'opacity-90 pointer-events-none' : ''}>
 
       {activeTab === 'quickkaizen' && (
         <div className="space-y-6">
