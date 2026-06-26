@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import api from '../services/api'
+import { useAllConfigurations } from '../hooks/useConfigurations'
 import { ArrowLeft, User, Calendar, Users, Edit2, Plus, Trash2, ClipboardList, Link2, AlertCircle, CheckSquare, Bug, TrendingUp, Shield, Wrench } from 'lucide-react'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import ActionPlanDetailPanel from '../components/ActionPlanDetailPanel'
+import ActionPlanViews from '../components/ActionPlanViews'
 import PresenzeWidget from '../components/widgets/PresenzeWidget'
 
 export default function PillarDetailPage() {
@@ -150,67 +152,14 @@ export default function PillarDetailPage() {
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// TAB ACTION PLAN — Nuovo layout stile Action Plan Management
-// ──────────────────────────────────────────────────────────
-const STATO_COLORS_AP = {
-  'Da Valutare': 'bg-gray-100 text-gray-700 border-gray-300',
-  'Aperto': 'bg-blue-100 text-blue-700 border-blue-300',
-  'In Corso': 'bg-indigo-100 text-indigo-700 border-indigo-300',
-  'In Verifica': 'bg-purple-100 text-purple-700 border-purple-300',
-  'Done': 'bg-green-100 text-green-700 border-green-300',
-  'Cancelled': 'bg-gray-200 text-gray-500 border-gray-300',
-}
-
-const PRIORITA_BG = {
-  Lowest: 'bg-gray-100 text-gray-700',
-  Low: 'bg-blue-100 text-blue-700',
-  Medium: 'bg-yellow-100 text-yellow-700',
-  High: 'bg-orange-100 text-orange-700',
-  Critical: 'bg-red-100 text-red-700',
-}
-
-const TIPO_ICONS = {
-  Task: CheckSquare,
-  Bug: Bug,
-  Improvement: TrendingUp,
-  Audit: Shield,
-  Manutenzione: Wrench,
-  Sicurezza: AlertCircle,
-}
-
-const TIPO_COLORS = {
-  Task: 'text-blue-600',
-  Bug: 'text-red-600',
-  Improvement: 'text-green-600',
-  Audit: 'text-purple-600',
-  Manutenzione: 'text-orange-600',
-  Sicurezza: 'text-yellow-600',
-}
-
-function AvatarAP({ name }) {
-  if (!name) return <span className="text-xs text-gray-400 italic">— Non assegnato</span>
-  const initials = name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()
-  const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-yellow-500', 'bg-orange-500']
-  const color = colors[name.charCodeAt(0) % colors.length]
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className={`${color} text-white rounded-full flex items-center justify-center font-bold flex-shrink-0`}
-        style={{ width: 24, height: 24, fontSize: 10 }}
-      >
-        {initials}
-      </div>
-      <span className="text-xs">{name}</span>
-    </div>
-  )
-}
-
 function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
   const [showForm, setShowForm] = useState(false)
   const [editingAP, setEditingAP] = useState(null)
   const [filterStato, setFilterStato] = useState('')
-  const [selectedAP, setSelectedAP] = useState(null)  // 🆕 pannello dettaglio
+  const [selectedAP, setSelectedAP] = useState(null)
+
+  const { configs } = useAllConfigurations()
+  const statiConfig = configs.stato_ap || []
 
   const prefilledPillar = {
     parent_type: 'pillar',
@@ -225,19 +174,19 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
     onReload()
   }
 
-  async function changeStato(apId, nuovoStato) {
+  async function changeStato(ap, nuovoStato) {
     try {
-      await api.patch(`/action-plans/${apId}/stato`, { stato: nuovoStato })
+      await api.patch(`/action-plans/${ap._id}/stato`, { stato: nuovoStato })
       onReload()
     } catch (err) {
       alert('Errore: ' + (err.response?.data?.detail || err.message))
     }
   }
 
-  async function unlinkAP(apId, apNumero) {
-    if (!confirm(`Scollegare ${apNumero} dal Pillar ${pillar.sigla}?\nL'AP rimane nel sistema ma non sarà più collegato a questo Pillar.`)) return
+  async function unlinkAP(ap) {
+    if (!confirm(`Scollegare ${ap.numero} dal Pillar ${pillar.sigla}?\nL'AP rimane nel sistema ma non sarà più collegato a questo Pillar.`)) return
     try {
-      await api.put(`/action-plans/${apId}`, {
+      await api.put(`/action-plans/${ap._id}`, {
         parent_type: 'standalone',
         parent_id: null,
         parent_label: null,
@@ -249,10 +198,10 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
     }
   }
 
-  async function deleteAP(apId, apNumero) {
-    if (!confirm(`ELIMINA ${apNumero}?\n\nQuesto rimuove l'Action Plan in modo permanente. Conferma solo se sei sicuro.`)) return
+  async function deleteAP(ap) {
+    if (!confirm(`ELIMINA ${ap.numero}?\n\nQuesto rimuove l'Action Plan in modo permanente.`)) return
     try {
-      await api.delete(`/action-plans/${apId}`)
+      await api.delete(`/action-plans/${ap._id}`)
       onReload()
     } catch (err) {
       alert('Errore: ' + (err.response?.data?.detail || err.message))
@@ -276,7 +225,7 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
   }
 
   async function restoreAP(plan) {
-    if (!confirm(`Ripristinare l'Action Plan "${plan.numero}"?\n\nTornerà tra gli attivi.`)) return
+    if (!confirm(`Ripristinare l'Action Plan "${plan.numero}"?`)) return
     try {
       await api.post(`/action-plans/${plan._id}/restore`)
       onReload()
@@ -300,6 +249,7 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
 
   return (
     <div className="space-y-4">
+      {/* Header con counts + filtri + bottone */}
       <div className="bg-white rounded-xl shadow p-4">
         <div className="flex justify-between items-center mb-3">
           <div>
@@ -334,12 +284,9 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
             className="text-xs border rounded px-2 py-1"
           >
             <option value="">Tutti gli stati</option>
-            <option>Da Valutare</option>
-            <option>Aperto</option>
-            <option>In Corso</option>
-            <option>In Verifica</option>
-            <option>Done</option>
-            <option>Cancelled</option>
+            {statiConfig.map(s => (
+              <option key={s._id} value={s.label}>{s.label}</option>
+            ))}
           </select>
           {filterStato && (
             <button
@@ -355,132 +302,34 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
         </div>
       </div>
 
-      {actionPlansFiltrati.length === 0 ? (
-        <div className="bg-white rounded-xl shadow p-12 text-center">
-          <ClipboardList className="mx-auto text-gray-300 mb-3" size={48} />
-          <p className="text-gray-400 mb-3">
-            {actionPlans.length === 0
-              ? 'Nessun Action Plan collegato a questo pillar'
-              : 'Nessun risultato per i filtri impostati'}
-          </p>
-          {actionPlans.length === 0 && (
-            <>
-              <p className="text-xs text-gray-400 mb-4">
-                Crea un AP qui per averlo automaticamente collegato a <strong>{pillar.sigla}</strong>
-              </p>
-              <button
-                onClick={() => { setEditingAP(null); setShowForm(true) }}
-                className="text-primary hover:underline text-sm"
-              >
-                + Crea il primo Action Plan
-              </button>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500">
-              <tr>
-                <th className="px-3 py-2 text-left w-24">Numero</th>
-                <th className="px-3 py-2 text-left">Titolo</th>
-                <th className="px-3 py-2 text-left w-24">Tipo</th>
-                <th className="px-3 py-2 text-left w-24">Priorità</th>
-                <th className="px-3 py-2 text-left w-40">Responsabile</th>
-                <th className="px-3 py-2 text-left w-32">Stato</th>
-                <th className="px-3 py-2 text-left w-28">Scadenza</th>
-                <th className="px-3 py-2 text-center w-32">Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {actionPlansFiltrati.map(ap => {
-                const TipoIcon = TIPO_ICONS[ap.tipo] || CheckSquare
-                const isOverdue = ap.stato_visuale === 'In Ritardo'
-                const isCancelled = ap.is_cancelled
-                return (
-                  <tr
-                    key={ap._id}
-                    className={`border-b hover:bg-gray-50 cursor-pointer ${isCancelled ? 'opacity-60' : ''}`}
-                    onClick={() => setSelectedAP(ap)}
-                  >
-                    <td className="px-3 py-2 font-mono text-primary text-xs font-bold">
-                      {ap.numero}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium truncate max-w-md">{ap.titolo}</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      {ap.tipo ? (
-                        <div className={`flex items-center gap-1 text-xs ${TIPO_COLORS[ap.tipo] || 'text-gray-500'}`}>
-                          <TipoIcon size={14} />
-                          <span>{ap.tipo}</span>
-                        </div>
-                      ) : <span className="text-xs text-gray-300">—</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      {ap.priorita ? (
-                        <span className={`px-2 py-0.5 rounded text-xs ${PRIORITA_BG[ap.priorita] || 'bg-gray-100 text-gray-700'}`}>
-                          {ap.priorita}
-                        </span>
-                      ) : <span className="text-xs text-gray-300">—</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      <AvatarAP name={ap.responsabile} />
-                    </td>
-                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={ap.stato || 'Aperto'}
-                        onChange={(e) => changeStato(ap._id, e.target.value)}
-                        className={`text-xs px-1.5 py-1 rounded border font-medium ${STATO_COLORS_AP[ap.stato] || 'bg-gray-100 text-gray-700'}`}
-                      >
-                        <option>Da Valutare</option>
-                        <option>Aperto</option>
-                        <option>In Corso</option>
-                        <option>In Verifica</option>
-                        <option>Done</option>
-                        <option>Cancelled</option>
-                      </select>
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      {ap.data_scadenza ? (
-                        <div className={isOverdue ? 'text-red-600 font-bold' : 'text-gray-700'}>
-                          {new Date(ap.data_scadenza).toLocaleDateString('it-IT')}
-                        </div>
-                      ) : '—'}
-                    </td>
-                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-center gap-1">
-                        <button
-                          onClick={() => { setEditingAP(ap); setShowForm(true) }}
-                          className="p-1 hover:bg-yellow-100 rounded text-yellow-600"
-                          title="Modifica"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => unlinkAP(ap._id, ap.numero)}
-                          className="p-1 hover:bg-orange-100 rounded text-orange-600"
-                          title="Scollega dal Pillar"
-                        >
-                          <Link2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => deleteAP(ap._id, ap.numero)}
-                          className="p-1 hover:bg-red-100 rounded text-red-600"
-                          title="Elimina definitivamente"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* ActionPlanViews riusabile */}
+      <ActionPlanViews
+        plans={actionPlansFiltrati}
+        statiConfig={statiConfig}
+        onSelectAP={setSelectedAP}
+        onEditAP={(p) => { setEditingAP(p); setShowForm(true) }}
+        onDeleteAP={deleteAP}
+        onUnlinkAP={unlinkAP}
+        onChangeStato={changeStato}
+        unlinkLabel="Scollega dal Pillar"
+        showCollegato={false}
+        showStepGant={false}
+        showKanban={true}
+        showCalendar={true}
+        defaultView="list"
+        emptyMessage={
+          actionPlans.length === 0
+            ? 'Nessun Action Plan collegato a questo pillar'
+            : 'Nessun risultato per i filtri impostati'
+        }
+        emptyAction={
+          actionPlans.length === 0
+            ? { label: '+ Crea il primo Action Plan', onClick: () => { setEditingAP(null); setShowForm(true) } }
+            : null
+        }
+      />
 
+      {/* Modal form */}
       {showForm && (
         <ActionPlanFormShared
           plan={editingAP}
@@ -491,7 +340,7 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
         />
       )}
 
-      {/* Pannello dettaglio AP (cliccando una riga) */}
+      {/* Pannello dettaglio */}
       {selectedAP && (
         <ActionPlanDetailPanel
           plan={selectedAP}
@@ -500,7 +349,7 @@ function ActionPlanTab({ actionPlans, pillar, color, onReload }) {
           onEdit={(p) => { setSelectedAP(null); setEditingAP(p); setShowForm(true) }}
           onCancel={async (p) => { await cancelAP(p); setSelectedAP(null) }}
           onRestore={async (p) => { await restoreAP(p); setSelectedAP(null) }}
-          onDelete={async (apId) => { await deleteAP(apId, selectedAP.numero); setSelectedAP(null) }}
+          onDelete={async (apId) => { await deleteAP({ _id: apId, numero: selectedAP.numero }); setSelectedAP(null) }}
         />
       )}
     </div>
