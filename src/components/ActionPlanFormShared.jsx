@@ -29,7 +29,6 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
     macchina: plan?.macchina || '',
     data_scadenza: plan?.data_scadenza ? plan.data_scadenza.slice(0, 10) : '',
     tags: plan?.tags?.join(', ') || '',
-    // Parent prefilled (es. da pagina Pillar / Dashboard)
     parent_type: plan?.parent_type || prefilledParent?.parent_type || 'standalone',
     parent_id: plan?.parent_id || prefilledParent?.parent_id || null,
     parent_label: plan?.parent_label || prefilledParent?.parent_label || null,
@@ -39,13 +38,11 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
   const [saving, setSaving] = useState(false)
   const { configs } = useAllConfigurations()
 
-  // Carico reparti dal nuovo endpoint /reparti (con linee e macchine annidate)
   const [reparti, setReparti] = useState([])
   useEffect(() => {
     api.get('/reparti/').then(res => setReparti(res.data || [])).catch(() => setReparti([]))
   }, [])
 
-  // Linee/Macchine filtrate dinamicamente
   const lineeDisponibili = useMemo(() => {
     if (!form.reparto) return []
     const rep = reparti.find(r => r.nome === form.reparto)
@@ -58,7 +55,6 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
     return linea?.macchine?.filter(m => m.attivo !== false) || []
   }, [form.linea, lineeDisponibili])
 
-  // Imposta defaults da Settings se è un nuovo AP
   useEffect(() => {
     if (plan) return
     const stati = configs.stato_ap || []
@@ -73,13 +69,13 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
   function handleRepartoChange(nuovoReparto) {
     setForm(f => ({ ...f, reparto: nuovoReparto, linea: '', macchina: '' }))
   }
+
   function handleLineaChange(nuovaLinea) {
     setForm(f => ({ ...f, linea: nuovaLinea, macchina: '' }))
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    // 🆕 Scadenza obbligatoria
     if (!form.data_scadenza) {
       alert('La scadenza è obbligatoria')
       return
@@ -93,15 +89,18 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
         if (!tagsArray.includes(kaizenTag)) tagsArray.push(kaizenTag)
       }
 
-      const cleanForm = Object.fromEntries(
-        Object.entries(form).filter(([k, v]) => v !== '' && v !== null && v !== undefined)
-      )
-
+      // Costruisco payload: NON escludo responsabile_id anche se null
+      // (così il backend riceve sempre il campo)
       const payload = {
-        ...cleanForm,
+        ...form,
         tags: tagsArray,
         data_scadenza: form.data_scadenza ? new Date(form.data_scadenza).toISOString() : null,
       }
+
+      // Rimuovi solo i campi stringa vuota (non null)
+      Object.keys(payload).forEach(k => {
+        if (payload[k] === '') delete payload[k]
+      })
 
       let res
       if (plan?._id) {
@@ -190,7 +189,7 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
             </div>
           </Field>
 
-          {/* Tipo / Priorità / Stato — TUTTI DA SETTINGS */}
+          {/* Tipo / Priorità / Stato */}
           <div className="grid grid-cols-3 gap-3">
             <Field label="Tipo">
               <DynamicSelect
@@ -246,9 +245,16 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
             </Field>
           </div>
 
+          {/* Responsabile con UserPicker + fallback legacy */}
           <Field label="Responsabile">
             <UserPicker
-              value={form.responsabile_id ? { id: form.responsabile_id, name: form.responsabile } : null}
+              value={
+                form.responsabile_id
+                  ? { id: form.responsabile_id, name: form.responsabile }
+                  : form.responsabile
+                    ? { id: `legacy-${form.responsabile}`, name: form.responsabile }
+                    : null
+              }
               onChange={(selected) => {
                 if (selected) {
                   setForm({ ...form, responsabile_id: selected.id, responsabile: selected.name })
@@ -261,7 +267,7 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
             />
           </Field>
 
-          {/* Reparto → Linea → Macchina (gerarchico dinamico) */}
+          {/* Reparto → Linea → Macchina */}
           <div className="grid grid-cols-3 gap-3">
             <Field label="Reparto">
               <select
