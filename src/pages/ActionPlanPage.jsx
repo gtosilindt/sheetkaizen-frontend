@@ -1,49 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import {
-  Plus, Search, Filter, User, AlertCircle, CheckCircle2, Clock, X, Edit2,
-  Trash2, MessageSquare, TrendingUp, Link2, Tag, AtSign, ChevronDown,
-  Calendar, Flag, Activity, CheckSquare, Square, Send, MoreHorizontal,
-  Shield, Zap, Bug, Wrench, Eye, Lock
+  Plus, Search, Filter, X, ChevronDown
 } from 'lucide-react'
 import api from '../services/api'
 import { useAllConfigurations } from '../hooks/useConfigurations'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import ActionPlanDetailPanel from '../components/ActionPlanDetailPanel'
 import ActionPlanViews from '../components/ActionPlanViews'
-
-const STATI = ['Da Valutare', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
-const PRIORITA = ['Lowest', 'Low', 'Medium', 'High', 'Critical']
-const TIPI = ['Task', 'Bug', 'Improvement', 'Audit', 'Manutenzione', 'Sicurezza']
-
-const STATO_COLORS = {
-  'Da Valutare': 'bg-gray-100 text-gray-700 border-gray-300',
-  Aperto: 'bg-blue-100 text-blue-700 border-blue-300',
-  'In Corso': 'bg-indigo-100 text-indigo-700 border-indigo-300',
-  'In Verifica': 'bg-purple-100 text-purple-700 border-purple-300',
-  Done: 'bg-green-100 text-green-700 border-green-300',
-  Cancelled: 'bg-gray-100 text-gray-500 border-gray-300',
-  'In Ritardo': 'bg-red-100 text-red-700 border-red-300',
-  'In Scadenza': 'bg-yellow-100 text-yellow-700 border-yellow-300',
-}
-
-const PRIORITA_BG = {
-  Lowest: 'bg-gray-100 text-gray-700',
-  Low: 'bg-blue-100 text-blue-700',
-  Medium: 'bg-yellow-100 text-yellow-700',
-  High: 'bg-orange-100 text-orange-700',
-  Critical: 'bg-red-100 text-red-700',
-}
-
-const TIPO_ICONS = {
-  Task: CheckSquare, Bug: Bug, Improvement: TrendingUp,
-  Audit: Shield, Manutenzione: Wrench, Sicurezza: AlertCircle,
-}
-
-const TIPO_COLORS = {
-  Task: 'text-blue-600', Bug: 'text-red-600', Improvement: 'text-green-600',
-  Audit: 'text-purple-600', Manutenzione: 'text-orange-600', Sicurezza: 'text-yellow-600',
-}
 
 export default function ActionPlanPage() {
   const [plans, setPlans] = useState([])
