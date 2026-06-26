@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
-import { Plus, Search, Trash2, CheckCircle, RotateCcw } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { useAllConfigurations } from '../hooks/useConfigurations'
 import { usePillars } from '../hooks/usePillars'
 import { useAuth } from '../context/AuthContext'
@@ -46,6 +46,25 @@ function GiorniBadge({ giorni, stato }) {
 
   const label = giorni === 0 ? 'oggi' : `${giorni} giorni`
   return <span className={`text-xs px-2 py-0.5 rounded ${colorClass}`}>{label}</span>
+}
+
+function CreatorAvatar({ name }) {
+  if (!name) return <span className="text-xs text-gray-400">—</span>
+  const initials = name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()
+  const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-yellow-500', 'bg-orange-500']
+  const color = colors[name.charCodeAt(0) % colors.length]
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className={`${color} text-white rounded-full flex items-center justify-center font-bold flex-shrink-0`}
+        style={{ width: 28, height: 28, fontSize: 11 }}
+        title={name}
+      >
+        {initials}
+      </div>
+      <span className="text-xs text-gray-700 truncate">{name}</span>
+    </div>
+  )
 }
 
 export default function KaizenListPage() {
@@ -159,59 +178,6 @@ export default function KaizenListPage() {
     }
   }
 
-  const chiudiKaizen = async (kaizen, e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!confirm(`Chiudere il Kaizen "${kaizen.numero} - ${kaizen.titolo}"?\n\nLo stato passerà a "Chiuso".`)) return
-    try {
-      await api.put(`/kaizens/${kaizen._id}`, { stato: 'Chiuso' })
-      loadKaizens()
-    } catch (err) {
-      console.error(err)
-      alert('Errore chiusura: ' + (err.response?.data?.detail || err.message))
-    }
-  }
-
-  const riapriKaizen = async (kaizen, e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!confirm(`Riaprire il Kaizen "${kaizen.numero} - ${kaizen.titolo}"?\n\nLo stato tornerà a "Aperto" e sarà nuovamente modificabile.`)) return
-    try {
-      await api.put(`/kaizens/${kaizen._id}`, { stato: 'Aperto' })
-      loadKaizens()
-    } catch (err) {
-      console.error(err)
-      alert('Errore riapertura: ' + (err.response?.data?.detail || err.message))
-    }
-  }
-
-  const deleteKaizen = async (kaizen, e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    try {
-      const apRes = await api.get(`/kaizens/${kaizen._id}/action-plans`)
-      const apCount = apRes.data?.length || 0
-      const childrenRes = await api.get(`/kaizens/${kaizen._id}/children`)
-      const childrenCount = childrenRes.data?.length || 0
-
-      let confirmMsg = `Eliminare "${kaizen.numero} - ${kaizen.titolo}"?`
-      if (apCount > 0 || childrenCount > 0) {
-        confirmMsg += `\n\nATTENZIONE:`
-        if (apCount > 0) confirmMsg += `\n- ${apCount} Action Plan collegati`
-        if (childrenCount > 0) confirmMsg += `\n- ${childrenCount} Kaizen figli`
-        confirmMsg += `\n\nGli AP rimarranno ma perderanno il link.\nI Kaizen figli diventeranno top-level.`
-      }
-      confirmMsg += `\n\nProcedere?`
-      if (!confirm(confirmMsg)) return
-
-      await api.delete(`/kaizens/${kaizen._id}`)
-      loadKaizens()
-    } catch (err) {
-      console.error(err)
-      alert('Errore eliminazione: ' + (err.response?.data?.detail || err.message))
-    }
-  }
-
   const filtered = kaizens.filter(k => {
     const matchSearch = k.titolo?.toLowerCase().includes(search.toLowerCase()) ||
                         k.numero?.toLowerCase().includes(search.toLowerCase())
@@ -284,14 +250,13 @@ export default function KaizenListPage() {
               <th className="p-4">Reparto</th>
               <th className="p-4">Linea</th>
               <th className="p-4">Aperto da</th>
-              <th className="p-4 text-center w-28">Azioni</th>
+              <th className="p-4">Creatore</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((k) => {
               const tipoStyle = getTipoStyle(k.livello || k.tipo)
               const giorni = giorniDaApertura(k.data_apertura)
-              const isChiuso = k.stato === 'Chiuso'
               return (
                 <tr key={k._id} className="border-t hover:bg-gray-50">
                   <td className="p-4">
@@ -325,33 +290,8 @@ export default function KaizenListPage() {
                   <td className="p-4">
                     <GiorniBadge giorni={giorni} stato={k.stato} />
                   </td>
-                  <td className="p-4 text-center">
-                    <div className="flex justify-center gap-1">
-                      {!isChiuso ? (
-                        <button
-                          onClick={(e) => chiudiKaizen(k, e)}
-                          className="text-green-600 hover:bg-green-50 p-2 rounded-full transition-colors"
-                          title="Chiudi Kaizen"
-                        >
-                          <CheckCircle size={16} />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => riapriKaizen(k, e)}
-                          className="text-blue-600 hover:bg-blue-50 p-2 rounded-full transition-colors"
-                          title="Riapri Kaizen"
-                        >
-                          <RotateCcw size={16} />
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => deleteKaizen(k, e)}
-                        className="text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors"
-                        title="Elimina Kaizen"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                  <td className="p-4">
+                    <CreatorAvatar name={k.creatore_nome} />
                   </td>
                 </tr>
               )
