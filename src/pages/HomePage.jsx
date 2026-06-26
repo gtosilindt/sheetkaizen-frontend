@@ -69,18 +69,13 @@ export default function HomePage() {
     return false
   })
 
-  // Pillar dove sono Leader o Membro (controllo da entrambi i lati)
+  // Pillar dove sono Leader o Membro (fonte unica: il Pillar stesso)
   const myPillars = pillars.filter(p => {
-    // Lato PILLAR: leader/members del Pillar coincidono con utente
-    if (p.leader === user.full_name) return true
     if (p.leader_id === user.id) return true
-    if (p.members?.includes(user.full_name)) return true
     if (p.members_ids?.includes(user.id)) return true
-
-    // Lato USER: pillar configurati nell'anagrafica utente
-    if (user.pillar_ids?.includes(p._id)) return true
-    if (user.pillar_leader_of?.includes(p._id)) return true
-
+    // Fallback per dati legacy che hanno solo i nomi
+    if (p.leader === user.full_name) return true
+    if (p.members?.includes(user.full_name)) return true
     return false
   })
 
@@ -274,10 +269,7 @@ export default function HomePage() {
             ) : (
               <div className="space-y-2">
                 {myPillars.slice(0, 5).map(p => {
-                  const isLeader =
-                    p.leader === user.full_name ||
-                    p.leader_id === user.id ||
-                    user.pillar_leader_of?.includes(p._id)
+                  const isLeader = p.leader_id === user.id || p.leader === user.full_name
                   return (
                     <Link
                       key={p._id}
