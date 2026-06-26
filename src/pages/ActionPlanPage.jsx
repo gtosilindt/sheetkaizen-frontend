@@ -10,6 +10,7 @@ import api from '../services/api'
 import { useAllConfigurations } from '../hooks/useConfigurations'
 import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import ActionPlanDetailPanel from '../components/ActionPlanDetailPanel'
+import ActionPlanViews from '../components/ActionPlanViews'
 
 const STATI = ['Da Valutare', 'Aperto', 'In Corso', 'In Verifica', 'Done', 'Cancelled']
 const PRIORITA = ['Lowest', 'Low', 'Medium', 'High', 'Critical']
@@ -179,14 +180,6 @@ export default function ActionPlanPage() {
           <p className="text-gray-500 text-sm">Gestione piani d'azione trasversali</p>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="bg-white border rounded-lg p-1 flex gap-1 shadow-sm">
-            <button onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded text-sm flex items-center gap-1 transition-all ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Lista</button>
-            <button onClick={() => setViewMode('kanban')}
-              className={`px-3 py-1.5 rounded text-sm flex items-center gap-1 transition-all ${viewMode === 'kanban' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Kanban</button>
-            <button onClick={() => setViewMode('calendar')}
-              className={`px-3 py-1.5 rounded text-sm flex items-center gap-1 transition-all ${viewMode === 'calendar' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Calendario</button>
-          </div>
           <button onClick={() => { setEditingPlan(null); setShowForm(true) }}
             className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light shadow-sm">
             <Plus size={20} /> Nuovo Action Plan
@@ -353,23 +346,21 @@ export default function ActionPlanPage() {
           <p>Nessun Action Plan trovato</p>
           <button onClick={() => setShowForm(true)} className="text-primary hover:underline mt-2">Creane uno nuovo →</button>
         </div>
-      ) : viewMode === 'list' ? (
-        <ListView plans={plans} onSelect={setSelectedPlan}
-          onEdit={(p) => { setEditingPlan(p); setShowForm(true) }}
-          onDelete={handleDelete}
-          onCancel={handleCancel}
-          onRestore={handleRestore}
-          onQuickStateChange={quickStateChange}
-          statiConfig={statiConfig} />
-      ) : viewMode === 'kanban' ? (
-        <KanbanView plans={plans} onSelect={setSelectedPlan} onStateChange={quickStateChange} reload={loadData}
-          statiConfig={statiConfig}
-          onCancel={handleCancel}
-          onRestore={handleRestore} />
       ) : (
-        <CalendarView plans={plans} onSelect={setSelectedPlan}
-          calendarDays={calendarDays}
-          setCalendarDays={setCalendarDays} />
+        <ActionPlanViews
+          plans={plans}
+          statiConfig={statiConfig}
+          onSelectAP={setSelectedPlan}
+          onEditAP={(p) => { setEditingPlan(p); setShowForm(true) }}
+          onDeleteAP={(p) => handleDelete(p._id)}
+          onChangeStato={(ap, nuovoStato) => quickStateChange(ap._id, nuovoStato)}
+          showCollegato={true}
+          showKanban={true}
+          showCalendar={true}
+          defaultView={viewMode}
+          emptyMessage="Nessun Action Plan trovato"
+          emptyAction={{ label: 'Creane uno nuovo →', onClick: () => setShowForm(true) }}
+        />
       )}
 
       {showForm && (
