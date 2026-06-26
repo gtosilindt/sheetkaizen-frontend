@@ -1010,75 +1010,6 @@ function ConfigForm({ tipo, label, item, onClose, onSaved }) {
     </div>
   )
 }
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="bg-primary text-white px-5 py-3 flex justify-between items-center">
-          <h2 className="font-semibold">{item ? 'Modifica' : 'Nuova voce'} - {label}</h2>
-          <button onClick={onClose}><X size={20} /></button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Label <span className="text-red-500">*</span></label>
-            <input required autoFocus value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} className="w-full border rounded-lg px-3 py-2" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Codice</label>
-            <input value={form.codice} onChange={(e) => setForm({ ...form, codice: e.target.value.toUpperCase() })} className="w-full border rounded-lg px-3 py-2 font-mono" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Descrizione</label>
-            <textarea value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Icon (emoji)</label>
-              <input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-2xl text-center" maxLength={4} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Colore</label>
-              <div className="flex gap-1">
-                <input type="color" value={form.color || '#3b82f6'} onChange={(e) => setForm({ ...form, color: e.target.value })} className="w-12 h-10 border rounded cursor-pointer" />
-                <input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="flex-1 border rounded-lg px-2 py-2 text-sm font-mono" />
-              </div>
-            </div>
-          </div>
-          <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
-            <input type="checkbox" checked={form.attivo} onChange={(e) => setForm({ ...form, attivo: e.target.checked })} className="w-4 h-4" />
-            <span className="text-sm">Attivo</span>
-          </label>
-
-          {tipo === 'stato_ap' && (
-            <label className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.is_terminal}
-                onChange={(e) => setForm({ ...form, is_terminal: e.target.checked })}
-                className="w-4 h-4 mt-0.5"
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-orange-900">Stato terminale</div>
-                <div className="text-xs text-orange-700 mt-0.5">
-                  Quando un Action Plan raggiunge questo stato diventa read-only.
-                  Sarà comunque possibile riaprirlo per tornare modificabile.
-                </div>
-              </div>
-            </label>
-          )}
-
-          <div className="flex justify-end gap-2 pt-3 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
-            <button type="submit" disabled={saving} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50 flex items-center gap-2">
-              <Save size={16} />
-              {saving ? 'Salvataggio...' : (item ? 'Salva' : 'Crea')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
 
 // ──────────────────────────────────────────────────────────
 // PILLARS MANAGER
@@ -1229,7 +1160,6 @@ function PillarsManager({ onChange }) {
   )
 }
 
-// Componente icona riusabile (gestisce sia immagine che fallback)
 function PillarIcon({ pillar, size = 40 }) {
   if (pillar.icon_image) {
     return React.createElement('img', {
@@ -1255,7 +1185,7 @@ function PillarIcon({ pillar, size = 40 }) {
 }
 
 // ──────────────────────────────────────────────────────────
-// PILLAR FORM
+// PILLAR FORM (con UserPicker per Leader e Members)
 // ──────────────────────────────────────────────────────────
 function PillarForm({ pillar, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -1315,7 +1245,6 @@ function PillarForm({ pillar, onClose, onSaved }) {
     if (!form.label.trim()) return alert('Nome obbligatorio')
     setSaving(true)
     try {
-      // Rimuovi members_data dal payload (è solo per UI)
       const { members_data, ...formClean } = form
       const payload = {
         ...formClean,
@@ -1525,7 +1454,6 @@ function PillarForm({ pillar, onClose, onSaved }) {
   )
 }
 
-// Componente helper per il preview nel form
 function PillarPreview({ form }) {
   if (form.icon_image) {
     return React.createElement('img', {
