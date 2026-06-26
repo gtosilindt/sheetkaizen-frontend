@@ -280,7 +280,11 @@ export default function HomePage() {
                         style={{ backgroundColor: p.color || '#6366f1' }}
                       >
                         {p.icon_image ? (
-                          {p.icon_image}={p.sigla} className="w-full h-full object-contain" />
+                          React.createElement('img', {
+                            src: p.icon_image,
+                            alt: p.sigla,
+                            className: 'w-full h-full object-contain',
+                          })
                         ) : (
                           p.icon || p.sigla?.charAt(0) || 'P'
                         )}
