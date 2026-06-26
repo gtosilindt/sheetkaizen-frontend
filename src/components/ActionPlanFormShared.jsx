@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { X } from 'lucide-react'
 import api from '../services/api'
 import { useAllConfigurations } from '../hooks/useConfigurations'
+import UserPicker from './UserPicker'
 
 // 5M hard-coded (Ishikawa) — non configurabile
 const QUINTA_M = [
@@ -22,6 +23,7 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
     categoria_perdita: plan?.categoria_perdita || plan?.tipo_perdita || '',
     quinta_m: plan?.quinta_m || '',
     responsabile: plan?.responsabile || '',
+    responsabile_id: plan?.responsabile_id || null,
     reparto: plan?.reparto || '',
     linea: plan?.linea || '',
     macchina: plan?.macchina || '',
@@ -245,10 +247,17 @@ export default function ActionPlanFormShared({ plan, onClose, onSaved, prefilled
           </div>
 
           <Field label="Responsabile">
-            <input
-              value={form.responsabile}
-              onChange={(e) => setForm({ ...form, responsabile: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
+            <UserPicker
+              value={form.responsabile_id ? { id: form.responsabile_id, name: form.responsabile } : null}
+              onChange={(selected) => {
+                if (selected) {
+                  setForm({ ...form, responsabile_id: selected.id, responsabile: selected.name })
+                } else {
+                  setForm({ ...form, responsabile_id: null, responsabile: '' })
+                }
+              }}
+              mode="single"
+              placeholder="Cerca utente per nome, email..."
             />
           </Field>
 
