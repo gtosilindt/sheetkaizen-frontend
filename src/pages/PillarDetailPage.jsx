@@ -8,6 +8,7 @@ import ActionPlanDetailPanel from '../components/ActionPlanDetailPanel'
 import ActionPlanViews from '../components/ActionPlanViews'
 import PresenzeWidget from '../components/widgets/PresenzeWidget'
 import ParetoChart from '../components/pillar/ParetoChart'
+import BridgeChart from '../components/pillar/BridgeChart'
 
 export default function PillarDetailPage() {
   const { id } = useParams()
@@ -878,15 +879,28 @@ function Step2Content({ data, color, onUpdate, pillar }) {
   )
 }
 
-function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
+function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStepsData }) {
   const progetti = data.progetti || []
+  const baseline = data.baseline || { label: '2025 Estimation', value: '' }
+  const forecast = data.forecast || { label: 'Forecast after improvements', value: '' }
+  const target = data.target || { label: '2026 Target', value: '' }
+  const unit = data.unit || allStepsData?.step2_pareto_analysis?.unit || '%'
 
   function addProject() {
     onUpdate({
       progetti: [...progetti, {
         id: Date.now().toString(),
-        origine: 'step3', label: '', loss_target_id: '', loss_target_label: '',
-        kaizen_numero: '', saving_planned: '', owner: '', deadline: '', status: 'planned',
+        origine: 'step3',
+        label: '',
+        loss_target_id: '',
+        loss_target_label: '',
+        kaizen_numero: '',
+        saving_planned: '',
+        gain_value: '',
+        color: '',
+        owner: '',
+        deadline: '',
+        status: 'planned',
       }]
     })
   }
@@ -896,28 +910,151 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
     const loss = lossesStep2.find(l => l.id === lossId)
     updateProject(projectId, { loss_target_id: lossId, loss_target_label: loss?.label || '' })
   }
+  function updateBaseline(updates) { onUpdate({ baseline: { ...baseline, ...updates } }) }
+  function updateForecast(updates) { onUpdate({ forecast: { ...forecast, ...updates } }) }
+  function updateTarget(updates) { onUpdate({ target: { ...target, ...updates } }) }
+  function updateUnit(newUnit) { onUpdate({ unit: newUnit }) }
+
+  // Calcolo auto-forecast (baseline + somma gain validi)
+  const baselineNum = parseFloat(baseline.value) || 0
+  const totalGain = progetti.reduce((sum, p) => sum + (parseFloat(p.gain_value) || 0), 0)
+  const autoForecast = baselineNum + totalGain
+
+  // Saving totale planned €
   const totalPlanned = progetti.reduce((sum, p) => sum + (parseFloat(p.saving_planned) || 0), 0)
+
+  // Prepara dati per BridgeChart
+  const improvementsForChart = progetti
+    .filter(p => p.status !== 'cancelled' && parseFloat(p.gain_value))
+    .map(p => ({
+      id: p.id,
+      label: p.label || p.kaizen_numero || 'Progetto',
+      value: parseFloat(p.gain_value) || 0,
+      color: p.color,
+    }))
+
+  const UNITS = [
+    { value: '%', label: '% (percentuale)' },
+    { value: 'nr', label: 'nr (numero/pezzi)' },
+    { value: '€', label: '€ (euro/saving)' },
+    { value: 'min', label: 'min (minuti)' },
+    { value: 'h', label: 'h (ore)' },
+    { value: 'kg', label: 'kg (peso)' },
+  ]
 
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        <strong>Cosa fare:</strong> Pianifica i progetti (Kaizen) che chiuderanno il gap del KPI.
+        <strong>Cosa fare:</strong> Definisci Baseline → Improvements (Kaizen) → Forecast → Target. Il Bridge chart si aggiorna in tempo reale.
       </div>
-      {progetti.length > 0 && (
+
+      {/* Configurazione globale */}
+      <div className="bg-gray-50 p-3 rounded-lg space-y-3">
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs font-bold uppercase text-gray-600 mb-1">Unità di misura</label>
+            <select
+              value={unit}
+              onChange={(e) => updateUnit(e.target.value)}
+              className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+            >
+              {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Baseline / Forecast / Target */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* BASELINE */}
+          <div className="bg-white border-2 border-gray-300 rounded-lg p-3">
+            <label className="block text-xs font-bold uppercase text-gray-600 mb-1">Baseline (punto di partenza)</label>
+            <input
+              className="w-full border rounded px-2 py-1 text-xs mb-2"
+              value={baseline.label}
+              onChange={(e) => updateBaseline({ label: e.target.value })}
+              placeholder="Es: 2025 Estimation"
+            />
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="0.1"
+                className="flex-1 border rounded px-2 py-1 text-sm font-bold"
+                value={baseline.value}
+                onChange={(e) => updateBaseline({ value: e.target.value })}
+                placeholder="Valore"
+              />
+              <span className="text-sm text-gray-500">{unit}</span>
+            </div>
+          </div>
+
+          {/* FORECAST */}
+          <div className="bg-white border-2 border-yellow-400 rounded-lg p-3">
+            <label className="block text-xs font-bold uppercase text-yellow-700 mb-1">Forecast (auto)</label>
+            <input
+              className="w-full border rounded px-2 py-1 text-xs mb-2"
+              value={forecast.label}
+              onChange={(e) => updateForecast({ label: e.target.value })}
+              placeholder="Es: Forecast after improvements"
+            />
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="0.1"
+                className="flex-1 border rounded px-2 py-1 text-sm font-bold bg-yellow-50"
+                value={forecast.value || autoForecast.toFixed(2)}
+                onChange={(e) => updateForecast({ value: e.target.value })}
+                placeholder={autoForecast.toFixed(2)}
+              />
+              <span className="text-sm text-gray-500">{unit}</span>
+            </div>
+            <div className="text-[10px] text-yellow-700 mt-1">
+              Auto: baseline + Σ gain = {autoForecast.toFixed(2)}
+            </div>
+          </div>
+
+          {/* TARGET */}
+          <div className="bg-white border-2 border-orange-400 rounded-lg p-3">
+            <label className="block text-xs font-bold uppercase text-orange-700 mb-1">Target (obiettivo)</label>
+            <input
+              className="w-full border rounded px-2 py-1 text-xs mb-2"
+              value={target.label}
+              onChange={(e) => updateTarget({ label: e.target.value })}
+              placeholder="Es: 2026 Target"
+            />
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="0.1"
+                className="flex-1 border rounded px-2 py-1 text-sm font-bold"
+                value={target.value}
+                onChange={(e) => updateTarget({ value: e.target.value })}
+                placeholder="Valore"
+              />
+              <span className="text-sm text-gray-500">{unit}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Riepilogo saving totale */}
+      {progetti.length > 0 && totalPlanned > 0 && (
         <div className="bg-white p-3 rounded-lg border-2 border-dashed flex justify-between items-center">
           <span className="text-sm text-gray-600">Saving totale pianificato:</span>
           <span className="text-2xl font-bold" style={{ color }}>{totalPlanned.toLocaleString('it-IT')} €</span>
         </div>
       )}
+
       {lossesStep2.length === 0 && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
           Non hai ancora compilato lo <strong>Step 2 (Pareto)</strong>.
         </div>
       )}
+
       <div className="flex justify-between items-center">
         <h4 className="font-semibold text-sm uppercase text-gray-700">Progetti pianificati ({progetti.length})</h4>
         <button onClick={addProject} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Pianifica progetto</button>
       </div>
+
       {progetti.length === 0 ? (
         <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun progetto pianificato.</div>
       ) : (
@@ -926,10 +1063,10 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
             const status = p.status || 'planned'
             const statusInfo = PROGETTO_STATUS.find(s => s.value === status) || PROGETTO_STATUS[0]
             return (
-              <div key={p.id} className="bg-white p-3 rounded-lg border-l-4 border" style={{ borderLeftColor: color }}>
+              <div key={p.id} className="bg-white p-3 rounded-lg border-l-4 border" style={{ borderLeftColor: p.color || color }}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-bold text-gray-400 text-sm">#{idx + 1}</span>
-                  <input className="flex-1 border rounded px-2 py-1 text-sm font-medium" value={p.label} onChange={(e) => updateProject(p.id, { label: e.target.value })} />
+                  <input className="flex-1 border rounded px-2 py-1 text-sm font-medium" value={p.label} onChange={(e) => updateProject(p.id, { label: e.target.value })} placeholder="Nome del progetto/Kaizen" />
                   <span className={`px-2 py-1 rounded text-xs font-bold border ${statusInfo.color}`}>{statusInfo.label}</span>
                   <button onClick={() => removeProject(p.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
                 </div>
@@ -938,7 +1075,7 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Loss target (da Step 2)</label>
                     <select className="w-full border rounded px-2 py-1 text-xs" value={p.loss_target_id || ''} onChange={(e) => handleLossChange(p.id, e.target.value)}>
                       <option value="">— Seleziona loss —</option>
-                      {lossesStep2.map(l => <option key={l.id} value={l.id}>{l.label || 'Senza nome'} ({l.percent_impact || 0}%)</option>)}
+                      {lossesStep2.map(l => <option key={l.id} value={l.id}>{l.label || 'Senza nome'}</option>)}
                     </select>
                   </div>
                   <div className="col-span-2">
@@ -946,21 +1083,58 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [] }) {
                     <input className="w-full border rounded px-2 py-1 text-xs font-mono" value={p.kaizen_numero} onChange={(e) => updateProject(p.id, { kaizen_numero: e.target.value })} />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Saving Planned €</label>
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Gain ({unit})</label>
+                    <input type="number" step="0.1" className="w-full border rounded px-2 py-1 text-xs font-bold" value={p.gain_value || ''} onChange={(e) => updateProject(p.id, { gain_value: e.target.value })} placeholder={`+/- ${unit}`} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Saving €</label>
                     <input type="number" className="w-full border rounded px-2 py-1 text-xs" value={p.saving_planned !== undefined ? p.saving_planned : (p.saving_atteso || '')} onChange={(e) => updateProject(p.id, { saving_planned: e.target.value })} />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Deadline</label>
                     <input type="date" className="w-full border rounded px-2 py-1 text-xs" value={p.deadline} onChange={(e) => updateProject(p.id, { deadline: e.target.value })} />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-1">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Colore</label>
+                    <input
+                      type="color"
+                      value={p.color || color || '#6366f1'}
+                      onChange={(e) => updateProject(p.id, { color: e.target.value })}
+                      className="w-full h-7 border rounded cursor-pointer"
+                      title="Colore barra Bridge"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-12 gap-2 mt-2">
+                  <div className="col-span-6">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Owner</label>
                     <input className="w-full border rounded px-2 py-1 text-xs" value={p.owner || ''} onChange={(e) => updateProject(p.id, { owner: e.target.value })} />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Status</label>
+                    <select className="w-full border rounded px-2 py-1 text-xs" value={status} onChange={(e) => updateProject(p.id, { status: e.target.value })}>
+                      {PROGETTO_STATUS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
                   </div>
                 </div>
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* 🆕 BRIDGE CHART */}
+      {(baselineNum > 0 || improvementsForChart.length > 0) && (
+        <div className="mt-6">
+          <BridgeChart
+            baseline={{ label: baseline.label, value: baseline.value }}
+            improvements={improvementsForChart}
+            forecast={{ label: forecast.label, value: forecast.value || autoForecast }}
+            target={target.value ? { label: target.label, value: target.value } : null}
+            unit={unit}
+            title={`${pillar?.sigla || 'Pillar'} ${unit === '%' ? 'OEE' : ''} Bridge`}
+            subtitle={pillar?.label || ''}
+          />
         </div>
       )}
     </div>
