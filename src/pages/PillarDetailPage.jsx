@@ -508,23 +508,79 @@ const ACTUAL_STATUS = [
   { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-700 border-red-300' },
 ]
 function KpiManagementTab({ pillar, color, onSaved }) {
-  const [stepsData, setStepsData] = useState(() => {
-    const initial = {}
-    KPI_STEPS.forEach(s => { initial[s.id] = pillar[s.id] || { completato: false, note: '' } })
-    return initial
-  })
+  const [analyses, setAnalyses] = useState([])
+  const [activeAnalysisId, setActiveAnalysisId] = useState(null)
+  const [stepsData, setStepsData] = useState({})
   const [expandedStep, setExpandedStep] = useState(KPI_STEPS[0].id)
   const [saving, setSaving] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [lastSaved, setLastSaved] = useState(null)
+  const [loadingAnalyses, setLoadingAnalyses] = useState(true)
+
+  // Modal states
+  const [showNewModal, setShowNewModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [newLabel, setNewLabel] = useState('')
+
   const dataRef = useRef(stepsData)
+  const activeIdRef = useRef(activeAnalysisId)
 
   useEffect(() => { dataRef.current = stepsData }, [stepsData])
+  useEffect(() => { activeIdRef.current = activeAnalysisId }, [activeAnalysisId])
 
+  // Carica analisi all'avvio
+  useEffect(() => { loadAnalyses() }, [pillar._id])
+
+  async function loadAnalyses() {
+    setLoadingAnalyses(true)
+    try {
+      const res = await api.get(`/pillars/${pillar._id}/analyses`)
+      const list = res.data || []
+      setAnalyses(list)
+
+      // Seleziona la prima attiva (o la prima in assoluto)
+      const firstActive = list.find(a => a.status === 'active') || list[0]
+      if (firstActive) {
+        selectAnalysis(firstActive.id, list)
+      } else {
+        // Nessuna analisi: crea quella default
+        const newRes = await api.post(`/pillars/${pillar._id}/analyses`, {
+          label: `Analisi ${new Date().getFullYear()}`,
+        })
+        const created = newRes.data
+        setAnalyses([created])
+        selectAnalysis(created.id, [created])
+      }
+    } catch (err) {
+      console.error('Errore caricamento analisi:', err)
+      alert('Errore caricamento analisi')
+    } finally {
+      setLoadingAnalyses(false)
+    }
+  }
+
+  function selectAnalysis(analysisId, list = analyses) {
+    const a = list.find(x => x.id === analysisId)
+    if (!a) return
+    setActiveAnalysisId(analysisId)
+
+    // Estrai i 5 step dall'analisi (con default vuoti)
+    const initial = {}
+    KPI_STEPS.forEach(s => {
+      initial[s.id] = a[s.id] || { completato: false, note: '' }
+    })
+    setStepsData(initial)
+    setHasUnsavedChanges(false)
+    setLastSaved(null)
+  }
+
+  // Salva i 5 step nell'analisi corrente
   async function doSave(silent = false) {
+    const aid = activeIdRef.current
+    if (!aid) return
     if (!silent) setSaving(true)
     try {
-      await api.put(`/pillars/${pillar._id}`, dataRef.current)
+      await api.put(`/pillars/${pillar._id}/analyses/${aid}`, dataRef.current)
       if (!silent) { setLastSaved(new Date()); setHasUnsavedChanges(false) }
     } catch (err) {
       console.error(err)
@@ -534,103 +590,468 @@ function KpiManagementTab({ pillar, color, onSaved }) {
     }
   }
 
+  // Autosave debounced
   useEffect(() => {
-    const original = {}
-    KPI_STEPS.forEach(s => { original[s.id] = pillar[s.id] || { completato: false, note: '' } })
-    if (JSON.stringify(stepsData) === JSON.stringify(original)) return
+    if (!activeAnalysisId) return
+    const original = analyses.find(a => a.id === activeAnalysisId)
+    if (!original) return
+
+    const originalSteps = {}
+    KPI_STEPS.forEach(s => {
+      originalSteps[s.id] = original[s.id] || { completato: false, note: '' }
+    })
+
+    if (JSON.stringify(stepsData) === JSON.stringify(originalSteps)) return
+
     setHasUnsavedChanges(true)
-    const timer = setTimeout(() => doSave(false), 600)
+    const timer = setTimeout(() => doSave(false), 700)
     return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsData])
 
   function updateStep(stepId, updates) {
-    setStepsData(prev => {
-      const newData = { ...prev }
-      newData[stepId] = { ...prev[stepId], ...updates }
-      return newData
-    })
+    setStepsData(prev => ({
+      ...prev,
+      [stepId]: { ...prev[stepId], ...updates },
+    }))
   }
 
-  const completedCount = Object.values(stepsData).filter(s => s.completato).length
+  // Nuova analisi
+  async function createNewAnalysis() {
+    const label = newLabel.trim() || `Analisi ${new Date().toISOString().slice(0, 10)}`
+    try {
+      const res = await api.post(`/pillars/${pillar._id}/analyses`, { label })
+      const created = res.data
+      const newList = [...analyses, created]
+      setAnalyses(newList)
+      setShowNewModal(false)
+      setNewLabel('')
+      selectAnalysis(created.id, newList)
+    } catch (err) {
+      alert('Errore creazione: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  // Archivia
+  async function archiveCurrent() {
+    if (!activeAnalysisId) return
+    const current = analyses.find(a => a.id === activeAnalysisId)
+    if (!current) return
+    if (!confirm(`Archiviare "${current.label}"?\nNon potrà più essere modificata, ma resta consultabile nello Storico.`)) return
+    try {
+      await api.post(`/pillars/${pillar._id}/analyses/${activeAnalysisId}/archive`)
+      // Ricarica
+      const res = await api.get(`/pillars/${pillar._id}/analyses`)
+      const newList = res.data || []
+      setAnalyses(newList)
+      // Switch sulla prima attiva o crea nuova
+      const firstActive = newList.find(a => a.status === 'active')
+      if (firstActive) {
+        selectAnalysis(firstActive.id, newList)
+      } else {
+        // Nessuna attiva: crea
+        const cr = await api.post(`/pillars/${pillar._id}/analyses`, {
+          label: `Analisi ${new Date().getFullYear()}`,
+        })
+        const updated = [...newList, cr.data]
+        setAnalyses(updated)
+        selectAnalysis(cr.data.id, updated)
+      }
+    } catch (err) {
+      alert('Errore archivio: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  // Ripristina (dalla modale storico)
+  async function restoreAnalysis(id) {
+    try {
+      await api.post(`/pillars/${pillar._id}/analyses/${id}/restore`)
+      const res = await api.get(`/pillars/${pillar._id}/analyses`)
+      setAnalyses(res.data || [])
+    } catch (err) {
+      alert('Errore ripristino: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  // Apri (dalla modale storico)
+  function openFromHistory(id) {
+    setShowHistoryModal(false)
+    selectAnalysis(id)
+  }
+
+  // Elimina definitivamente
+  async function deletePermanently(id) {
+    if (!confirm('Eliminare definitivamente questa analisi? Non sarà più recuperabile.')) return
+    try {
+      await api.delete(`/pillars/${pillar._id}/analyses/${id}`)
+      const res = await api.get(`/pillars/${pillar._id}/analyses`)
+      const newList = res.data || []
+      setAnalyses(newList)
+      if (activeAnalysisId === id) {
+        const firstActive = newList.find(a => a.status === 'active') || newList[0]
+        if (firstActive) selectAnalysis(firstActive.id, newList)
+      }
+    } catch (err) {
+      alert('Errore eliminazione: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  if (loadingAnalyses) {
+    return <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">Caricamento analisi...</div>
+  }
+
+  const currentAnalysis = analyses.find(a => a.id === activeAnalysisId)
+  const isArchived = currentAnalysis?.status === 'archived'
+  const activeAnalyses = analyses.filter(a => a.status === 'active')
+  const archivedAnalyses = analyses.filter(a => a.status === 'archived')
+
+  const completedCount = Object.values(stepsData).filter(s => s?.completato).length
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl shadow p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h3 className="text-xl font-bold mb-1">5 Step KPI Management</h3>
-            <p className="text-sm text-gray-500">Metodologia ufficiale Lindt FI Pillar per il <strong>{pillar.sigla}</strong></p>
+      {/* Selettore Analisi */}
+      <div className="bg-white rounded-xl shadow p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[280px]">
+            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Analisi attiva</label>
+            <select
+              value={activeAnalysisId || ''}
+              onChange={(e) => selectAnalysis(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm font-medium"
+            >
+              <optgroup label="Attive">
+                {activeAnalyses.map(a => (
+                  <option key={a.id} value={a.id}>{a.label}</option>
+                ))}
+              </optgroup>
+              {archivedAnalyses.length > 0 && (
+                <optgroup label="Archiviate">
+                  {archivedAnalyses.map(a => (
+                    <option key={a.id} value={a.id}>{a.label} (archiviata)</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
           </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold" style={{ color }}>{completedCount}/5</div>
-            <div className="text-xs text-gray-500 uppercase">Step Completati</div>
-            <div className="text-xs mt-1">
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setNewLabel(''); setShowNewModal(true) }}
+              className="px-3 py-2 rounded-lg text-sm text-white shadow"
+              style={{ backgroundColor: color }}
+            >
+              + Nuova analisi
+            </button>
+            {!isArchived && currentAnalysis && (
+              <button
+                onClick={archiveCurrent}
+                className="px-3 py-2 rounded-lg text-sm border-2 hover:bg-gray-50"
+                style={{ borderColor: color, color }}
+              >
+                Archivia
+              </button>
+            )}
+            <button
+              onClick={() => setShowHistoryModal(true)}
+              className="px-3 py-2 rounded-lg text-sm border-2 border-gray-300 hover:bg-gray-50"
+            >
+              Storico ({analyses.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Info analisi corrente */}
+        {currentAnalysis && (
+          <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-4 text-xs text-gray-500">
+            <span>
+              Creata: <strong className="text-gray-700">{new Date(currentAnalysis.created_at).toLocaleDateString('it-IT')}</strong>
+            </span>
+            {currentAnalysis.archived_at && (
+              <span>
+                Archiviata: <strong className="text-gray-700">{new Date(currentAnalysis.archived_at).toLocaleDateString('it-IT')}</strong>
+              </span>
+            )}
+            <span>
+              Step completati: <strong className="text-gray-700">{completedCount}/5</strong>
+            </span>
+            <span className="ml-auto">
               {saving ? <span className="text-blue-600">Salvataggio...</span> :
                hasUnsavedChanges ? <span className="text-orange-600">Non salvato</span> :
                lastSaved ? <span className="text-green-600">Salvato {lastSaved.toLocaleTimeString('it-IT')}</span> :
                <span className="text-gray-400">Pronto</span>}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Banner read-only se archiviata */}
+      {isArchived && (
+        <div className="bg-gray-100 border-l-4 border-gray-500 rounded-r-lg p-3 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            <strong>Analisi archiviata.</strong> Modalità sola lettura. Per modificare, ripristinala dallo Storico.
+          </div>
+          <button
+            onClick={() => restoreAnalysis(activeAnalysisId).then(() => loadAnalyses())}
+            className="px-3 py-1 text-sm border-2 border-gray-500 text-gray-700 rounded hover:bg-white"
+          >
+            Ripristina
+          </button>
+        </div>
+      )}
+
+      {/* Steps con fieldset disabled se archived */}
+      <fieldset disabled={isArchived} className={isArchived ? 'opacity-75 pointer-events-none' : ''}>
+        <div className="bg-white rounded-xl shadow p-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-xl font-bold mb-1">5 Step KPI Management</h3>
+              <p className="text-sm text-gray-500">
+                {currentAnalysis?.label || 'Nessuna analisi'} — Pillar <strong>{pillar.sigla}</strong>
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold" style={{ color }}>{completedCount}/5</div>
+              <div className="text-xs text-gray-500 uppercase">Step Completati</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            {KPI_STEPS.map((step, idx) => {
+              const isCompleted = stepsData[step.id]?.completato
+              const isExpanded = expandedStep === step.id
+              return (
+                <div key={step.id} className="flex-1 flex items-center">
+                  <button
+                    onClick={() => setExpandedStep(isExpanded ? null : step.id)}
+                    className={`flex flex-col items-center flex-shrink-0 transition-all ${isExpanded ? 'scale-110' : ''}`}
+                  >
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shadow ${isCompleted ? 'text-white' : 'bg-white border-2 text-gray-400'}`}
+                      style={isCompleted ? { backgroundColor: color } : { borderColor: color }}
+                    >
+                      {isCompleted ? '✓' : step.num}
+                    </div>
+                    <div className={`text-xs mt-1 font-medium ${isExpanded ? '' : 'text-gray-500'}`} style={isExpanded ? { color } : {}}>
+                      Step {step.num}
+                    </div>
+                  </button>
+                  {idx < KPI_STEPS.length - 1 && (
+                    <div className="flex-1 h-1 mx-1 rounded" style={{ backgroundColor: isCompleted ? color : '#e5e7eb' }} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {KPI_STEPS.map(step => {
+          const data = stepsData[step.id] || { completato: false, note: '' }
+          const isExpanded = expandedStep === step.id
+          const isCompleted = data?.completato
+          return (
+            <div
+              key={step.id}
+              className="bg-white rounded-xl shadow overflow-hidden transition-all"
+              style={{ borderLeft: `4px solid ${isCompleted ? color : '#e5e7eb'}` }}
+            >
+              <button
+                onClick={() => setExpandedStep(isExpanded ? null : step.id)}
+                className="w-full px-5 py-4 flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                type="button"
+              >
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold flex-shrink-0 ${isCompleted ? 'text-white' : 'bg-gray-100 text-gray-500'}`}
+                  style={isCompleted ? { backgroundColor: color } : {}}
+                >
+                  {isCompleted ? '✓' : step.num}
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-semibold flex items-center gap-2">
+                    STEP {step.num} — {step.title}
+                    {isCompleted && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completato</span>}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">{step.desc}</div>
+                </div>
+                <div className="text-gray-400">{isExpanded ? '▲' : '▼'}</div>
+              </button>
+              {isExpanded && (
+                <div className="px-5 pb-5 pt-2 border-t bg-gray-50">
+                  <StepContent
+                    step={step}
+                    data={data}
+                    color={color}
+                    onUpdate={(updates) => updateStep(step.id, updates)}
+                    allStepsData={stepsData}
+                    pillar={pillar}
+                  />
+                  <div className="mt-4 pt-4 border-t space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Note dello step</label>
+                      <textarea
+                        value={data.note || ''}
+                        onChange={(e) => updateStep(step.id, { note: e.target.value })}
+                        rows={3}
+                        className="w-full border rounded-lg px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <label className="flex items-center gap-3 p-3 bg-white border-2 rounded-lg cursor-pointer hover:bg-gray-50" style={{ borderColor: isCompleted ? color : '#e5e7eb' }}>
+                      <input
+                        type="checkbox"
+                        checked={isCompleted}
+                        onChange={(e) => updateStep(step.id, { completato: e.target.checked })}
+                        className="w-5 h-5"
+                        style={{ accentColor: color }}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{isCompleted ? 'Step Completato' : 'Marca come completato'}</div>
+                        <div className="text-xs text-gray-500">{isCompleted ? 'Lo step è considerato concluso.' : 'Spunta quando hai finito le attività di questo step.'}</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </fieldset>
+
+      {/* Modal Nuova Analisi */}
+      {showNewModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-5 py-3 border-b flex justify-between items-center" style={{ backgroundColor: color, color: 'white' }}>
+              <h3 className="font-bold">Nuova Analisi</h3>
+              <button onClick={() => setShowNewModal(false)} className="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
+                  Nome analisi
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && createNewAnalysis()}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  placeholder="Es: Bindler 11 - Anno 2026"
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  L'analisi viene creata vuota, da compilare da zero.
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button
+                  onClick={() => setShowNewModal(false)}
+                  className="px-4 py-2 border rounded-lg text-sm"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={createNewAnalysis}
+                  className="px-4 py-2 text-white rounded-lg text-sm"
+                  style={{ backgroundColor: color }}
+                >
+                  Crea analisi
+                </button>
+              </div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          {KPI_STEPS.map((step, idx) => {
-            const isCompleted = stepsData[step.id]?.completato
-            const isExpanded = expandedStep === step.id
-            return (
-              <div key={step.id} className="flex-1 flex items-center">
-                <button onClick={() => setExpandedStep(isExpanded ? null : step.id)} className={`flex flex-col items-center flex-shrink-0 transition-all ${isExpanded ? 'scale-110' : ''}`}>
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shadow ${isCompleted ? 'text-white' : 'bg-white border-2 text-gray-400'}`} style={isCompleted ? { backgroundColor: color } : { borderColor: color }}>
-                    {isCompleted ? '✓' : step.num}
-                  </div>
-                  <div className={`text-xs mt-1 font-medium ${isExpanded ? '' : 'text-gray-500'}`} style={isExpanded ? { color } : {}}>Step {step.num}</div>
-                </button>
-                {idx < KPI_STEPS.length - 1 && <div className="flex-1 h-1 mx-1 rounded" style={{ backgroundColor: isCompleted ? color : '#e5e7eb' }} />}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      )}
 
-      {KPI_STEPS.map(step => {
-        const data = stepsData[step.id]
-        const isExpanded = expandedStep === step.id
-        const isCompleted = data?.completato
-        return (
-          <div key={step.id} className="bg-white rounded-xl shadow overflow-hidden transition-all" style={{ borderLeft: `4px solid ${isCompleted ? color : '#e5e7eb'}` }}>
-            <button onClick={() => setExpandedStep(isExpanded ? null : step.id)} className="w-full px-5 py-4 flex items-center gap-3 hover:bg-gray-50 transition-colors">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold flex-shrink-0 ${isCompleted ? 'text-white' : 'bg-gray-100 text-gray-500'}`} style={isCompleted ? { backgroundColor: color } : {}}>
-                {isCompleted ? '✓' : step.num}
-              </div>
-              <div className="flex-1 text-left">
-                <div className="font-semibold flex items-center gap-2">
-                  STEP {step.num} — {step.title}
-                  {isCompleted && <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completato</span>}
+      {/* Modal Storico */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="px-5 py-3 border-b flex justify-between items-center sticky top-0 z-10" style={{ backgroundColor: color, color: 'white' }}>
+              <h3 className="font-bold">Storico Analisi</h3>
+              <button onClick={() => setShowHistoryModal(false)} className="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Attive */}
+              <div>
+                <div className="text-xs font-bold uppercase text-gray-500 mb-2">
+                  Attive ({activeAnalyses.length})
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">{step.desc}</div>
-              </div>
-              <div className="text-gray-400">{isExpanded ? '▲' : '▼'}</div>
-            </button>
-            {isExpanded && (
-              <div className="px-5 pb-5 pt-2 border-t bg-gray-50">
-                <StepContent step={step} data={data} color={color} onUpdate={(updates) => updateStep(step.id, updates)} allStepsData={stepsData} pillar={pillar} />
-                <div className="mt-4 pt-4 border-t space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Note dello step</label>
-                    <textarea value={data.note || ''} onChange={(e) => updateStep(step.id, { note: e.target.value })} rows={3} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                {activeAnalyses.length === 0 ? (
+                  <div className="text-sm text-gray-400 italic py-2">Nessuna analisi attiva.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {activeAnalyses.map(a => (
+                      <div key={a.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{a.label}</div>
+                          <div className="text-xs text-gray-500">
+                            Creata il {new Date(a.created_at).toLocaleDateString('it-IT')}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => openFromHistory(a.id)}
+                          className="px-3 py-1 text-xs rounded text-white shadow"
+                          style={{ backgroundColor: color }}
+                        >
+                          Apri
+                        </button>
+                        <button
+                          onClick={() => deletePermanently(a.id)}
+                          className="px-3 py-1 text-xs rounded border border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          Elimina
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <label className="flex items-center gap-3 p-3 bg-white border-2 rounded-lg cursor-pointer hover:bg-gray-50" style={{ borderColor: isCompleted ? color : '#e5e7eb' }}>
-                    <input type="checkbox" checked={isCompleted} onChange={(e) => updateStep(step.id, { completato: e.target.checked })} className="w-5 h-5" style={{ accentColor: color }} />
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{isCompleted ? 'Step Completato' : 'Marca come completato'}</div>
-                      <div className="text-xs text-gray-500">{isCompleted ? 'Lo step è considerato concluso.' : 'Spunta quando hai finito le attività di questo step.'}</div>
-                    </div>
-                  </label>
-                </div>
+                )}
               </div>
-            )}
+
+              {/* Archiviate */}
+              {archivedAnalyses.length > 0 && (
+                <div>
+                  <div className="text-xs font-bold uppercase text-gray-500 mb-2">
+                    Archiviate ({archivedAnalyses.length})
+                  </div>
+                  <div className="space-y-2">
+                    {archivedAnalyses.map(a => (
+                      <div key={a.id} className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm text-gray-600">{a.label}</div>
+                          <div className="text-xs text-gray-400">
+                            Archiviata il {a.archived_at ? new Date(a.archived_at).toLocaleDateString('it-IT') : '—'}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => openFromHistory(a.id)}
+                          className="px-3 py-1 text-xs border-2 rounded hover:bg-white"
+                          style={{ borderColor: color, color }}
+                        >
+                          Apri
+                        </button>
+                        <button
+                          onClick={() => restoreAnalysis(a.id)}
+                          className="px-3 py-1 text-xs border border-gray-400 text-gray-700 rounded hover:bg-white"
+                        >
+                          Ripristina
+                        </button>
+                        <button
+                          onClick={() => deletePermanently(a.id)}
+                          className="px-3 py-1 text-xs rounded border border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          Elimina
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        )
-      })}
+        </div>
+      )}
     </div>
   )
 }
