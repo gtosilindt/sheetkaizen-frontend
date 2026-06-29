@@ -201,6 +201,15 @@ export default function KaizenDetailPage() {
                   🏛️ {kaizen.pillar_sigla}
                 </Link>
               )}
+              {kaizen.dashboard_id && kaizen.dashboard_nome && (
+                <Link
+                  to={`/dashboard/${kaizen.dashboard_id}`}
+                  className="bg-purple-500 bg-opacity-30 hover:bg-opacity-50 px-2 py-0.5 rounded-full font-bold transition-colors"
+                  title={`Apri Meeting ${kaizen.dashboard_nome}`}
+                >
+                  📅 {kaizen.dashboard_nome}
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
