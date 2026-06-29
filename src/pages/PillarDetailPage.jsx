@@ -1297,7 +1297,9 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
   const step3Data = allStepsData?.step3_target_definition || {}
   const step4Data = allStepsData?.step4_implementation || {}
 
-  Data.forecast || null  // Riprendo i dati pianificati dallo Step 3
+  // Riprendo i dati pianificati dallo Step 3
+  const baseline = step3Data.baseline || { label: 'Baseline', value: 0 }
+  const forecastPlanned = step3Data.forecast || null
   const targetGlobal = step3Data.target || null
   const unit = step3Data.unit || 'nr'
 
@@ -1386,7 +1388,7 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
         </div>
       </div>
 
-      {/* 🆕 CLOSE THE LOOP CHART */}
+      {/* CLOSE THE LOOP CHART */}
       <CloseTheLoopChart
         baseline={baseline}
         improvementsPlanned={improvementsPlanned}
@@ -1401,7 +1403,7 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
 
       {/* Lezioni apprese */}
       <div className="bg-white p-4 rounded-lg border mt-4">
-        <label className="block text-xs font-bold uppercase text-gray-600 mb-2">📚 Lezioni apprese (Close the Loop)</label>
+        <label className="block text-xs font-bold uppercase text-gray-600 mb-2">Lezioni apprese (Close the Loop)</label>
         <textarea
           value={data.lezioni_apprese || ''}
           onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })}
