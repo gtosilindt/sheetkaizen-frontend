@@ -991,10 +991,27 @@ function Step2Content({ data, color, onUpdate, pillar }) {
 
 function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStepsData }) {
   const progetti = data.progetti || []
-  const baseline = data.baseline || { label: '2025', value: '' }
-  const forecast = data.forecast || { label: 'Forecast', value: '' }
-  const target = data.target || { label: '2026 Target', value: '' }
-  const unit = data.unit || allStepsData?.step2_pareto_analysis?.unit || '%'
+
+  // 🆕 Eredita Baseline/Target/Unit dallo Step 1
+  const step1Data = allStepsData?.step1_kpi_definition || {}
+  const kpi1 = step1Data.kpi_principale || {}
+  const baselineFromStep1 = kpi1.baseline || ''
+  const targetFromStep1 = kpi1.target || ''
+  const unitFromStep1 = kpi1.unit || '%'
+  const kpiLabel = kpi1.label || 'KPI'
+
+  // 🆕 Cluster configurati (per colore + label)
+  const { configs } = useAllConfigurations()
+  const clustersConfig = configs.cluster_perdita || []
+
+  function getClusterColor(clusterId) {
+    const cluster = clustersConfig.find(c => c._id === clusterId)
+    return cluster?.color || '#9CA3AF'
+  }
+  function getClusterLabel(clusterId) {
+    const cluster = clustersConfig.find(c => c._id === clusterId)
+    return cluster?.label || ''
+  }
 
   // Lista Kaizen dal DB
   const [kaizens, setKaizens] = useState([])
@@ -1006,6 +1023,8 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
     onUpdate({
       progetti: [...progetti, {
         id: Date.now().toString(),
+        loss_target_id: '',
+        loss_target_label: '',
         kaizen_id: '',
         kaizen_numero: '',
         kaizen_titolo: '',
@@ -1024,6 +1043,14 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
     onUpdate({ progetti: progetti.filter(p => p.id !== id) })
   }
 
+  function handleLossChange(projectId, lossId) {
+    const loss = lossesStep2.find(l => l.id === lossId)
+    updateProject(projectId, {
+      loss_target_id: lossId,
+      loss_target_label: loss?.label || '',
+    })
+  }
+
   function handleKaizenChange(projectId, kaizenId) {
     const kaizen = kaizens.find(k => k._id === kaizenId)
     if (kaizen) {
@@ -1033,148 +1060,142 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
         kaizen_titolo: kaizen.titolo || '',
       })
     } else {
-      updateProject(projectId, {
-        kaizen_id: '',
-        kaizen_numero: '',
-        kaizen_titolo: '',
-      })
+      updateProject(projectId, { kaizen_id: '', kaizen_numero: '', kaizen_titolo: '' })
     }
   }
 
-  function updateBaseline(updates) { onUpdate({ baseline: { ...baseline, ...updates } }) }
-  function updateForecast(updates) { onUpdate({ forecast: { ...forecast, ...updates } }) }
-  function updateTarget(updates) { onUpdate({ target: { ...target, ...updates } }) }
-  function updateUnit(newUnit) { onUpdate({ unit: newUnit }) }
-
-  // Auto-calcolo Forecast
-  const baselineNum = parseFloat(baseline.value) || 0
+  // Auto-calcolo Forecast: Baseline (Step1) + Σ Gain Kaizen
+  const baselineNum = parseFloat(baselineFromStep1) || 0
   const totalGain = progetti.reduce((sum, p) => sum + (parseFloat(p.gain_value) || 0), 0)
   const autoForecast = baselineNum + totalGain
 
-  // Colore stabile per ogni progetto (hash del kaizen_id o id)
-  function getProjectColor(projectId) {
-    const colors = ['#5B9BD5', '#ED7D31', '#A5A5A5', '#FFC000', '#4472C4', '#70AD47', '#264478']
-    const hash = String(projectId).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-    return colors[hash % colors.length]
-  }
-
-  // Dati per Bridge Chart
+  // Dati per Bridge Chart (uso il colore del cluster della loss)
   const improvementsForChart = progetti
     .filter(p => parseFloat(p.gain_value))
-    .map(p => ({
-      id: p.id,
-      label: p.kaizen_numero || p.kaizen_titolo || `Progetto ${p.id.slice(-4)}`,
-      value: parseFloat(p.gain_value) || 0,
-      color: getProjectColor(p.id),
-    }))
+    .map(p => {
+      const loss = lossesStep2.find(l => l.id === p.loss_target_id)
+      const clusterColor = getClusterColor(loss?.cluster_id)
+      return {
+        id: p.id,
+        label: p.kaizen_numero || p.loss_target_label || `Progetto ${p.id.slice(-4)}`,
+        value: parseFloat(p.gain_value) || 0,
+        color: clusterColor,
+      }
+    })
+
+  // Alert se Step 1 non compilato
+  const step1Incomplete = !baselineFromStep1 || !targetFromStep1
 
   return (
     <div className="space-y-3 mt-3">
       {/* Spiegazione */}
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        <strong>Cosa fare:</strong> Collega i Kaizen che chiuderanno il gap. Definisci dove parti, dove vuoi arrivare e quanto ogni Kaizen contribuisce.
+        <strong>Cosa fare:</strong> Per ogni perdita identificata nello <strong>Step 2</strong>, collega un Kaizen che la chiuderà.
+        Il <strong>Forecast</strong> si calcola come <strong>Baseline (Step 1) + Σ Gain dei Kaizen</strong>.
       </div>
 
-      {/* Unità di misura */}
-      <div className="bg-gray-50 p-3 rounded-lg">
-        <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Unità di misura</label>
-        <select
-          value={unit}
-          onChange={(e) => updateUnit(e.target.value)}
-          className="w-full md:w-1/2 border rounded-lg px-3 py-1.5 text-sm bg-white"
-        >
-          {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-        </select>
-      </div>
+      {/* Alert se Step 1 non compilato */}
+      {step1Incomplete && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
+          ⚠️ <strong>Compila prima lo Step 1</strong> con Valore attuale e Obiettivo del KPI. Lo Step 3 li eredita automaticamente.
+        </div>
+      )}
 
-      {/* Baseline / Forecast / Target */}
+      {/* Alert se Step 2 non compilato */}
+      {lossesStep2.length === 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
+          ⚠️ <strong>Compila prima lo Step 2</strong> con le perdite. Lo Step 3 le usa per agganciare i Kaizen.
+        </div>
+      )}
+
+      {/* Box riepilogo: Baseline / Forecast / Target */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white border-2 border-gray-300 rounded-lg p-3">
-          <label className="block text-xs font-bold uppercase text-gray-600 mb-1">Punto di partenza</label>
-          <input
-            className="w-full border rounded px-2 py-1 text-xs mb-2"
-            value={baseline.label}
-            onChange={(e) => updateBaseline({ label: e.target.value })}
-            placeholder="Es: 2025"
-          />
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              step="0.1"
-              className="flex-1 border rounded px-2 py-1 text-sm font-bold"
-              value={baseline.value}
-              onChange={(e) => updateBaseline({ value: e.target.value })}
-              placeholder="Valore attuale"
-            />
-            <span className="text-sm text-gray-500">{unit}</span>
+        {/* BASELINE (read-only da Step 1) */}
+        <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-3">
+          <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
+            Punto di partenza
+            <span className="text-[10px] font-normal ml-1 text-gray-500">(da Step 1)</span>
+          </label>
+          <div className="text-xs text-gray-600 mb-2 truncate">{kpiLabel || 'KPI'}</div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-gray-700">
+              {baselineFromStep1 || '—'}
+            </span>
+            <span className="text-sm text-gray-500">{unitFromStep1}</span>
           </div>
+          <div className="text-[10px] text-gray-400 mt-1 italic">Modifica in Step 1</div>
         </div>
 
-        <div className="bg-white border-2 border-yellow-400 rounded-lg p-3">
-          <label className="block text-xs font-bold uppercase text-yellow-700 mb-1">Forecast (calcolato)</label>
-          <input
-            className="w-full border rounded px-2 py-1 text-xs mb-2"
-            value={forecast.label}
-            onChange={(e) => updateForecast({ label: e.target.value })}
-            placeholder="Es: Forecast"
-          />
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              step="0.1"
-              className="flex-1 border rounded px-2 py-1 text-sm font-bold bg-yellow-50"
-              value={forecast.value || autoForecast.toFixed(2)}
-              onChange={(e) => updateForecast({ value: e.target.value })}
-              placeholder={autoForecast.toFixed(2)}
-            />
-            <span className="text-sm text-gray-500">{unit}</span>
+        {/* FORECAST (auto-calcolato) */}
+        <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3">
+          <label className="block text-xs font-bold uppercase text-yellow-700 mb-1">
+            Forecast
+            <span className="text-[10px] font-normal ml-1 text-yellow-600">(auto)</span>
+          </label>
+          <div className="text-xs text-yellow-700 mb-2">Baseline + Σ Gain Kaizen</div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-yellow-700">
+              {autoForecast.toFixed(2)}
+            </span>
+            <span className="text-sm text-yellow-600">{unitFromStep1}</span>
           </div>
           <div className="text-[10px] text-yellow-700 mt-1">
-            Auto: {baselineNum} + {totalGain.toFixed(1)} = {autoForecast.toFixed(2)}
+            = {baselineNum} + {totalGain.toFixed(1)} ({progetti.length} Kaizen)
           </div>
         </div>
 
-        <div className="bg-white border-2 border-orange-400 rounded-lg p-3">
-          <label className="block text-xs font-bold uppercase text-orange-700 mb-1">Obiettivo</label>
-          <input
-            className="w-full border rounded px-2 py-1 text-xs mb-2"
-            value={target.label}
-            onChange={(e) => updateTarget({ label: e.target.value })}
-            placeholder="Es: 2026 Target"
-          />
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              step="0.1"
-              className="flex-1 border rounded px-2 py-1 text-sm font-bold"
-              value={target.value}
-              onChange={(e) => updateTarget({ value: e.target.value })}
-              placeholder="Target"
-            />
-            <span className="text-sm text-gray-500">{unit}</span>
+        {/* TARGET (read-only da Step 1) */}
+        <div className="bg-orange-50 border-2 border-orange-400 rounded-lg p-3">
+          <label className="block text-xs font-bold uppercase text-orange-700 mb-1">
+            Obiettivo
+            <span className="text-[10px] font-normal ml-1 text-orange-600">(da Step 1)</span>
+          </label>
+          <div className="text-xs text-orange-700 mb-2 truncate">{kpiLabel || 'KPI'} Target</div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-orange-700">
+              {targetFromStep1 || '—'}
+            </span>
+            <span className="text-sm text-orange-600">{unitFromStep1}</span>
           </div>
+          <div className="text-[10px] text-orange-700 mt-1 italic">Modifica in Step 1</div>
         </div>
       </div>
+
+      {/* Gap Forecast vs Target */}
+      {targetFromStep1 && autoForecast > 0 && (
+        <div className="bg-white p-3 rounded-lg border-2 border-dashed flex items-center justify-center gap-3">
+          <span className="text-sm text-gray-600">Forecast vs Target:</span>
+          {(() => {
+            const targetNum = parseFloat(targetFromStep1) || 0
+            const gap = autoForecast - targetNum
+            const isPositive = gap >= 0
+            return (
+              <span className={`text-lg font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                {isPositive ? '+' : ''}{gap.toFixed(2)} {unitFromStep1}
+                <span className="text-xs ml-2">
+                  {isPositive ? '(target raggiungibile)' : '(serve più gain)'}
+                </span>
+              </span>
+            )
+          })()}
+        </div>
+      )}
 
       {/* Lista progetti */}
       <div className="flex justify-between items-center mt-4">
         <h4 className="font-semibold text-sm uppercase text-gray-700">
-          Kaizen collegati ({progetti.length})
+          Kaizen collegati alle perdite ({progetti.length})
         </h4>
         <button
           onClick={addProject}
           className="text-xs px-3 py-1 text-white rounded shadow"
           style={{ backgroundColor: color }}
+          disabled={lossesStep2.length === 0}
+          title={lossesStep2.length === 0 ? 'Compila prima Step 2' : ''}
         >
           + Aggiungi Kaizen
         </button>
       </div>
-
-      {kaizens.length === 0 && progetti.length === 0 && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
-          ⚠️ Nessun Kaizen nel sistema. <strong>Crea prima i Kaizen</strong> nella sezione Kaizen, poi torna qui per collegarli.
-        </div>
-      )}
 
       {progetti.length === 0 ? (
         <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
@@ -1183,21 +1204,49 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
       ) : (
         <div className="space-y-2">
           {progetti.map((p, idx) => {
-            const projectColor = getProjectColor(p.id)
+            // Trova la loss collegata e il suo cluster (per colore)
+            const loss = lossesStep2.find(l => l.id === p.loss_target_id)
+            const clusterColor = getClusterColor(loss?.cluster_id)
+            const clusterLabel = getClusterLabel(loss?.cluster_id)
+
             return (
               <div
                 key={p.id}
                 className="bg-white p-3 rounded-lg border-l-4 border"
-                style={{ borderLeftColor: projectColor }}
+                style={{ borderLeftColor: clusterColor }}
               >
                 <div className="grid grid-cols-12 gap-2 items-end">
                   <div className="col-span-1 text-center font-bold text-gray-400 pb-2">#{idx + 1}</div>
 
-                  {/* Dropdown Kaizen */}
-                  <div className="col-span-6">
+                  {/* Loss target dropdown */}
+                  <div className="col-span-3">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">
-                      Kaizen
+                      Loss target (Step 2)
                     </label>
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="w-4 h-4 rounded flex-shrink-0"
+                        style={{ backgroundColor: clusterColor }}
+                        title={clusterLabel}
+                      />
+                      <select
+                        className="flex-1 border rounded px-2 py-1 text-sm"
+                        value={p.loss_target_id || ''}
+                        onChange={(e) => handleLossChange(p.id, e.target.value)}
+                      >
+                        <option value="">— Seleziona loss —</option>
+                        {lossesStep2.map(l => (
+                          <option key={l.id} value={l.id}>
+                            {l.label || 'Senza nome'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Dropdown Kaizen */}
+                  <div className="col-span-4">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Kaizen</label>
                     <select
                       className="w-full border rounded px-2 py-1 text-sm"
                       value={p.kaizen_id || ''}
@@ -1224,7 +1273,7 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
                   {/* Gain */}
                   <div className="col-span-2">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">
-                      Gain ({unit})
+                      Gain ({unitFromStep1})
                     </label>
                     <input
                       type="number"
@@ -1232,15 +1281,13 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
                       className="w-full border rounded px-2 py-1 text-sm font-bold"
                       value={p.gain_value || ''}
                       onChange={(e) => updateProject(p.id, { gain_value: e.target.value })}
-                      placeholder={`+/- ${unit}`}
+                      placeholder={`+/- ${unitFromStep1}`}
                     />
                   </div>
 
                   {/* Deadline */}
-                  <div className="col-span-2">
-                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">
-                      Deadline
-                    </label>
+                  <div className="col-span-1">
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Deadline</label>
                     <input
                       type="date"
                       className="w-full border rounded px-2 py-1 text-sm"
@@ -1267,11 +1314,11 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
       {(baselineNum > 0 || improvementsForChart.length > 0) && (
         <div className="mt-6">
           <BridgeChart
-            baseline={{ label: baseline.label, value: baseline.value }}
+            baseline={{ label: kpiLabel || 'Punto di partenza', value: baselineFromStep1 }}
             improvements={improvementsForChart}
-            forecast={{ label: forecast.label, value: forecast.value || autoForecast }}
-            target={target.value ? { label: target.label, value: target.value } : null}
-            unit={unit}
+            forecast={{ label: 'Forecast', value: autoForecast }}
+            target={targetFromStep1 ? { label: `${kpiLabel} Target`, value: targetFromStep1 } : null}
+            unit={unitFromStep1}
             title={`${pillar?.sigla || 'Pillar'} Bridge Chart`}
             subtitle={pillar?.label || ''}
           />
