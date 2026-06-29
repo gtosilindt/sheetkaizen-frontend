@@ -2369,7 +2369,6 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
           </div>
         </div>
       )}
-      </div>
     </div>
   )
 }
