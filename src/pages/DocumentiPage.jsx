@@ -72,16 +72,16 @@ export default function DocumentiPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">📚 Document Manager (OPL / SOP)</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Document Manager (OPL / SOP)</h1>
         <div className="flex gap-2">
-          <button 
-            onClick={() => setBulkOpen(true)} 
+          <button
+            onClick={() => setBulkOpen(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700"
           >
-            📦 Bulk Upload
+            Bulk Upload
           </button>
-          <button 
-            onClick={() => setUploadOpen(true)} 
+          <button
+            onClick={() => setUploadOpen(true)}
             className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-light"
           >
             <Upload size={18} /> Carica Singolo
@@ -98,7 +98,7 @@ export default function DocumentiPage() {
               <div className="text-3xl mb-2">{getTipoIcon(tipo)}</div>
               <p className="text-sm text-gray-500">{tipo === 'OPL' ? 'One Point Lessons' : 'Standard Operating Procedures'}</p>
               <p className="text-2xl font-bold">{total} documenti</p>
-              <p className="text-xs text-green-600 mt-1">✅ {approvati} approvati</p>
+              <p className="text-xs text-green-600 mt-1">{approvati} approvati</p>
             </div>
           )
         })}
@@ -173,8 +173,8 @@ export default function DocumentiPage() {
                     <td className="p-4">{doc.tipo}</td>
                     <td className="p-4">{doc.categoria || '-'}</td>
                     <td className="p-4 text-xs">
-                      {doc.reparto && <div>🏭 {doc.reparto}</div>}
-                      {doc.linea && <div>⚙️ {doc.linea}</div>}
+                      {doc.reparto && <div>{doc.reparto}</div>}
+                      {doc.linea && <div>{doc.linea}</div>}
                     </td>
                     <td className="p-4">
                       <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">v{doc.versione || 1}</span>
@@ -227,6 +227,56 @@ function PreviewModal({ doc, onClose }) {
   const publicFileUrl = `${API_BASE}/api/documenti/${doc._id}/preview`
   const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicFileUrl)}`
 
+  // Renderizzo iframe/img con React.createElement per evitare bug copia-incolla
+  const previewContent = (() => {
+    if (fileType === 'pdf') {
+      return React.createElement('iframe', {
+        src: publicFileUrl,
+        className: 'w-full h-full border-0',
+        title: doc.titolo,
+      })
+    }
+    if (fileType === 'image') {
+      return (
+        <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+          {React.createElement('img', {
+            src: publicFileUrl,
+            alt: doc.titolo,
+            className: 'max-w-full max-h-full object-contain shadow-lg',
+          })}
+        </div>
+      )
+    }
+    if (fileType === 'office') {
+      return (
+        <>
+          {React.createElement('iframe', {
+            src: officeViewerUrl,
+            className: 'w-full h-full border-0',
+            title: doc.titolo,
+            frameBorder: '0',
+          })}
+          <div className="absolute bottom-3 right-3 bg-white shadow-lg rounded px-3 py-2 text-xs text-gray-600 max-w-xs">
+            Se l'anteprima non si carica, usa <strong>Scarica</strong> per aprirlo.
+          </div>
+        </>
+      )
+    }
+    if (fileType === 'text') {
+      return <TextPreview url={publicFileUrl} />
+    }
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 p-8">
+        <div className="text-7xl mb-4">📄</div>
+        <div className="text-lg mb-2 font-medium">Anteprima non disponibile</div>
+        <div className="text-sm mb-6 text-gray-400">{doc.file_name}</div>
+        <a href={downloadUrl} download={doc.file_name} className="bg-primary text-white px-5 py-2 rounded-lg hover:bg-primary-light flex items-center gap-2">
+          <Download size={18} /> Scarica per visualizzare
+        </a>
+      </div>
+    )
+  })()
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl">
@@ -234,7 +284,7 @@ function PreviewModal({ doc, onClose }) {
           <div className="min-w-0">
             <div className="font-semibold truncate">{doc.numero} - {doc.titolo}</div>
             <div className="text-xs opacity-80 truncate">
-              📎 {doc.file_name} • v{doc.versione || 1} • {doc.stato}
+              {doc.file_name} • v{doc.versione || 1} • {doc.stato}
               {doc.file_size && ` • ${(doc.file_size / 1024).toFixed(1)} KB`}
             </div>
           </div>
@@ -249,53 +299,14 @@ function PreviewModal({ doc, onClose }) {
         </div>
 
         <div className="flex-1 overflow-hidden bg-gray-100 relative">
-          {fileType === 'pdf' && (
-            React.createElement('iframe', {
-              src: publicFileUrl,
-              className: 'w-full h-full border-0',
-              title: doc.titolo,
-            })
-          )}
-          {fileType === 'image' && (
-            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
-              {React.createElement('img', {
-                src: publicFileUrl,
-                alt: doc.titolo,
-                className: 'max-w-full max-h-full object-contain shadow-lg',
-              })}
-            </div>
-          )}
-          {fileType === 'office' && (
-            <>
-              {React.createElement('iframe', {
-                src: officeViewerUrl,
-                className: 'w-full h-full border-0',
-                title: doc.titolo,
-                frameBorder: '0',
-              })}
-              <div className="absolute bottom-3 right-3 bg-white shadow-lg rounded px-3 py-2 text-xs text-gray-600 max-w-xs">
-                ℹ️ Se l'anteprima non si carica, usa <strong>Scarica</strong> per aprirlo.
-              </div>
-            </>
-          )}
-          {fileType === 'text' && <TextPreview url={publicFileUrl} />}
-          {fileType === 'unknown' && (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 p-8">
-              <div className="text-7xl mb-4">📄</div>
-              <div className="text-lg mb-2 font-medium">Anteprima non disponibile</div>
-              <div className="text-sm mb-6 text-gray-400">{doc.file_name}</div>
-              <a href={downloadUrl} download={doc.file_name} className="bg-primary text-white px-5 py-2 rounded-lg hover:bg-primary-light flex items-center gap-2">
-                <Download size={18} /> Scarica per visualizzare
-              </a>
-            </div>
-          )}
+          {previewContent}
         </div>
 
         {(doc.descrizione || doc.autore) && (
           <div className="border-t bg-white px-6 py-2 text-xs text-gray-600 flex gap-4">
-            {doc.autore && <span>👤 <strong>Autore:</strong> {doc.autore}</span>}
-            {doc.categoria && <span>🏷️ <strong>Categoria:</strong> {doc.categoria}</span>}
-            {doc.descrizione && <span className="truncate">📝 {doc.descrizione}</span>}
+            {doc.autore && <span><strong>Autore:</strong> {doc.autore}</span>}
+            {doc.categoria && <span><strong>Categoria:</strong> {doc.categoria}</span>}
+            {doc.descrizione && <span className="truncate">{doc.descrizione}</span>}
           </div>
         )}
       </div>
@@ -306,7 +317,7 @@ function PreviewModal({ doc, onClose }) {
 function TextPreview({ url }) {
   const [content, setContent] = useState('Caricamento...')
   useEffect(() => {
-    fetch(url).then(r => r.text()).then(setContent).catch(() => setContent('❌ Errore caricamento file'))
+    fetch(url).then(r => r.text()).then(setContent).catch(() => setContent('Errore caricamento file'))
   }, [url])
   return (
     <pre className="w-full h-full overflow-auto p-6 bg-gray-50 text-sm font-mono whitespace-pre-wrap">{content}</pre>
@@ -340,11 +351,11 @@ function UploadModal({ onClose, onSaved }) {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       const c = res.data.compressione
-      let msg = `✅ Documento ${res.data.numero} creato!`
+      let msg = `Documento ${res.data.numero} creato!`
       if (c && c.compressed) {
         const origMB = (c.original_size / 1024 / 1024).toFixed(2)
         const finalMB = (c.final_size / 1024 / 1024).toFixed(2)
-        msg += `\n\n🗜️ Compressione: ${origMB} MB → ${finalMB} MB (-${c.saved_pct}%)`
+        msg += `\n\nCompressione: ${origMB} MB → ${finalMB} MB (-${c.saved_pct}%)`
       }
       alert(msg)
       onSaved()
@@ -360,7 +371,7 @@ function UploadModal({ onClose, onSaved }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="bg-primary text-white p-4 rounded-t-xl flex justify-between items-center sticky top-0">
-          <h2 className="text-lg font-bold">📤 Carica Documento</h2>
+          <h2 className="text-lg font-bold">Carica Documento</h2>
           <button onClick={onClose}><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -378,7 +389,7 @@ function UploadModal({ onClose, onSaved }) {
                 <div className="text-gray-400">
                   <Upload className="mx-auto mb-2" size={32} />
                   <p className="text-sm">Click per selezionare il file</p>
-                  <p className="text-xs">PDF, DOCX, XLSX, PPTX, immagini... (max 50MB)</p>
+                  <p className="text-xs">PDF, DOCX, XLSX, PPTX, immagini (max 50MB)</p>
                 </div>
               )}
             </div>
@@ -387,7 +398,7 @@ function UploadModal({ onClose, onSaved }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Titolo <span className="text-red-500">*</span></label>
-              <input required value={form.titolo} onChange={(e) => setForm({...form, titolo: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Es: Pulizia filtro Bindler 11" />
+              <input required value={form.titolo} onChange={(e) => setForm({...form, titolo: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Tipo <span className="text-red-500">*</span></label>
@@ -417,15 +428,15 @@ function UploadModal({ onClose, onSaved }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Reparto</label>
-              <input value={form.reparto} onChange={(e) => setForm({...form, reparto: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Es: Confezionamento" />
+              <input value={form.reparto} onChange={(e) => setForm({...form, reparto: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Linea</label>
-              <input value={form.linea} onChange={(e) => setForm({...form, linea: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Es: Linea 1" />
+              <input value={form.linea} onChange={(e) => setForm({...form, linea: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Macchina</label>
-              <input value={form.macchina} onChange={(e) => setForm({...form, macchina: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Opzionale" />
+              <input value={form.macchina} onChange={(e) => setForm({...form, macchina: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
             </div>
           </div>
 
@@ -436,20 +447,20 @@ function UploadModal({ onClose, onSaved }) {
 
           <div>
             <label className="block text-sm font-medium mb-1">Tag (separati da virgola)</label>
-            <input value={form.tag} onChange={(e) => setForm({...form, tag: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="filtro, pulizia, manutenzione" />
+            <input value={form.tag} onChange={(e) => setForm({...form, tag: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
           </div>
 
           <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <input type="checkbox" id="compress" checked={compress} onChange={(e) => setCompress(e.target.checked)} className="w-4 h-4" />
             <label htmlFor="compress" className="text-sm cursor-pointer flex-1">
-              🗜️ <strong>Comprimi automaticamente</strong> — Riduce dimensioni di immagini, PDF e file Office (consigliato)
+              <strong>Comprimi automaticamente</strong> — Riduce dimensioni di immagini, PDF e file Office
             </label>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
             <button type="submit" disabled={uploading || !file} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50">
-              {uploading ? 'Carico...' : '📤 Carica'}
+              {uploading ? 'Carico...' : 'Carica'}
             </button>
           </div>
         </form>
@@ -503,7 +514,7 @@ function EditModal({ doc, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="bg-primary text-white p-4 rounded-t-xl flex justify-between items-center sticky top-0">
-          <h2 className="text-lg font-bold">✏️ Modifica {doc.numero} (v{doc.versione})</h2>
+          <h2 className="text-lg font-bold">Modifica {doc.numero} (v{doc.versione})</h2>
           <button onClick={onClose}><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -572,7 +583,7 @@ function EditModal({ doc, onClose, onSaved }) {
 
           {doc.versioni_precedenti && doc.versioni_precedenti.length > 0 && (
             <div>
-              <label className="block text-sm font-medium mb-1">📜 Versioni precedenti</label>
+              <label className="block text-sm font-medium mb-1">Versioni precedenti</label>
               <div className="space-y-1">
                 {doc.versioni_precedenti.map(v => {
                   const vUrl = `${API_BASE}/api/documenti/${doc._id}/version/${v.versione}`
@@ -589,7 +600,7 @@ function EditModal({ doc, onClose, onSaved }) {
           <div className="flex justify-end gap-2 pt-4 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Annulla</button>
             <button type="submit" disabled={saving} className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50">
-              {saving ? 'Salvo...' : '💾 Salva'}
+              {saving ? 'Salvo...' : 'Salva'}
             </button>
           </div>
         </form>
@@ -615,31 +626,30 @@ function BulkUploadModal({ onClose, onSaved }) {
   const namePattern = /\b(OPL|SOP|PROC|IST)\b[\s_\-]*(\d{1,5})/i
 
   function analyzeFile(file) {
-  const filenameNoExt = file.name.replace(/\.[^.]+$/, '')
-  const match = filenameNoExt.match(namePattern)
-  
-  if (match) {
-    const tipoRaw = match[1].toUpperCase()
-    const numero = match[2].padStart(3, '0')
-    // Estrai titolo rimuovendo il match
-    let titoloRaw = filenameNoExt.replace(namePattern, '').trim()
-    titoloRaw = titoloRaw.replace(/^[\s_\-]+/, '')  // rimuovi caratteri iniziali
-    let titolo = titoloRaw.replace(/_/g, ' ').replace(/\s+/g, ' ').trim()
-    
-    if (!titolo) titolo = filenameNoExt.replace(/_/g, ' ').trim()
-    
+    const filenameNoExt = file.name.replace(/\.[^.]+$/, '')
+    const match = filenameNoExt.match(namePattern)
+
+    if (match) {
+      const tipoRaw = match[1].toUpperCase()
+      const numero = match[2].padStart(3, '0')
+      let titoloRaw = filenameNoExt.replace(namePattern, '').trim()
+      titoloRaw = titoloRaw.replace(/^[\s_\-]+/, '')
+      let titolo = titoloRaw.replace(/_/g, ' ').replace(/\s+/g, ' ').trim()
+
+      if (!titolo) titolo = filenameNoExt.replace(/_/g, ' ').trim()
+
+      return {
+        valid: true,
+        tipo: tipoRaw,
+        numero: `${tipoRaw}-${numero}`,
+        titolo: titolo,
+      }
+    }
     return {
-      valid: true,
-      tipo: tipoRaw,
-      numero: `${tipoRaw}-${numero}`,
-      titolo: titolo,
+      valid: false,
+      titolo: filenameNoExt.replace(/_/g, ' ').replace(/-/g, ' ').trim(),
     }
   }
-  return {
-    valid: false,
-    titolo: filenameNoExt.replace(/_/g, ' ').replace(/-/g, ' ').trim(),
-  }
-}
 
   function handleFiles(selectedFiles) {
     const arr = Array.from(selectedFiles)
@@ -703,18 +713,18 @@ function BulkUploadModal({ onClose, onSaved }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto shadow-2xl">
         <div className="bg-green-600 text-white p-4 rounded-t-xl flex justify-between items-center sticky top-0 z-10">
-          <h2 className="text-lg font-bold">📦 Bulk Upload — Carica multipli</h2>
+          <h2 className="text-lg font-bold">Bulk Upload — Carica multipli</h2>
           <button onClick={handleClose}><X size={20} /></button>
         </div>
 
         <div className="p-6 space-y-4">
           {!result && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-              <div className="font-semibold text-blue-900 mb-1">💡 Naming intelligente</div>
+              <div className="font-semibold text-blue-900 mb-1">Naming intelligente</div>
               <div className="text-blue-700 text-xs space-y-0.5">
                 <div>I file con nome <code className="bg-blue-100 px-1 rounded">TIPO-ANNO-NUM_Titolo.ext</code> vengono parsati automaticamente.</div>
-                <div>Esempi: <code className="bg-blue-100 px-1 rounded">OPL-2026-001_Pulizia_Filtro.pdf</code> · <code className="bg-blue-100 px-1 rounded">SOP-2026-014_Avviamento.docx</code></div>
-                <div>Altri nomi → verranno usati come titolo con numero progressivo automatico.</div>
+                <div>Esempi: <code className="bg-blue-100 px-1 rounded">OPL-2026-001_Pulizia.pdf</code> · <code className="bg-blue-100 px-1 rounded">SOP-2026-014_Avviamento.docx</code></div>
+                <div>Altri nomi → numero progressivo automatico.</div>
               </div>
             </div>
           )}
@@ -740,7 +750,7 @@ function BulkUploadModal({ onClose, onSaved }) {
               <Upload className="mx-auto mb-2 text-gray-400" size={48} />
               <p className="text-lg font-medium">Trascina qui i tuoi file</p>
               <p className="text-sm text-gray-500">oppure click per selezionarli</p>
-              <p className="text-xs text-gray-400 mt-2">PDF, DOCX, XLSX, PPTX, immagini · Max 50MB ciascuno</p>
+              <p className="text-xs text-gray-400 mt-2">PDF, DOCX, XLSX, PPTX, immagini (max 50MB)</p>
             </div>
           )}
 
@@ -749,8 +759,8 @@ function BulkUploadModal({ onClose, onSaved }) {
               <div className="bg-gray-50 px-3 py-2 text-xs font-medium flex justify-between items-center">
                 <span>{files.length} file pronti · {(totalSize / 1024 / 1024).toFixed(2)} MB totali</span>
                 <span className="flex gap-3">
-                  <span className="text-green-600">✅ {validCount} parsati</span>
-                  {invalidCount > 0 && <span className="text-orange-600">⚠️ {invalidCount} manuali</span>}
+                  <span className="text-green-600">{validCount} parsati</span>
+                  {invalidCount > 0 && <span className="text-orange-600">{invalidCount} manuali</span>}
                   <button onClick={() => setFiles([])} className="text-red-600 hover:underline">Svuota</button>
                 </span>
               </div>
@@ -785,7 +795,6 @@ function BulkUploadModal({ onClose, onSaved }) {
                 <input
                   value={autore}
                   onChange={(e) => setAutore(e.target.value)}
-                  placeholder="Es: Giovanni Tosi"
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                 />
               </div>
@@ -797,7 +806,7 @@ function BulkUploadModal({ onClose, onSaved }) {
                     onChange={(e) => setCompress(e.target.checked)}
                     className="w-4 h-4"
                   />
-                  <span className="text-sm">🗜️ Comprimi automaticamente</span>
+                  <span className="text-sm">Comprimi automaticamente</span>
                 </label>
               </div>
             </div>
@@ -805,13 +814,13 @@ function BulkUploadModal({ onClose, onSaved }) {
 
           {uploading && !result && (
             <div className="text-center py-8">
-              <div className="text-lg font-medium mb-2">📤 Caricamento in corso...</div>
+              <div className="text-lg font-medium mb-2">Caricamento in corso...</div>
               <div className="text-sm text-gray-500 mb-4">
                 Sto caricando {files.length} file · {(totalSize / 1024 / 1024).toFixed(2)} MB
                 {compress && ' · con compressione attiva'}
               </div>
               <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                <div 
+                <div
                   className="bg-green-500 h-4 transition-all duration-300 flex items-center justify-center text-xs text-white font-bold"
                   style={{ width: `${progress}%` }}
                 >
@@ -819,7 +828,7 @@ function BulkUploadModal({ onClose, onSaved }) {
                 </div>
               </div>
               <div className="text-xs text-gray-400 mt-2">
-                {progress < 100 ? '⏳ Upload + compressione + salvataggio in corso...' : '✨ Elaborazione finale...'}
+                {progress < 100 ? 'Upload + compressione + salvataggio in corso...' : 'Elaborazione finale...'}
               </div>
             </div>
           )}
@@ -830,15 +839,15 @@ function BulkUploadModal({ onClose, onSaved }) {
                 <div className="text-3xl mb-2">🎉</div>
                 <div className="text-lg font-bold text-green-900">Bulk Upload completato!</div>
                 <div className="text-sm text-gray-700 mt-2 flex justify-center gap-4">
-                  <span>📊 Totale: <strong>{result.totale}</strong></span>
-                  <span className="text-green-700">✅ Successo: <strong>{result.successo}</strong></span>
+                  <span>Totale: <strong>{result.totale}</strong></span>
+                  <span className="text-green-700">Successo: <strong>{result.successo}</strong></span>
                   {result.fallimenti > 0 && (
-                    <span className="text-red-600">❌ Errori: <strong>{result.fallimenti}</strong></span>
+                    <span className="text-red-600">Errori: <strong>{result.fallimenti}</strong></span>
                   )}
                 </div>
                 {result.risparmio_totale_mb > 0 && (
                   <div className="mt-2 text-sm text-blue-700">
-                    🗜️ Risparmio compressione: <strong>{result.risparmio_totale_mb} MB</strong>
+                    Risparmio compressione: <strong>{result.risparmio_totale_mb} MB</strong>
                   </div>
                 )}
               </div>
@@ -846,7 +855,7 @@ function BulkUploadModal({ onClose, onSaved }) {
               {result.creati && result.creati.length > 0 && (
                 <details className="border rounded-lg" open>
                   <summary className="px-3 py-2 bg-green-50 cursor-pointer font-medium text-sm">
-                    ➕ Nuovi documenti ({result.creati.length})
+                    Nuovi documenti ({result.creati.length})
                   </summary>
                   <div className="max-h-48 overflow-y-auto text-xs">
                     {result.creati.map((d, i) => (
@@ -867,7 +876,7 @@ function BulkUploadModal({ onClose, onSaved }) {
               {result.aggiornati && result.aggiornati.length > 0 && (
                 <details className="border rounded-lg">
                   <summary className="px-3 py-2 bg-blue-50 cursor-pointer font-medium text-sm">
-                    🔄 Nuove versioni ({result.aggiornati.length})
+                    Nuove versioni ({result.aggiornati.length})
                   </summary>
                   <div className="max-h-48 overflow-y-auto text-xs">
                     {result.aggiornati.map((d, i) => (
@@ -882,7 +891,7 @@ function BulkUploadModal({ onClose, onSaved }) {
               {result.errori && result.errori.length > 0 && (
                 <details className="border rounded-lg" open>
                   <summary className="px-3 py-2 bg-red-50 cursor-pointer font-medium text-sm text-red-700">
-                    ❌ Errori ({result.errori.length})
+                    Errori ({result.errori.length})
                   </summary>
                   <div className="max-h-48 overflow-y-auto text-xs">
                     {result.errori.map((e, i) => (
@@ -906,7 +915,7 @@ function BulkUploadModal({ onClose, onSaved }) {
                 disabled={uploading || files.length === 0}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
               >
-                {uploading ? `⏳ Carico ${files.length}...` : `📤 Carica ${files.length} file`}
+                {uploading ? `Carico ${files.length}...` : `Carica ${files.length} file`}
               </button>
             )}
           </div>
