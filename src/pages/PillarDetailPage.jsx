@@ -2148,7 +2148,7 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
   // Loss da Step 2
   const lossesStep2 = allStepsData?.step2_pareto_analysis?.losses || []
 
-  // Improvements PLANNED dallo Step 3
+  // Improvements PLANNED dallo Step 3 (per riferimento)
   const progettiStep3 = step3Data.progetti || []
   const improvementsPlanned = progettiStep3
     .filter(p => parseFloat(p.gain_value))
@@ -2167,17 +2167,34 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
       }
     })
 
+  // Improvements REAL (Actual) dallo Step 4 — solo quelli con actual_gain_value
+  const progettiStep4 = step4Data.progetti_actual || []
+  const improvementsActual = progettiStep4
+    .filter(p => parseFloat(p.actual_gain_value))
+    .map(p => {
+      const step3p = progettiStep3.find(s => s.id === p.step3_project_id)
+      const loss = lossesStep2.find(l => l.id === step3p?.loss_target_id)
+      const clusterColor = getClusterColor(loss?.cluster_id)
+      const label =
+        step3p?.type === 'kaizen' ? (step3p?.kaizen_numero || 'Kaizen') :
+        step3p?.type === 'action_plan' ? (step3p?.ap_numero || 'AP') :
+        (step3p?.text_label || 'Idea')
+      return {
+        id: p.id,
+        label,
+        value: parseFloat(p.actual_gain_value) || 0,
+        color: clusterColor,
+      }
+    })
+
   // Calcoli auto
   const baselineNum = parseFloat(baselineFromStep1) || 0
   const targetNum = parseFloat(targetFromStep1) || 0
   const totalGainPlanned = improvementsPlanned.reduce((s, i) => s + i.value, 0)
   const forecastPlannedValue = baselineNum + totalGainPlanned
 
-  // Actual da Step 4: solo i "done" con actual_gain_value
-  const progettiStep4 = step4Data.progetti_actual || []
-  const totalGainActual = progettiStep4
-    .filter(p => p.actual_status === 'done')
-    .reduce((sum, p) => sum + (parseFloat(p.actual_gain_value) || 0), 0)
+  // Actual: somma di tutti i actual_gain_value (anche se non "done", basta che ci sia valore)
+  const totalGainActual = improvementsActual.reduce((sum, i) => sum + i.value, 0)
   const actualValue = baselineNum + totalGainActual
 
   // Gap
@@ -2276,9 +2293,9 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
         <div className="mt-6">
           <BridgeChart
             baseline={{ label: kpiLabel || 'Punto di partenza', value: baselineNum }}
-            improvements={improvementsPlanned}
+            improvements={improvementsActual}
             forecast={{ label: 'Pianificato (Forecast)', value: forecastPlannedValue }}
-            actual={totalGainActual > 0 ? { label: 'Reale (Actual)', value: actualValue } : null}
+            actual={totalGainActual !== 0 ? { label: 'Reale (Actual)', value: actualValue } : null}
             target={targetNum > 0 ? { label: `Target (${kpiLabel})`, value: targetNum } : null}
             compareMode={true}
             unit={unitFromStep1}
@@ -2287,9 +2304,6 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
           />
         </div>
       )}
-    </div>
-  )
-}
 function BridgeCell({ label, value, autoValue, isOverridden, onChange, onReset, colSpan = 'col-span-3', suffix = '' }) {
   return (
     <div className={colSpan}>
