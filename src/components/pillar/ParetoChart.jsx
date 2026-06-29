@@ -103,7 +103,6 @@ export default function ParetoChart({
               domain={[0, 100]}
               label={{ value: 'Cumulativa (%)', angle: 90, position: 'insideRight', style: { fontSize: 12 } }}
             />
-            <Tooltip
               <Tooltip
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: 8 }}
               formatter={(value, name, props) => {
