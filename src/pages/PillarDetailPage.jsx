@@ -1705,128 +1705,170 @@ function SummaryBlock({ label, value, color = 'gray' }) {
 }
 
 function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
+  const step1Data = allStepsData?.step1_kpi_definition || {}
   const step3Data = allStepsData?.step3_target_definition || {}
   const step4Data = allStepsData?.step4_implementation || {}
 
-  // Riprendo i dati pianificati dallo Step 3
-  const baseline = step3Data.baseline || { label: 'Baseline', value: 0 }
-  const forecastPlanned = step3Data.forecast || null
-  const targetGlobal = step3Data.target || null
-  const unit = step3Data.unit || 'nr'
+  // Eredita tutto da Step 1
+  const kpi1 = step1Data.kpi_principale || {}
+  const baselineFromStep1 = kpi1.baseline || ''
+  const targetFromStep1 = kpi1.target || ''
+  const unitFromStep1 = kpi1.unit || '%'
+  const kpiLabel = kpi1.label || 'KPI'
+
+  // Cluster per colori
+  const { configs } = useAllConfigurations()
+  const clustersConfig = configs.cluster_perdita || []
+  function getClusterColor(clusterId) {
+    const cluster = clustersConfig.find(c => c._id === clusterId)
+    return cluster?.color || '#9CA3AF'
+  }
+
+  // Loss da Step 2
+  const lossesStep2 = allStepsData?.step2_pareto_analysis?.losses || []
 
   // Improvements PLANNED dallo Step 3
   const progettiStep3 = step3Data.progetti || []
   const improvementsPlanned = progettiStep3
-    .filter(p => p.status !== 'cancelled' && parseFloat(p.gain_value))
-    .map(p => ({
-      id: p.id,
-      label: p.label || p.kaizen_numero || 'Progetto',
-      value: parseFloat(p.gain_value) || 0,
-      color: p.color,
-    }))
-
-  // Improvements ACTUAL dallo Step 4
-  const progettiStep4 = step4Data.progetti_actual || []
-  const improvementsActual = progettiStep4
-    .filter(p => p.actual_status === 'done' && parseFloat(p.actual_gain_value))
+    .filter(p => parseFloat(p.gain_value))
     .map(p => {
-      const step3Project = progettiStep3.find(s => s.id === p.step3_project_id)
+      const loss = lossesStep2.find(l => l.id === p.loss_target_id)
+      const clusterColor = getClusterColor(loss?.cluster_id)
+      const label =
+        p.type === 'kaizen' ? (p.kaizen_numero || 'Kaizen') :
+        p.type === 'action_plan' ? (p.ap_numero || 'AP') :
+        (p.text_label || 'Idea')
       return {
         id: p.id,
-        label: p.label || step3Project?.label || step3Project?.kaizen_numero || 'Progetto',
-        value: parseFloat(p.actual_gain_value) || 0,
-        color: p.color || step3Project?.color,
+        label,
+        value: parseFloat(p.gain_value) || 0,
+        color: clusterColor,
       }
     })
 
   // Calcoli auto
-  const baselineNum = parseFloat(baseline.value) || 0
-  const autoForecastPlanned = baselineNum + improvementsPlanned.reduce((s, i) => s + i.value, 0)
-  const autoActual = baselineNum + improvementsActual.reduce((s, i) => s + i.value, 0)
+  const baselineNum = parseFloat(baselineFromStep1) || 0
+  const targetNum = parseFloat(targetFromStep1) || 0
+  const totalGainPlanned = improvementsPlanned.reduce((s, i) => s + i.value, 0)
+  const forecastPlannedValue = baselineNum + totalGainPlanned
 
-  const forecastActual = data.forecast_actual || { label: 'Actual achieved', value: autoActual }
+  // Actual da Step 4: solo i "done" con actual_gain_value
+  const progettiStep4 = step4Data.progetti_actual || []
+  const totalGainActual = progettiStep4
+    .filter(p => p.actual_status === 'done')
+    .reduce((sum, p) => sum + (parseFloat(p.actual_gain_value) || 0), 0)
+  const actualValue = baselineNum + totalGainActual
 
-  function updateForecastActual(updates) {
-    onUpdate({ forecast_actual: { ...forecastActual, ...updates } })
+  // Gap
+  const gapActualVsPlanned = actualValue - forecastPlannedValue
+  const gapActualVsTarget = actualValue - targetNum
+
+  // Status performance
+  let perfStatus = { label: 'In corso', color: 'bg-gray-100 text-gray-700', emoji: '⏳' }
+  if (totalGainActual > 0) {
+    if (gapActualVsTarget >= 0) {
+      perfStatus = { label: 'Target superato', color: 'bg-green-500 text-white', emoji: '🏆' }
+    } else if (Math.abs(gapActualVsTarget) / targetNum < 0.05) {
+      perfStatus = { label: 'Target quasi raggiunto', color: 'bg-yellow-500 text-white', emoji: '⚠️' }
+    } else {
+      perfStatus = { label: 'Sotto target', color: 'bg-red-500 text-white', emoji: '❌' }
+    }
   }
+
+  const step1Incomplete = !baselineFromStep1 || !targetFromStep1
+  const step3Empty = improvementsPlanned.length === 0
+  const step4Empty = totalGainActual === 0
 
   return (
     <div className="space-y-3 mt-3">
+      {/* Spiegazione */}
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        <strong>Cosa fare:</strong> Confronta il <strong>Planned</strong> (Step 3) vs <strong>Actual</strong> (Step 4). Il sistema calcola il gap automaticamente.
+        <strong>Cosa fare:</strong> Confronto finale tra pianificato (Step 3) e reale (Step 4).
+        Il sistema calcola tutto automaticamente.
       </div>
 
-      {/* Alert se Step 3 vuoto */}
-      {improvementsPlanned.length === 0 && (
+      {/* Alert */}
+      {step1Incomplete && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
-          ⚠️ Lo <strong>Step 3 (Project Planning)</strong> non ha progetti pianificati. Compila prima Step 3.
+          ⚠️ Compila prima <strong>Step 1</strong> (KPI).
         </div>
       )}
-      {improvementsActual.length === 0 && (
+      {step3Empty && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
-          ⚠️ Lo <strong>Step 4 (Implementation)</strong> non ha progetti completati con gain reale. Marca i progetti come "Done" e inserisci l'actual gain.
+          ⚠️ Compila <strong>Step 3</strong> con i progetti pianificati.
+        </div>
+      )}
+      {step4Empty && !step3Empty && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
+          ⚠️ <strong>Step 4</strong>: marca almeno un progetto come "Completato" con Gain Reale.
         </div>
       )}
 
-      {/* Configurazione Actual finale (override) */}
-      <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-3">
-        <div className="text-xs font-bold uppercase text-orange-700 mb-2">Actual finale (override manuale)</div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Label</label>
-            <input
-              className="w-full border rounded px-2 py-1 text-sm"
-              value={forecastActual.label}
-              onChange={(e) => updateForecastActual({ label: e.target.value })}
-              placeholder="Actual achieved"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">
-              Valore ({unit}) — auto: {autoActual.toFixed(2)}
-            </label>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                step="0.1"
-                className="flex-1 border rounded px-2 py-1 text-sm font-bold bg-white"
-                value={forecastActual.value !== '' ? forecastActual.value : autoActual.toFixed(2)}
-                onChange={(e) => updateForecastActual({ value: e.target.value })}
-              />
-              <span className="text-sm text-gray-500">{unit}</span>
-            </div>
-          </div>
+      {/* Riepilogo cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-3 text-center">
+          <div className="text-[10px] uppercase font-bold text-gray-500 mb-1">Punto di partenza</div>
+          <div className="text-2xl font-bold text-gray-700">{baselineNum.toFixed(2)}</div>
+          <div className="text-xs text-gray-500">{unitFromStep1}</div>
+        </div>
+
+        <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3 text-center">
+          <div className="text-[10px] uppercase font-bold text-yellow-700 mb-1">Pianificato</div>
+          <div className="text-2xl font-bold text-yellow-700">{forecastPlannedValue.toFixed(2)}</div>
+          <div className="text-xs text-yellow-600">{unitFromStep1}</div>
+        </div>
+
+        <div className="bg-orange-50 border-2 border-orange-400 rounded-lg p-3 text-center ring-2 ring-orange-300 shadow-md">
+          <div className="text-[10px] uppercase font-bold text-orange-700 mb-1">Reale (Actual)</div>
+          <div className="text-2xl font-bold text-orange-700">{actualValue.toFixed(2)}</div>
+          <div className="text-xs text-orange-600">{unitFromStep1}</div>
+        </div>
+
+        <div className="bg-emerald-50 border-2 border-emerald-400 rounded-lg p-3 text-center">
+          <div className="text-[10px] uppercase font-bold text-emerald-700 mb-1">Target</div>
+          <div className="text-2xl font-bold text-emerald-700">{targetNum.toFixed(2)}</div>
+          <div className="text-xs text-emerald-600">{unitFromStep1}</div>
         </div>
       </div>
 
-      {/* CLOSE THE LOOP CHART */}
-      <CloseTheLoopChart
-        baseline={baseline}
-        improvementsPlanned={improvementsPlanned}
-        improvementsActual={improvementsActual}
-        forecastPlanned={forecastPlanned || { label: 'Forecast Planned', value: autoForecastPlanned }}
-        forecastActual={forecastActual}
-        target={targetGlobal}
-        unit={unit}
-        title={`${pillar?.sigla || 'Pillar'} Close the Loop`}
-        subtitle={pillar?.label || ''}
-      />
-
-      {/* Lezioni apprese */}
-      <div className="bg-white p-4 rounded-lg border mt-4">
-        <label className="block text-xs font-bold uppercase text-gray-600 mb-2">Lezioni apprese (Close the Loop)</label>
-        <textarea
-          value={data.lezioni_apprese || ''}
-          onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })}
-          rows={5}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-          placeholder="Cosa abbiamo imparato? Cosa replicare in altri stabilimenti? Cosa NON funziona?"
-        />
+      {/* Status + gap */}
+      <div className="bg-white p-3 rounded-lg border-2 border-dashed flex flex-wrap items-center justify-center gap-4">
+        <div className={`px-4 py-2 rounded-lg text-sm font-bold ${perfStatus.color} shadow-sm`}>
+          {perfStatus.emoji} {perfStatus.label}
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-gray-600">Δ Reale vs Pianificato:</span>
+          <span className={`font-bold ${gapActualVsPlanned >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {gapActualVsPlanned >= 0 ? '+' : ''}{gapActualVsPlanned.toFixed(2)} {unitFromStep1}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-gray-600">Δ Reale vs Target:</span>
+          <span className={`font-bold ${gapActualVsTarget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {gapActualVsTarget >= 0 ? '+' : ''}{gapActualVsTarget.toFixed(2)} {unitFromStep1}
+          </span>
+        </div>
       </div>
+
+      {/* GRAFICO UNICO */}
+      {baselineNum > 0 && (
+        <div className="mt-6">
+          <BridgeChart
+            baseline={{ label: kpiLabel || 'Punto di partenza', value: baselineNum }}
+            improvements={improvementsPlanned}
+            forecast={{ label: 'Pianificato (Forecast)', value: forecastPlannedValue }}
+            actual={totalGainActual > 0 ? { label: 'Reale (Actual)', value: actualValue } : null}
+            target={targetNum > 0 ? { label: `Target (${kpiLabel})`, value: targetNum } : null}
+            compareMode={true}
+            unit={unitFromStep1}
+            title={`${pillar?.sigla || 'Pillar'} Close the Loop`}
+            subtitle={pillar?.label || ''}
+          />
+        </div>
+      )}
     </div>
   )
 }
-
 function BridgeCell({ label, value, autoValue, isOverridden, onChange, onReset, colSpan = 'col-span-3', suffix = '' }) {
   return (
     <div className={colSpan}>
