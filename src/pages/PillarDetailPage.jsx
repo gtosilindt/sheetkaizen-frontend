@@ -476,6 +476,15 @@ function AnagraficaTab({ pillar }) {
   )
 }
 
+const UNITS = [
+  { value: '%', label: '% (percentuale)' },
+  { value: 'nr', label: 'nr (numero/pezzi)' },
+  { value: '€', label: '€ (euro/saving)' },
+  { value: 'min', label: 'min (minuti)' },
+  { value: 'h', label: 'h (ore)' },
+  { value: 'kg', label: 'kg (peso)' },
+]
+
 const KPI_STEPS = [
   { id: 'step1_kpi_definition', num: 1, title: 'KPI / KMI Definition', desc: 'Definisci il KPI principale del Pillar' },
   { id: 'step2_pareto_analysis', num: 2, title: 'Pareto Analysis & Loss Identification', desc: 'Identifica e prioritizza le perdite' },
