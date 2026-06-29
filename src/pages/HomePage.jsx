@@ -79,15 +79,25 @@ export default function HomePage() {
     return false
   })
 
-  // Kaizen dove sono coinvolto
+  // Kaizen dove sono coinvolto (fonte unica: il Kaizen stesso con campi ID)
   const myKaizens = kaizens.filter(k => {
     if (k.stato === 'Chiuso' || k.stato === 'Cancelled') return false
-    // Leader
+
+    // 🆕 Match per ID utente (nuova architettura)
+    if (k.creatore_id === user.id) return true
+    if (k.team_leader_id === user.id) return true
+    if ((k.team_members_ids || []).includes(user.id)) return true
+
+    // Fallback per dati legacy (nome)
+    if (k.creatore_nome === user.full_name) return true
+    if (k.team_leader_nome === user.full_name) return true
+    if ((k.team_members_nomi || []).includes(user.full_name)) return true
     if (k.leader === user.full_name) return true
-    // Team
-    if (k.team_members?.includes(user.full_name)) return true
-    // Per operatore: kaizen del suo reparto/linea
+    if ((k.team_members || []).includes(user.full_name)) return true
+
+    // Per operatore: kaizen del suo reparto
     if (isOperator && user.reparto && k.reparto === user.reparto) return true
+
     return false
   })
 
