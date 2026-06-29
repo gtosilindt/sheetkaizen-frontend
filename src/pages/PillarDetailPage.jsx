@@ -992,7 +992,7 @@ function Step2Content({ data, color, onUpdate, pillar }) {
 function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStepsData }) {
   const progetti = data.progetti || []
 
-  // 🆕 Eredita Baseline/Target/Unit dallo Step 1
+  // Eredita Baseline/Target/Unit dallo Step 1
   const step1Data = allStepsData?.step1_kpi_definition || {}
   const kpi1 = step1Data.kpi_principale || {}
   const baselineFromStep1 = kpi1.baseline || ''
@@ -1000,7 +1000,7 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
   const unitFromStep1 = kpi1.unit || '%'
   const kpiLabel = kpi1.label || 'KPI'
 
-  // 🆕 Cluster configurati (per colore + label)
+  // Cluster configurati (per colore)
   const { configs } = useAllConfigurations()
   const clustersConfig = configs.cluster_perdita || []
 
@@ -1013,10 +1013,12 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
     return cluster?.label || ''
   }
 
-  // Lista Kaizen dal DB
+  // Lista Kaizen + Action Plan dal DB
   const [kaizens, setKaizens] = useState([])
+  const [actionPlans, setActionPlans] = useState([])
   useEffect(() => {
     api.get('/kaizens').then(res => setKaizens(res.data || [])).catch(() => setKaizens([]))
+    api.get('/action-plans/').then(res => setActionPlans(res.data || [])).catch(() => setActionPlans([]))
   }, [])
 
   function addProject() {
@@ -1025,9 +1027,19 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
         id: Date.now().toString(),
         loss_target_id: '',
         loss_target_label: '',
+        // 🆕 Tipo improvement: 'kaizen' | 'action_plan' | 'text'
+        type: 'kaizen',
+        // Kaizen
         kaizen_id: '',
         kaizen_numero: '',
         kaizen_titolo: '',
+        // Action Plan
+        ap_id: '',
+        ap_numero: '',
+        ap_titolo: '',
+        // Testo libero
+        text_label: '',
+        // Comune
         gain_value: '',
         deadline: '',
         status: 'planned',
@@ -1053,23 +1065,45 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
 
   function handleKaizenChange(projectId, kaizenId) {
     const kaizen = kaizens.find(k => k._id === kaizenId)
-    if (kaizen) {
-      updateProject(projectId, {
-        kaizen_id: kaizenId,
-        kaizen_numero: kaizen.numero || '',
-        kaizen_titolo: kaizen.titolo || '',
-      })
-    } else {
-      updateProject(projectId, { kaizen_id: '', kaizen_numero: '', kaizen_titolo: '' })
-    }
+    updateProject(projectId, {
+      kaizen_id: kaizenId,
+      kaizen_numero: kaizen?.numero || '',
+      kaizen_titolo: kaizen?.titolo || '',
+    })
   }
 
-  // Auto-calcolo Forecast: Baseline (Step1) + Σ Gain Kaizen
+  function handleAPChange(projectId, apId) {
+    const ap = actionPlans.find(a => a._id === apId)
+    updateProject(projectId, {
+      ap_id: apId,
+      ap_numero: ap?.numero || '',
+      ap_titolo: ap?.titolo || '',
+    })
+  }
+
+  function changeType(projectId, newType) {
+    // Reset campi degli altri tipi quando cambio tipo
+    const updates = { type: newType }
+    if (newType !== 'kaizen') { updates.kaizen_id = ''; updates.kaizen_numero = ''; updates.kaizen_titolo = '' }
+    if (newType !== 'action_plan') { updates.ap_id = ''; updates.ap_numero = ''; updates.ap_titolo = '' }
+    if (newType !== 'text') { updates.text_label = '' }
+    updateProject(projectId, updates)
+  }
+
+  // Auto-calcolo Forecast
   const baselineNum = parseFloat(baselineFromStep1) || 0
   const totalGain = progetti.reduce((sum, p) => sum + (parseFloat(p.gain_value) || 0), 0)
   const autoForecast = baselineNum + totalGain
 
-  // Dati per Bridge Chart (uso il colore del cluster della loss)
+  // Helper: label leggibile del progetto
+  function getProjectLabel(p) {
+    if (p.type === 'kaizen') return p.kaizen_numero || p.kaizen_titolo || '(Kaizen non selezionato)'
+    if (p.type === 'action_plan') return p.ap_numero || p.ap_titolo || '(AP non selezionato)'
+    if (p.type === 'text') return p.text_label || '(senza titolo)'
+    return 'Progetto'
+  }
+
+  // Dati per Bridge Chart (colore = cluster della loss)
   const improvementsForChart = progetti
     .filter(p => parseFloat(p.gain_value))
     .map(p => {
@@ -1077,40 +1111,45 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
       const clusterColor = getClusterColor(loss?.cluster_id)
       return {
         id: p.id,
-        label: p.kaizen_numero || p.loss_target_label || `Progetto ${p.id.slice(-4)}`,
+        label: getProjectLabel(p),
         value: parseFloat(p.gain_value) || 0,
         color: clusterColor,
       }
     })
 
-  // Alert se Step 1 non compilato
   const step1Incomplete = !baselineFromStep1 || !targetFromStep1
+
+  // Icone e label per tipo
+  const TYPES = [
+    { value: 'kaizen', label: 'Kaizen', icon: '⚡', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+    { value: 'action_plan', label: 'Action Plan', icon: '📋', color: 'bg-green-100 text-green-700 border-green-300' },
+    { value: 'text', label: 'Testo libero', icon: '📝', color: 'bg-gray-100 text-gray-700 border-gray-300' },
+  ]
 
   return (
     <div className="space-y-3 mt-3">
       {/* Spiegazione */}
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        <strong>Cosa fare:</strong> Per ogni perdita identificata nello <strong>Step 2</strong>, collega un Kaizen che la chiuderà.
-        Il <strong>Forecast</strong> si calcola come <strong>Baseline (Step 1) + Σ Gain dei Kaizen</strong>.
+        <strong>Cosa fare:</strong> Per ogni perdita identificata nello <strong>Step 2</strong>, collega un improvement.
+        Puoi usare un <strong>Kaizen</strong>, un <strong>Action Plan</strong> o solo un <strong>testo</strong> (per idee veloci).
       </div>
 
-      {/* Alert se Step 1 non compilato */}
+      {/* Alert Step 1 */}
       {step1Incomplete && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
-          ⚠️ <strong>Compila prima lo Step 1</strong> con Valore attuale e Obiettivo del KPI. Lo Step 3 li eredita automaticamente.
+          ⚠️ <strong>Compila prima lo Step 1</strong> con Valore attuale e Obiettivo del KPI.
         </div>
       )}
 
-      {/* Alert se Step 2 non compilato */}
+      {/* Alert Step 2 */}
       {lossesStep2.length === 0 && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
-          ⚠️ <strong>Compila prima lo Step 2</strong> con le perdite. Lo Step 3 le usa per agganciare i Kaizen.
+          ⚠️ <strong>Compila prima lo Step 2</strong> con le perdite.
         </div>
       )}
 
       {/* Box riepilogo: Baseline / Forecast / Target */}
       <div className="grid grid-cols-3 gap-3">
-        {/* BASELINE (read-only da Step 1) */}
         <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-3">
           <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
             Punto di partenza
@@ -1118,33 +1157,27 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
           </label>
           <div className="text-xs text-gray-600 mb-2 truncate">{kpiLabel || 'KPI'}</div>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-gray-700">
-              {baselineFromStep1 || '—'}
-            </span>
+            <span className="text-2xl font-bold text-gray-700">{baselineFromStep1 || '—'}</span>
             <span className="text-sm text-gray-500">{unitFromStep1}</span>
           </div>
           <div className="text-[10px] text-gray-400 mt-1 italic">Modifica in Step 1</div>
         </div>
 
-        {/* FORECAST (auto-calcolato) */}
         <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-3">
           <label className="block text-xs font-bold uppercase text-yellow-700 mb-1">
             Forecast
             <span className="text-[10px] font-normal ml-1 text-yellow-600">(auto)</span>
           </label>
-          <div className="text-xs text-yellow-700 mb-2">Baseline + Σ Gain Kaizen</div>
+          <div className="text-xs text-yellow-700 mb-2">Baseline + Σ Gain</div>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-yellow-700">
-              {autoForecast.toFixed(2)}
-            </span>
+            <span className="text-2xl font-bold text-yellow-700">{autoForecast.toFixed(2)}</span>
             <span className="text-sm text-yellow-600">{unitFromStep1}</span>
           </div>
           <div className="text-[10px] text-yellow-700 mt-1">
-            = {baselineNum} + {totalGain.toFixed(1)} ({progetti.length} Kaizen)
+            = {baselineNum} + {totalGain.toFixed(1)} ({progetti.length} progetti)
           </div>
         </div>
 
-        {/* TARGET (read-only da Step 1) */}
         <div className="bg-orange-50 border-2 border-orange-400 rounded-lg p-3">
           <label className="block text-xs font-bold uppercase text-orange-700 mb-1">
             Obiettivo
@@ -1152,9 +1185,7 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
           </label>
           <div className="text-xs text-orange-700 mb-2 truncate">{kpiLabel || 'KPI'} Target</div>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-orange-700">
-              {targetFromStep1 || '—'}
-            </span>
+            <span className="text-2xl font-bold text-orange-700">{targetFromStep1 || '—'}</span>
             <span className="text-sm text-orange-600">{unitFromStep1}</span>
           </div>
           <div className="text-[10px] text-orange-700 mt-1 italic">Modifica in Step 1</div>
@@ -1184,7 +1215,7 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
       {/* Lista progetti */}
       <div className="flex justify-between items-center mt-4">
         <h4 className="font-semibold text-sm uppercase text-gray-700">
-          Kaizen collegati alle perdite ({progetti.length})
+          Improvements collegati alle perdite ({progetti.length})
         </h4>
         <button
           onClick={addProject}
@@ -1193,21 +1224,21 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
           disabled={lossesStep2.length === 0}
           title={lossesStep2.length === 0 ? 'Compila prima Step 2' : ''}
         >
-          + Aggiungi Kaizen
+          + Aggiungi Improvement
         </button>
       </div>
 
       {progetti.length === 0 ? (
         <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">
-          Nessun Kaizen collegato. Clicca "+ Aggiungi Kaizen" per iniziare.
+          Nessun improvement. Clicca "+ Aggiungi Improvement" per iniziare.
         </div>
       ) : (
         <div className="space-y-2">
           {progetti.map((p, idx) => {
-            // Trova la loss collegata e il suo cluster (per colore)
             const loss = lossesStep2.find(l => l.id === p.loss_target_id)
             const clusterColor = getClusterColor(loss?.cluster_id)
             const clusterLabel = getClusterLabel(loss?.cluster_id)
+            const type = p.type || 'kaizen'
 
             return (
               <div
@@ -1215,10 +1246,35 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
                 className="bg-white p-3 rounded-lg border-l-4 border"
                 style={{ borderLeftColor: clusterColor }}
               >
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-1 text-center font-bold text-gray-400 pb-2">#{idx + 1}</div>
+                {/* Riga 1: tipo + numero #idx */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-bold text-gray-400 text-sm">#{idx + 1}</span>
+                  {/* 🆕 Selettore tipo (3 bottoni) */}
+                  <div className="flex gap-1">
+                    {TYPES.map(t => (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => changeType(p.id, t.value)}
+                        className={`px-2 py-1 rounded text-xs font-medium border-2 transition-all ${
+                          type === t.value ? t.color + ' shadow' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-400'
+                        }`}
+                      >
+                        {t.icon} {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => removeProject(p.id)}
+                    className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
 
-                  {/* Loss target dropdown */}
+                {/* Riga 2: campi del progetto */}
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  {/* Loss target */}
                   <div className="col-span-3">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">
                       Loss target (Step 2)
@@ -1234,39 +1290,80 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
                         value={p.loss_target_id || ''}
                         onChange={(e) => handleLossChange(p.id, e.target.value)}
                       >
-                        <option value="">— Seleziona loss —</option>
+                        <option value="">— Seleziona —</option>
                         {lossesStep2.map(l => (
-                          <option key={l.id} value={l.id}>
-                            {l.label || 'Senza nome'}
-                          </option>
+                          <option key={l.id} value={l.id}>{l.label || 'Senza nome'}</option>
                         ))}
                       </select>
                     </div>
                   </div>
 
-                  {/* Dropdown Kaizen */}
+                  {/* Campo dinamico in base al tipo */}
                   <div className="col-span-4">
-                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Kaizen</label>
-                    <select
-                      className="w-full border rounded px-2 py-1 text-sm"
-                      value={p.kaizen_id || ''}
-                      onChange={(e) => handleKaizenChange(p.id, e.target.value)}
-                    >
-                      <option value="">— Seleziona Kaizen —</option>
-                      {kaizens.map(k => (
-                        <option key={k._id} value={k._id}>
-                          {k.numero} — {k.titolo}
-                        </option>
-                      ))}
-                    </select>
-                    {p.kaizen_id && (
-                      <Link
-                        to={`/kaizen/${p.kaizen_id}`}
-                        target="_blank"
-                        className="text-[10px] text-blue-600 hover:underline mt-0.5 inline-block"
-                      >
-                        → Apri Kaizen
-                      </Link>
+                    <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">
+                      {type === 'kaizen' ? 'Kaizen' : type === 'action_plan' ? 'Action Plan' : 'Descrizione'}
+                    </label>
+
+                    {type === 'kaizen' && (
+                      <>
+                        <select
+                          className="w-full border rounded px-2 py-1 text-sm"
+                          value={p.kaizen_id || ''}
+                          onChange={(e) => handleKaizenChange(p.id, e.target.value)}
+                        >
+                          <option value="">— Seleziona Kaizen —</option>
+                          {kaizens.map(k => (
+                            <option key={k._id} value={k._id}>
+                              {k.numero} — {k.titolo}
+                            </option>
+                          ))}
+                        </select>
+                        {p.kaizen_id && (
+                          <Link
+                            to={`/kaizen/${p.kaizen_id}`}
+                            target="_blank"
+                            className="text-[10px] text-blue-600 hover:underline mt-0.5 inline-block"
+                          >
+                            → Apri Kaizen
+                          </Link>
+                        )}
+                      </>
+                    )}
+
+                    {type === 'action_plan' && (
+                      <>
+                        <select
+                          className="w-full border rounded px-2 py-1 text-sm"
+                          value={p.ap_id || ''}
+                          onChange={(e) => handleAPChange(p.id, e.target.value)}
+                        >
+                          <option value="">— Seleziona AP —</option>
+                          {actionPlans.map(a => (
+                            <option key={a._id} value={a._id}>
+                              {a.numero} — {a.titolo}
+                            </option>
+                          ))}
+                        </select>
+                        {p.ap_id && (
+                          <Link
+                            to={`/action-plan`}
+                            target="_blank"
+                            className="text-[10px] text-blue-600 hover:underline mt-0.5 inline-block"
+                          >
+                            → Apri AP
+                          </Link>
+                        )}
+                      </>
+                    )}
+
+                    {type === 'text' && (
+                      <input
+                        type="text"
+                        className="w-full border rounded px-2 py-1 text-sm"
+                        value={p.text_label || ''}
+                        onChange={(e) => updateProject(p.id, { text_label: e.target.value })}
+                        placeholder="Es: Sostituire valvola pneumatica"
+                      />
                     )}
                   </div>
 
@@ -1286,7 +1383,7 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
                   </div>
 
                   {/* Deadline */}
-                  <div className="col-span-1">
+                  <div className="col-span-3">
                     <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Deadline</label>
                     <input
                       type="date"
@@ -1295,14 +1392,6 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
                       onChange={(e) => updateProject(p.id, { deadline: e.target.value })}
                     />
                   </div>
-
-                  {/* Rimuovi */}
-                  <button
-                    onClick={() => removeProject(p.id)}
-                    className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded pb-2"
-                  >
-                    <Trash2 size={14} />
-                  </button>
                 </div>
               </div>
             )
