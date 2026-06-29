@@ -1823,6 +1823,34 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
       {/* BRIDGE CHART */}
       {(baselineNum > 0 || improvementsForChart.length > 0) && (
         <div className="mt-6">
+          {/* Zoom asse Y */}
+          <div className="bg-white border rounded-lg p-3 mb-2 flex items-center gap-3 text-xs">
+            <span className="font-medium text-gray-600">Zoom asse Y:</span>
+            <label className="flex items-center gap-1">
+              Da:
+              <input
+                type="number"
+                step="0.1"
+                value={data.chart_y_min ?? ''}
+                onChange={(e) => onUpdate({ chart_y_min: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                className="w-20 border rounded px-2 py-1"
+                placeholder="auto"
+              />
+            </label>
+            <label className="flex items-center gap-1">
+              A:
+              <input
+                type="number"
+                step="0.1"
+                value={data.chart_y_max ?? ''}
+                onChange={(e) => onUpdate({ chart_y_max: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                className="w-20 border rounded px-2 py-1"
+                placeholder="auto"
+              />
+            </label>
+            <span className="text-gray-400 italic">(lascia vuoto per scala automatica)</span>
+          </div>
+
           <BridgeChart
             baseline={{ label: kpiLabel || 'Punto di partenza', value: baselineFromStep1 }}
             improvements={improvementsForChart}
@@ -1831,12 +1859,11 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
             unit={unitFromStep1}
             title={`${pillar?.sigla || 'Pillar'} Bridge Chart`}
             subtitle={pillar?.label || ''}
+            yAxisMin={data.chart_y_min ?? null}
+            yAxisMax={data.chart_y_max ?? null}
           />
         </div>
       )}
-    </div>
-  )
-}
 
 function Step4Content({ data, color, onUpdate, allStepsData, pillar }) {
   const step3Progetti = allStepsData?.step3_target_definition?.progetti || []
@@ -2291,6 +2318,34 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
       {/* GRAFICO UNICO */}
       {baselineNum > 0 && (
         <div className="mt-6">
+          {/* Zoom asse Y */}
+          <div className="bg-white border rounded-lg p-3 mb-2 flex items-center gap-3 text-xs">
+            <span className="font-medium text-gray-600">Zoom asse Y:</span>
+            <label className="flex items-center gap-1">
+              Da:
+              <input
+                type="number"
+                step="0.1"
+                value={data.chart_y_min ?? ''}
+                onChange={(e) => onUpdate({ chart_y_min: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                className="w-20 border rounded px-2 py-1"
+                placeholder="auto"
+              />
+            </label>
+            <label className="flex items-center gap-1">
+              A:
+              <input
+                type="number"
+                step="0.1"
+                value={data.chart_y_max ?? ''}
+                onChange={(e) => onUpdate({ chart_y_max: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                className="w-20 border rounded px-2 py-1"
+                placeholder="auto"
+              />
+            </label>
+            <span className="text-gray-400 italic">(lascia vuoto per scala automatica)</span>
+          </div>
+
           <BridgeChart
             baseline={{ label: kpiLabel || 'Punto di partenza', value: baselineNum }}
             improvements={improvementsActual}
@@ -2301,6 +2356,8 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
             unit={unitFromStep1}
             title={`${pillar?.sigla || 'Pillar'} Close the Loop`}
             subtitle={pillar?.label || ''}
+            yAxisMin={data.chart_y_min ?? null}
+            yAxisMax={data.chart_y_max ?? null}
           />
         </div>
       )}
