@@ -104,8 +104,22 @@ export default function BridgeChart({
       })
     }
 
+    // 6) Target come barra verde (in fondo)
+    if (target) {
+      const tValue = parseFloat(target.value) || 0
+      data.push({
+        name: target.label || 'Target',
+        start: 0,
+        gain: tValue,
+        total: tValue,
+        color: '#10B981',
+        isTotal: true,
+        displayValue: tValue,
+      })
+    }
+
     return data
-  }, [baseline, improvements, improvementsActual, forecast, actual])
+  }, [baseline, improvements, improvementsActual, forecast, actual, target])
 
   // Domain Y: usa min/max manuali se forniti, altrimenti auto
   const yDomain = useMemo(() => {
@@ -186,14 +200,8 @@ export default function BridgeChart({
               <ReferenceLine
                 y={targetValue}
                 stroke="#10b981"
-                strokeWidth={3}
-                label={{
-                  value: `Target: ${targetValue} ${unit}`,
-                  position: 'right',
-                  fill: '#10b981',
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
+                strokeWidth={2}
+                strokeDasharray="5 5"
               />
             )}
           </ComposedChart>
@@ -218,7 +226,7 @@ export default function BridgeChart({
         )}
         {targetValue !== null && (
           <div className="flex items-center gap-1 ml-auto">
-            <div className="w-4 h-1 bg-green-500" />
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#10B981' }} />
             <span>Target</span>
           </div>
         )}
