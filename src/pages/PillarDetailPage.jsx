@@ -9,6 +9,7 @@ import ActionPlanViews from '../components/ActionPlanViews'
 import PresenzeWidget from '../components/widgets/PresenzeWidget'
 import ParetoChart from '../components/pillar/ParetoChart'
 import BridgeChart from '../components/pillar/BridgeChart'
+import CloseTheLoopChart from '../components/pillar/CloseTheLoopChart'
 
 export default function PillarDetailPage() {
   const { id } = useParams()
@@ -1269,8 +1270,9 @@ function Step4Content({ data, color, onUpdate, allStepsData }) {
                   <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Status</label><select className="w-full border rounded px-2 py-1 text-xs" value={p.actual_status || 'not_started'} onChange={(e) => updateActual(p.id, { actual_status: e.target.value })}>{ACTUAL_STATUS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
                   <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Saving €</label><input type="number" className="w-full border rounded px-2 py-1 text-xs" value={p.actual_saving} onChange={(e) => updateActual(p.id, { actual_saving: e.target.value })} /></div>
                   <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Gap vs Planned</label><div className={`w-full border rounded px-2 py-1 text-xs font-bold text-center ${gap >= 0 ? 'bg-green-50 border-green-300 text-green-700' : 'bg-red-50 border-red-300 text-red-700'}`}>{gap >= 0 ? '+' : ''}{gap.toLocaleString('it-IT')} €</div></div>
+                  <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Actual Gain</label><input type="number" step="0.1" className="w-full border rounded px-2 py-1 text-xs font-bold" value={p.actual_gain_value || ''} onChange={(e) => updateActual(p.id, { actual_gain_value: e.target.value })} placeholder="es 0.4" /></div>
                   <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Completion Date</label><input type="date" className="w-full border rounded px-2 py-1 text-xs" value={p.actual_completion_date || ''} onChange={(e) => updateActual(p.id, { actual_completion_date: e.target.value })} /></div>
-                  <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Note implementazione</label><input className="w-full border rounded px-2 py-1 text-xs" value={p.notes_implementation || ''} onChange={(e) => updateActual(p.id, { notes_implementation: e.target.value })} /></div>
+                  <div className="col-span-1"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Note</label><input className="w-full border rounded px-2 py-1 text-xs" value={p.notes_implementation || ''} onChange={(e) => updateActual(p.id, { notes_implementation: e.target.value })} /></div>
                 </div>
               </div>
             )
@@ -1291,96 +1293,128 @@ function SummaryBlock({ label, value, color = 'gray' }) {
   )
 }
 
-function Step5Content({ data, color, onUpdate, allStepsData }) {
-  const kpiPrincipale = allStepsData?.step1_kpi_definition?.kpi_principale || {}
-  const kmis = allStepsData?.step1_kpi_definition?.kmis || []
-  const step3Progetti = allStepsData?.step3_target_definition?.progetti || []
-  const step4Actual = allStepsData?.step4_implementation?.progetti_actual || []
-  const overrides = data.bridge_overrides || {}
+function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
+  const step3Data = allStepsData?.step3_target_definition || {}
+  const step4Data = allStepsData?.step4_implementation || {}
 
-  const totalPlanned = step3Progetti.filter(p => p.status !== 'cancelled').reduce((sum, p) => sum + (parseFloat(p.saving_planned) || 0), 0)
-  const totalActual = step4Actual.filter(p => p.actual_status === 'done').reduce((sum, p) => sum + (parseFloat(p.actual_saving) || 0), 0)
+  Data.forecast || null  // Riprendo i dati pianificati dallo Step 3
+  const targetGlobal = step3Data.target || null
+  const unit = step3Data.unit || 'nr'
 
-  const bridgeRows = [
-    { key: 'principale', label: kpiPrincipale.label || 'KPI Principale', unit: kpiPrincipale.unit || '', auto_baseline: kpiPrincipale.baseline || '', auto_target: kpiPrincipale.target || '', auto_planned_saving: totalPlanned, auto_actual_saving: totalActual, isMain: true },
-    ...kmis.map(k => ({ key: `kmi_${k.id}`, label: k.label || 'KMI', unit: k.unit || '', auto_baseline: k.baseline || '', auto_target: k.target || '', auto_planned_saving: 0, auto_actual_saving: 0, isMain: false })),
-  ]
+  // Improvements PLANNED dallo Step 3
+  const progettiStep3 = step3Data.progetti || []
+  const improvementsPlanned = progettiStep3
+    .filter(p => p.status !== 'cancelled' && parseFloat(p.gain_value))
+    .map(p => ({
+      id: p.id,
+      label: p.label || p.kaizen_numero || 'Progetto',
+      value: parseFloat(p.gain_value) || 0,
+      color: p.color,
+    }))
 
-  function updateOverride(key, field, value) { onUpdate({ bridge_overrides: { ...overrides, [key]: { ...(overrides[key] || {}), [field]: value } } }) }
-  function resetOverride(key, field) {
-    const rowOverride = { ...(overrides[key] || {}) }
-    delete rowOverride[field]
-    onUpdate({ bridge_overrides: { ...overrides, [key]: rowOverride } })
+  // Improvements ACTUAL dallo Step 4
+  const progettiStep4 = step4Data.progetti_actual || []
+  const improvementsActual = progettiStep4
+    .filter(p => p.actual_status === 'done' && parseFloat(p.actual_gain_value))
+    .map(p => {
+      const step3Project = progettiStep3.find(s => s.id === p.step3_project_id)
+      return {
+        id: p.id,
+        label: p.label || step3Project?.label || step3Project?.kaizen_numero || 'Progetto',
+        value: parseFloat(p.actual_gain_value) || 0,
+        color: p.color || step3Project?.color,
+      }
+    })
+
+  // Calcoli auto
+  const baselineNum = parseFloat(baseline.value) || 0
+  const autoForecastPlanned = baselineNum + improvementsPlanned.reduce((s, i) => s + i.value, 0)
+  const autoActual = baselineNum + improvementsActual.reduce((s, i) => s + i.value, 0)
+
+  const forecastActual = data.forecast_actual || { label: 'Actual achieved', value: autoActual }
+
+  function updateForecastActual(updates) {
+    onUpdate({ forecast_actual: { ...forecastActual, ...updates } })
   }
-  function getValue(key, field, autoValue) { const ov = overrides[key]?.[field]; return ov !== undefined && ov !== '' ? ov : autoValue }
-  function isOverridden(key, field) { const ov = overrides[key]?.[field]; return ov !== undefined && ov !== '' }
-
-  const mainPlanned = parseFloat(getValue('principale', 'planned', totalPlanned)) || 0
-  const mainActual = parseFloat(getValue('principale', 'actual', totalActual)) || 0
-  const mainGap = mainActual - mainPlanned
-  const coveragePercent = mainPlanned > 0 ? (mainActual / mainPlanned) * 100 : 0
 
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        <strong>Cosa fare:</strong> Il Bridge chart si compila automaticamente dagli step precedenti.
+        <strong>Cosa fare:</strong> Confronta il <strong>Planned</strong> (Step 3) vs <strong>Actual</strong> (Step 4). Il sistema calcola il gap automaticamente.
       </div>
-      <div className="bg-white rounded-lg border-2 p-4" style={{ borderColor: color }}>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-bold text-sm uppercase" style={{ color }}>Risultato globale — KPI {kpiPrincipale.label || 'Principale'}</h4>
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${coveragePercent >= 100 ? 'bg-green-100 text-green-700' : coveragePercent >= 80 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-            {coveragePercent >= 100 ? 'Target raggiunto' : coveragePercent >= 80 ? 'Vicino al target' : 'Sotto target'}
-          </span>
-        </div>
-        <div className="grid grid-cols-4 gap-3">
-          <div className="text-center bg-gray-50 rounded p-2"><div className="text-[10px] uppercase text-gray-500">Planned</div><div className="text-xl font-bold text-gray-700">{mainPlanned.toLocaleString('it-IT')} €</div></div>
-          <div className="text-center bg-blue-50 rounded p-2"><div className="text-[10px] uppercase text-blue-600">Actual (done)</div><div className="text-xl font-bold text-blue-700">{mainActual.toLocaleString('it-IT')} €</div></div>
-          <div className={`text-center rounded p-2 ${mainGap >= 0 ? 'bg-green-50' : 'bg-red-50'}`}><div className={`text-[10px] uppercase ${mainGap >= 0 ? 'text-green-600' : 'text-red-600'}`}>Gap</div><div className={`text-xl font-bold ${mainGap >= 0 ? 'text-green-700' : 'text-red-700'}`}>{mainGap >= 0 ? '+' : ''}{mainGap.toLocaleString('it-IT')} €</div></div>
-          <div className="text-center rounded p-2" style={{ backgroundColor: `${color}15` }}><div className="text-[10px] uppercase" style={{ color }}>Copertura</div><div className="text-xl font-bold" style={{ color }}>{coveragePercent.toFixed(1)}%</div></div>
-        </div>
-      </div>
-      {!kpiPrincipale.label && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">Non hai ancora definito il KPI principale nello Step 1.</div>
-      )}
-      <h4 className="font-semibold text-sm uppercase text-gray-700 mt-4">Bridge Chart per KPI / KMI</h4>
-      {bridgeRows.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessun KPI definito.</div>
-      ) : (
-        <div className="space-y-2">
-          {bridgeRows.map(row => {
-            const baseline = getValue(row.key, 'baseline', row.auto_baseline)
-            const planned = getValue(row.key, 'planned', row.auto_planned_saving)
-            const actual = getValue(row.key, 'actual', row.auto_actual_saving)
-            const gapReason = overrides[row.key]?.gap_reason || ''
-            const rowGap = (parseFloat(actual) || 0) - (parseFloat(planned) || 0)
-            return (
-              <div key={row.key} className="bg-white p-3 rounded-lg border-l-4" style={{ borderLeftColor: row.isMain ? color : '#9ca3af' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  {row.isMain ? <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold whitespace-nowrap">KPI Principale</span> : <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold whitespace-nowrap">KMI</span>}
-                  <span className="font-bold text-sm">{row.label}</span>
-                  {row.unit && <span className="text-xs text-gray-500">[{row.unit}]</span>}
-                </div>
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <BridgeCell label="Baseline" value={baseline} autoValue={row.auto_baseline} isOverridden={isOverridden(row.key, 'baseline')} onChange={(v) => updateOverride(row.key, 'baseline', v)} onReset={() => resetOverride(row.key, 'baseline')} colSpan="col-span-3" />
-                  <BridgeCell label={row.isMain ? 'Σ Planned (Step 3)' : 'Planned'} value={planned} autoValue={row.auto_planned_saving} isOverridden={isOverridden(row.key, 'planned')} onChange={(v) => updateOverride(row.key, 'planned', v)} onReset={() => resetOverride(row.key, 'planned')} colSpan="col-span-3" suffix={row.isMain ? '€' : ''} />
-                  <BridgeCell label={row.isMain ? 'Σ Actual (Step 4 done)' : 'Actual'} value={actual} autoValue={row.auto_actual_saving} isOverridden={isOverridden(row.key, 'actual')} onChange={(v) => updateOverride(row.key, 'actual', v)} onReset={() => resetOverride(row.key, 'actual')} colSpan="col-span-3" suffix={row.isMain ? '€' : ''} />
-                  <div className="col-span-3"><label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Gap</label><div className={`w-full border rounded px-2 py-1 text-xs font-bold text-center ${rowGap >= 0 ? 'bg-green-50 border-green-300 text-green-700' : 'bg-red-50 border-red-300 text-red-700'}`}>{rowGap >= 0 ? '+' : ''}{rowGap.toLocaleString('it-IT')}</div></div>
-                </div>
-                {rowGap < 0 && (
-                  <div className="mt-2"><label className="block text-[10px] font-medium text-red-600 uppercase mb-0.5">Motivo del gap</label><input className="w-full border border-red-300 rounded px-2 py-1 text-xs" value={gapReason} onChange={(e) => updateOverride(row.key, 'gap_reason', e.target.value)} /></div>
-                )}
-              </div>
-            )
-          })}
+
+      {/* Alert se Step 3 vuoto */}
+      {improvementsPlanned.length === 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
+          ⚠️ Lo <strong>Step 3 (Project Planning)</strong> non ha progetti pianificati. Compila prima Step 3.
         </div>
       )}
-      <div className="bg-white p-3 rounded-lg border mt-4">
-        <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Lezioni apprese (Close the Loop)</label>
-        <textarea value={data.lezioni_apprese || ''} onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })} rows={4} className="w-full border rounded-lg px-3 py-2 text-sm" />
+      {improvementsActual.length === 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-sm text-yellow-800">
+          ⚠️ Lo <strong>Step 4 (Implementation)</strong> non ha progetti completati con gain reale. Marca i progetti come "Done" e inserisci l'actual gain.
+        </div>
+      )}
+
+      {/* Configurazione Actual finale (override) */}
+      <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-3">
+        <div className="text-xs font-bold uppercase text-orange-700 mb-2">Actual finale (override manuale)</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">Label</label>
+            <input
+              className="w-full border rounded px-2 py-1 text-sm"
+              value={forecastActual.label}
+              onChange={(e) => updateForecastActual({ label: e.target.value })}
+              placeholder="Actual achieved"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-gray-500 uppercase mb-0.5">
+              Valore ({unit}) — auto: {autoActual.toFixed(2)}
+            </label>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="0.1"
+                className="flex-1 border rounded px-2 py-1 text-sm font-bold bg-white"
+                value={forecastActual.value !== '' ? forecastActual.value : autoActual.toFixed(2)}
+                onChange={(e) => updateForecastActual({ value: e.target.value })}
+              />
+              <span className="text-sm text-gray-500">{unit}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 🆕 CLOSE THE LOOP CHART */}
+      <CloseTheLoopChart
+        baseline={baseline}
+        improvementsPlanned={improvementsPlanned}
+        improvementsActual={improvementsActual}
+        forecastPlanned={forecastPlanned || { label: 'Forecast Planned', value: autoForecastPlanned }}
+        forecastActual={forecastActual}
+        target={targetGlobal}
+        unit={unit}
+        title={`${pillar?.sigla || 'Pillar'} Close the Loop`}
+        subtitle={pillar?.label || ''}
+      />
+
+      {/* Lezioni apprese */}
+      <div className="bg-white p-4 rounded-lg border mt-4">
+        <label className="block text-xs font-bold uppercase text-gray-600 mb-2">📚 Lezioni apprese (Close the Loop)</label>
+        <textarea
+          value={data.lezioni_apprese || ''}
+          onChange={(e) => onUpdate({ lezioni_apprese: e.target.value })}
+          rows={5}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+          placeholder="Cosa abbiamo imparato? Cosa replicare in altri stabilimenti? Cosa NON funziona?"
+        />
       </div>
     </div>
   )
 }
+  const baseline = step3Data.baseline || { label: 'Baseline', value: 0 }
+
 
 function BridgeCell({ label, value, autoValue, isOverridden, onChange, onReset, colSpan = 'col-span-3', suffix = '' }) {
   return (
