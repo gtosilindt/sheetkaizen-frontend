@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -51,18 +51,14 @@ export default function HomePage() {
   // ──────────────────────────────────────────
   // FILTRI per "le mie cose" in base al ruolo
   // ──────────────────────────────────────────
-
-  // AP responsabile = user.full_name (per ora confronto sui nomi)
   const myActionPlans = actionPlans.filter(ap => {
     if (ap.is_cancelled) return false
-    // Match per nome responsabile (compatibilità retro)
     if (ap.responsabile && ap.responsabile === user.full_name) return true
-    // Match per @mention nei tag o descrizione
+    if (ap.responsabile_id && ap.responsabile_id === user.id) return true
     if (ap.mentions?.includes(user.username)) return true
     return false
   })
 
-  // Operatore: AP del proprio reparto/linea/macchine
   const myAreaActionPlans = actionPlans.filter(ap => {
     if (ap.is_cancelled) return false
     if (user.reparto && ap.reparto === user.reparto) return true
@@ -71,45 +67,31 @@ export default function HomePage() {
     return false
   })
 
-  // Pillar dove sono Leader o Membro (fonte unica: il Pillar stesso)
   const myPillars = pillars.filter(p => {
     if (p.leader_id === user.id) return true
     if (p.members_ids?.includes(user.id)) return true
-    // Fallback per dati legacy che hanno solo i nomi
     if (p.leader === user.full_name) return true
     if (p.members?.includes(user.full_name)) return true
     return false
   })
 
-  // Kaizen dove sono coinvolto (fonte unica: il Kaizen stesso con campi ID)
   const myKaizens = kaizens.filter(k => {
     if (k.stato === 'Chiuso' || k.stato === 'Cancelled') return false
-
-    // 🆕 Match per ID utente (nuova architettura)
     if (k.creatore_id === user.id) return true
     if (k.team_leader_id === user.id) return true
     if ((k.team_members_ids || []).includes(user.id)) return true
-
-    // Fallback per dati legacy (nome)
     if (k.creatore_nome === user.full_name) return true
     if (k.team_leader_nome === user.full_name) return true
     if ((k.team_members_nomi || []).includes(user.full_name)) return true
     if (k.leader === user.full_name) return true
     if ((k.team_members || []).includes(user.full_name)) return true
-
-    // Per operatore: kaizen del suo reparto
     if (isOperator && user.reparto && k.reparto === user.reparto) return true
-
     return false
   })
 
-  // Meetings di oggi (filtra le dashboard tipo "meeting" con data odierna)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // ──────────────────────────────────────────
-  // Classifica AP per scadenza
-  // ──────────────────────────────────────────
   function classifyByDeadline(ap) {
     if (!ap.data_scadenza) return 'no-date'
     const scadenza = new Date(ap.data_scadenza)
@@ -122,7 +104,6 @@ export default function HomePage() {
     return 'future'
   }
 
-  // Per operatore mostra AP della sua area, per altri mostra "miei"
   const targetActionPlans = isOperator ? myAreaActionPlans : myActionPlans
 
   const apOverdue = targetActionPlans.filter(ap => classifyByDeadline(ap) === 'overdue')
@@ -186,34 +167,10 @@ export default function HomePage() {
 
       {/* RIASSUNTO RAPIDO */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          icon={AlertTriangle}
-          label="Scaduti"
-          value={apOverdue.length}
-          color="red"
-          link="/action-plan"
-        />
-        <StatCard
-          icon={Clock}
-          label="Oggi"
-          value={apToday.length}
-          color="orange"
-          link="/action-plan"
-        />
-        <StatCard
-          icon={Calendar}
-          label="Settimana"
-          value={apWeek.length}
-          color="yellow"
-          link="/action-plan"
-        />
-        <StatCard
-          icon={CheckCircle2}
-          label="AP totali"
-          value={targetActionPlans.length}
-          color="green"
-          link="/action-plan"
-        />
+        <StatCard icon={AlertTriangle} label="Scaduti" value={apOverdue.length} color="red" link="/action-plan" />
+        <StatCard icon={Clock} label="Oggi" value={apToday.length} color="orange" link="/action-plan" />
+        <StatCard icon={Calendar} label="Settimana" value={apWeek.length} color="yellow" link="/action-plan" />
+        <StatCard icon={CheckCircle2} label="AP totali" value={targetActionPlans.length} color="green" link="/action-plan" />
       </div>
 
       {/* LE MIE ACTION PLAN */}
@@ -267,7 +224,6 @@ export default function HomePage() {
 
       {/* I MIEI PILLAR + I MIEI KAIZEN (lato fianco) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* PILLAR (solo per office/manager/admin) */}
         {!isOperator && (
           <div className="bg-white rounded-xl shadow p-6">
             <div className="flex justify-between items-center mb-4">
@@ -401,7 +357,8 @@ export default function HomePage() {
           </div>
         )}
       </div>
-{/* Pannello dettaglio AP (cliccando una riga) */}
+
+      {/* Pannello dettaglio AP (cliccando una riga) */}
       {selectedAP && (
         <ActionPlanDetailPanel
           plan={selectedAP}
@@ -439,7 +396,7 @@ function StatCard({ icon: Icon, label, value, color, link }) {
 }
 
 // ──────────────────────────────────────────
-// HELPER: Gruppo di AP per categoria scadenza
+// HELPER: Gruppo di AP per categoria scadenza (CLICCABILE)
 // ──────────────────────────────────────────
 function APGroup({ title, color, icon: Icon, aps, onClick }) {
   const colors = {
