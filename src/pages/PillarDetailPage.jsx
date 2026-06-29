@@ -2300,28 +2300,32 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
       </div>
 
       {/* Status + gap */}
-      <div className="bg-white p-3 rounded-lg border-2 border-dashed flex flex-wrap items-center justify-center gap-4">
-        <div className={`px-4 py-2 rounded-lg text-sm font-bold ${perfStatus.color} shadow-sm`}>
-          {perfStatus.emoji} {perfStatus.label}
+      {/* Status + Gap (centrato, full width) */}
+      <div className="bg-white p-4 rounded-lg border-2 border-dashed">
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <div className={`px-4 py-2 rounded-lg text-sm font-bold ${perfStatus.color} shadow-sm`}>
+            {perfStatus.emoji} {perfStatus.label}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-gray-600">Δ Reale vs Pianificato:</span>
+            <span className={`font-bold ${gapActualVsPlanned >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {gapActualVsPlanned >= 0 ? '+' : ''}{gapActualVsPlanned.toFixed(2)} {unitFromStep1}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-gray-600">Δ Reale vs Target:</span>
+            <span className={`font-bold ${gapActualVsTarget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {gapActualVsTarget >= 0 ? '+' : ''}{gapActualVsTarget.toFixed(2)} {unitFromStep1}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-600">Δ Reale vs Pianificato:</span>
-          <span className={`font-bold ${gapActualVsPlanned >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {gapActualVsPlanned >= 0 ? '+' : ''}{gapActualVsPlanned.toFixed(2)} {unitFromStep1}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-600">Δ Reale vs Target:</span>
-          <span className={`font-bold ${gapActualVsTarget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {gapActualVsTarget >= 0 ? '+' : ''}{gapActualVsTarget.toFixed(2)} {unitFromStep1}
-          </span>
-        </div>
+      </div>
 
-      {/* GRAFICO UNICO */}
+      {/* GRAFICO */}
       {baselineNum > 0 && (
-        <div className="mt-6">
+        <div className="mt-4">
           {/* Zoom asse Y */}
-          <div className="bg-white border rounded-lg p-3 mb-2 flex items-center gap-3 text-xs">
+          <div className="bg-white border rounded-lg p-3 mb-2 flex items-center justify-center gap-3 text-xs">
             <span className="font-medium text-gray-600">Zoom asse Y:</span>
             <label className="flex items-center gap-1">
               Da:
@@ -2348,19 +2352,21 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
             <span className="text-gray-400 italic">(lascia vuoto per scala automatica)</span>
           </div>
 
-          <BridgeChart
-            baseline={{ label: kpiLabel || 'Punto di partenza', value: baselineNum }}
-            improvements={improvementsPlanned}
-            improvementsActual={improvementsActual}
-            forecast={{ label: 'Pianificato (Forecast)', value: forecastPlannedValue }}
-            actual={totalGainActual !== 0 ? { label: 'Reale (Actual)', value: actualValue } : null}
-            target={targetNum > 0 ? { label: `Target (${kpiLabel})`, value: targetNum } : null}
-            unit={unitFromStep1}
-            title={`${pillar?.sigla || 'Pillar'} Close the Loop`}
-            subtitle={pillar?.label || ''}
-            yAxisMin={data.chart_y_min ?? null}
-            yAxisMax={data.chart_y_max ?? null}
-          />
+          <div className="w-full">
+            <BridgeChart
+              baseline={{ label: kpiLabel || 'Punto di partenza', value: baselineNum }}
+              improvements={improvementsPlanned}
+              improvementsActual={improvementsActual}
+              forecast={{ label: 'Pianificato (Forecast)', value: forecastPlannedValue }}
+              actual={totalGainActual !== 0 ? { label: 'Reale (Actual)', value: actualValue } : null}
+              target={targetNum > 0 ? { label: `Target (${kpiLabel})`, value: targetNum } : null}
+              unit={unitFromStep1}
+              title={`${pillar?.sigla || 'Pillar'} Close the Loop`}
+              subtitle={pillar?.label || ''}
+              yAxisMin={data.chart_y_min ?? null}
+              yAxisMax={data.chart_y_max ?? null}
+            />
+          </div>
         </div>
       )}
       </div>
