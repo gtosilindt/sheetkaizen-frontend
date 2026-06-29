@@ -2350,11 +2350,11 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
 
           <BridgeChart
             baseline={{ label: kpiLabel || 'Punto di partenza', value: baselineNum }}
-            improvements={improvementsActual}
+            improvements={improvementsPlanned}
+            improvementsActual={improvementsActual}
             forecast={{ label: 'Pianificato (Forecast)', value: forecastPlannedValue }}
             actual={totalGainActual !== 0 ? { label: 'Reale (Actual)', value: actualValue } : null}
             target={targetNum > 0 ? { label: `Target (${kpiLabel})`, value: targetNum } : null}
-            compareMode={true}
             unit={unitFromStep1}
             title={`${pillar?.sigla || 'Pillar'} Close the Loop`}
             subtitle={pillar?.label || ''}
