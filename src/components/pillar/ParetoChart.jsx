@@ -104,10 +104,12 @@ export default function ParetoChart({
               label={{ value: 'Cumulativa (%)', angle: 90, position: 'insideRight', style: { fontSize: 12 } }}
             />
             <Tooltip
+              <Tooltip
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: 8 }}
-              formatter={(value, name) => {
-                if (name === 'cumPercent') return [`${value}%`, 'Cumulativa']
-                return [`${value} ${unit}`, 'Perdita']
+              formatter={(value, name, props) => {
+                if (name === 'Cumulativa %') return [`${value}%`, 'Cumulativa']
+                if (name === 'Perdite') return [`${value} ${unit}`, 'Perdita']
+                return [value, name]
               }}
             />
             <Legend wrapperStyle={{ paddingTop: 10 }} />
