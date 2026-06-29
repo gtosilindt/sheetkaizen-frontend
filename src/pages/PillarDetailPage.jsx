@@ -2316,7 +2316,6 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
             {gapActualVsTarget >= 0 ? '+' : ''}{gapActualVsTarget.toFixed(2)} {unitFromStep1}
           </span>
         </div>
-      </div>
 
       {/* GRAFICO UNICO */}
       {baselineNum > 0 && (
