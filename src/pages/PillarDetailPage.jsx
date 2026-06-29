@@ -7,6 +7,7 @@ import ActionPlanFormShared from '../components/ActionPlanFormShared'
 import ActionPlanDetailPanel from '../components/ActionPlanDetailPanel'
 import ActionPlanViews from '../components/ActionPlanViews'
 import PresenzeWidget from '../components/widgets/PresenzeWidget'
+import ParetoChart from '../components/pillar/ParetoChart'
 
 export default function PillarDetailPage() {
   const { id } = useParams()
@@ -600,7 +601,7 @@ function KpiManagementTab({ pillar, color, onSaved }) {
             </button>
             {isExpanded && (
               <div className="px-5 pb-5 pt-2 border-t bg-gray-50">
-                <StepContent step={step} data={data} color={color} onUpdate={(updates) => updateStep(step.id, updates)} allStepsData={stepsData} />
+                <StepContent step={step} data={data} color={color} onUpdate={(updates) => updateStep(step.id, updates)} allStepsData={stepsData} pillar={pillar} />
                 <div className="mt-4 pt-4 border-t space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Note dello step</label>
@@ -623,12 +624,12 @@ function KpiManagementTab({ pillar, color, onSaved }) {
   )
 }
 
-function StepContent({ step, data, color, onUpdate, allStepsData }) {
-  if (step.id === 'step1_kpi_definition') return <Step1Content data={data} color={color} onUpdate={onUpdate} />
-  if (step.id === 'step2_pareto_analysis') return <Step2Content data={data} color={color} onUpdate={onUpdate} />
-  if (step.id === 'step3_target_definition') return <Step3Content data={data} color={color} onUpdate={onUpdate} lossesStep2={allStepsData?.step2_pareto_analysis?.losses || []} />
-  if (step.id === 'step4_implementation') return <Step4Content data={data} color={color} onUpdate={onUpdate} allStepsData={allStepsData} />
-  if (step.id === 'step5_close_the_loop') return <Step5Content data={data} color={color} onUpdate={onUpdate} allStepsData={allStepsData} />
+function StepContent({ step, data, color, onUpdate, allStepsData, pillar }) {
+  if (step.id === 'step1_kpi_definition') return <Step1Content data={data} color={color} onUpdate={onUpdate} pillar={pillar} />
+  if (step.id === 'step2_pareto_analysis') return <Step2Content data={data} color={color} onUpdate={onUpdate} pillar={pillar} />
+  if (step.id === 'step3_target_definition') return <Step3Content data={data} color={color} onUpdate={onUpdate} lossesStep2={allStepsData?.step2_pareto_analysis?.losses || []} pillar={pillar} />
+  if (step.id === 'step4_implementation') return <Step4Content data={data} color={color} onUpdate={onUpdate} allStepsData={allStepsData} pillar={pillar} />
+  if (step.id === 'step5_close_the_loop') return <Step5Content data={data} color={color} onUpdate={onUpdate} allStepsData={allStepsData} pillar={pillar} />
   return null
 }
 
@@ -718,46 +719,159 @@ function Step1Content({ data, color, onUpdate }) {
   )
 }
 
-function Step2Content({ data, color, onUpdate }) {
+function Step2Content({ data, color, onUpdate, pillar }) {
   const losses = data.losses || []
-  function addLoss() { onUpdate({ losses: [...losses, { id: Date.now().toString(), label: '', percent_impact: '', magnitude: 'medio' }] }) }
+  const unit = data.unit || '%'  // 🆕 unità globale del Pareto
+  const paretoTarget = data.pareto_target_percent ?? pillar?.pareto_target_percent ?? 80  // 🆕 target
+
+  function addLoss() {
+    onUpdate({
+      losses: [...losses, {
+        id: Date.now().toString(),
+        label: '',
+        value: '',
+        color: '',
+        magnitude: 'medio',
+      }]
+    })
+  }
   function updateLoss(id, updates) { onUpdate({ losses: losses.map(l => l.id === id ? { ...l, ...updates } : l) }) }
   function removeLoss(id) { onUpdate({ losses: losses.filter(l => l.id !== id) }) }
-  const sortedLosses = [...losses].sort((a, b) => (parseFloat(b.percent_impact) || 0) - (parseFloat(a.percent_impact) || 0))
+  function updateUnit(newUnit) { onUpdate({ unit: newUnit }) }
+  function updateTarget(newTarget) { onUpdate({ pareto_target_percent: parseFloat(newTarget) || 80 }) }
+
+  // Sort decrescente per visualizzazione tabella
+  const sortedLosses = [...losses].sort((a, b) => (parseFloat(b.value) || parseFloat(b.percent_impact) || 0) - (parseFloat(a.value) || parseFloat(a.percent_impact) || 0))
+
+  // Prepara dati per ParetoChart (usa `value` se presente, fallback su `percent_impact` per retrocompat)
+  const lossesForChart = sortedLosses.map(l => ({
+    id: l.id,
+    label: l.label || 'Senza nome',
+    value: parseFloat(l.value) || parseFloat(l.percent_impact) || 0,
+    color: l.color,
+  }))
+
+  const UNITS = [
+    { value: '%', label: '% (percentuale)' },
+    { value: 'nr', label: 'nr (numero/pezzi)' },
+    { value: '€', label: '€ (euro/saving)' },
+    { value: 'min', label: 'min (minuti)' },
+    { value: 'h', label: 'h (ore)' },
+    { value: 'kg', label: 'kg (peso)' },
+  ]
 
   return (
     <div className="space-y-3 mt-3">
       <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3 text-sm text-blue-800">
-        <strong>Cosa fare:</strong> Elenca le perdite che impattano il KPI con la loro % di impatto. Le perdite più alte sono il "vital few" su cui focalizzarti.
+        <strong>Cosa fare:</strong> Elenca le perdite che impattano il KPI con il loro valore. Le perdite più alte sono il "vital few" su cui focalizzarti. Il grafico Pareto si aggiorna automaticamente.
       </div>
+
+      {/* Config Pareto */}
+      <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Unità di misura</label>
+          <select
+            value={unit}
+            onChange={(e) => updateUnit(e.target.value)}
+            className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+          >
+            {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 uppercase mb-1">Target Pareto (curva cumulativa)</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={paretoTarget}
+              onChange={(e) => updateTarget(e.target.value)}
+              className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+            />
+            <span className="text-sm text-gray-500">%</span>
+          </div>
+        </div>
+      </div>
+
       <div className="flex justify-between items-center">
         <h4 className="font-semibold text-sm uppercase text-gray-700">Top Losses</h4>
         <button onClick={addLoss} className="text-xs px-3 py-1 text-white rounded shadow" style={{ backgroundColor: color }}>+ Aggiungi Loss</button>
       </div>
+
       {sortedLosses.length === 0 ? (
         <div className="bg-white p-6 rounded-lg text-center text-sm text-gray-400 italic">Nessuna perdita identificata.</div>
       ) : (
         <div className="space-y-2">
-          {sortedLosses.map((loss, idx) => (
-            <div key={loss.id} className="bg-white p-3 rounded-lg border">
-              <div className="grid grid-cols-12 gap-2 items-center">
-                <div className="col-span-1 text-center font-bold text-gray-400">#{idx + 1}</div>
-                <input className="col-span-5 border rounded px-2 py-1 text-sm font-medium" value={loss.label} onChange={(e) => updateLoss(loss.id, { label: e.target.value })} />
-                <input type="number" className="col-span-2 border rounded px-2 py-1 text-sm" value={loss.percent_impact} onChange={(e) => updateLoss(loss.id, { percent_impact: e.target.value })} placeholder="%" />
-                <select className="col-span-3 border rounded px-2 py-1 text-sm" value={loss.magnitude} onChange={(e) => updateLoss(loss.id, { magnitude: e.target.value })}>
-                  <option value="alto">Alto</option>
-                  <option value="medio">Medio</option>
-                  <option value="basso">Basso</option>
-                </select>
-                <button onClick={() => removeLoss(loss.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
-              </div>
-              {loss.percent_impact && (
-                <div className="mt-2 bg-gray-200 rounded-full h-2 overflow-hidden">
-                  <div className="h-full" style={{ width: `${Math.min(100, parseFloat(loss.percent_impact) || 0)}%`, backgroundColor: color }} />
+          {sortedLosses.map((loss, idx) => {
+            const valueNumber = parseFloat(loss.value) || parseFloat(loss.percent_impact) || 0
+            return (
+              <div key={loss.id} className="bg-white p-3 rounded-lg border">
+                <div className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-1 text-center font-bold text-gray-400">#{idx + 1}</div>
+                  <input
+                    className="col-span-4 border rounded px-2 py-1 text-sm font-medium"
+                    value={loss.label}
+                    onChange={(e) => updateLoss(loss.id, { label: e.target.value })}
+                    placeholder="Nome della perdita"
+                  />
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="col-span-2 border rounded px-2 py-1 text-sm"
+                    value={loss.value ?? loss.percent_impact ?? ''}
+                    onChange={(e) => updateLoss(loss.id, { value: e.target.value })}
+                    placeholder={`Valore (${unit})`}
+                  />
+                  <select
+                    className="col-span-2 border rounded px-2 py-1 text-sm"
+                    value={loss.magnitude || 'medio'}
+                    onChange={(e) => updateLoss(loss.id, { magnitude: e.target.value })}
+                  >
+                    <option value="alto">Alto</option>
+                    <option value="medio">Medio</option>
+                    <option value="basso">Basso</option>
+                  </select>
+                  <div className="col-span-2 flex items-center gap-1">
+                    <input
+                      type="color"
+                      value={loss.color || color || '#6366f1'}
+                      onChange={(e) => updateLoss(loss.id, { color: e.target.value })}
+                      className="w-8 h-8 border rounded cursor-pointer"
+                      title="Colore"
+                    />
+                  </div>
+                  <button onClick={() => removeLoss(loss.id)} className="col-span-1 text-red-500 hover:bg-red-50 p-1 rounded">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
+                {valueNumber > 0 && (
+                  <div className="mt-2 bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full"
+                      style={{
+                        width: `${Math.min(100, valueNumber)}%`,
+                        backgroundColor: loss.color || color,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 🆕 PARETO CHART */}
+      {lossesForChart.length > 0 && (
+        <div className="mt-6">
+          <ParetoChart
+            losses={lossesForChart}
+            title={`${pillar?.sigla || 'Pillar'} Losses Deployment`}
+            subtitle={pillar?.label || ''}
+            targetPercent={paretoTarget}
+            unit={unit}
+          />
         </div>
       )}
     </div>
