@@ -126,6 +126,7 @@ export default function HomePage() {
   const apOverdue = targetActionPlans.filter(ap => classifyByDeadline(ap) === 'overdue')
   const apToday = targetActionPlans.filter(ap => classifyByDeadline(ap) === 'today')
   const apWeek = targetActionPlans.filter(ap => classifyByDeadline(ap) === 'week')
+  const apFuture = targetActionPlans.filter(ap => classifyByDeadline(ap) === 'future' || classifyByDeadline(ap) === 'no-date')
 
   const roleLabels = {
     admin: 'Amministratore',
@@ -250,9 +251,12 @@ export default function HomePage() {
             {apWeek.length > 0 && (
               <APGroup title="Questa settimana" color="yellow" icon={Calendar} aps={apWeek.slice(0, 5)} />
             )}
-            {apOverdue.length === 0 && apToday.length === 0 && apWeek.length === 0 && (
+            {apFuture.length > 0 && (
+              <APGroup title="Prossime" color="green" icon={CheckCircle2} aps={apFuture.slice(0, 5)} />
+            )}
+            {apOverdue.length === 0 && apToday.length === 0 && apWeek.length === 0 && apFuture.length === 0 && (
               <div className="text-center py-4 text-gray-400 text-sm">
-                Nessun AP scaduto o imminente. Bel lavoro!
+                Nessun AP attivo al momento. Bel lavoro!
               </div>
             )}
           </div>
@@ -431,6 +435,7 @@ function APGroup({ title, color, icon: Icon, aps }) {
     red: 'text-red-700 bg-red-50 border-red-200',
     orange: 'text-orange-700 bg-orange-50 border-orange-200',
     yellow: 'text-yellow-700 bg-yellow-50 border-yellow-200',
+    green: 'text-green-700 bg-green-50 border-green-200',
   }
   return (
     <div>
