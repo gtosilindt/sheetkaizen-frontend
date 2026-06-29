@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { Plus, X, Settings as SettingsIcon } from 'lucide-react'
+import UserPicker from '../UserPicker'
 
 const DEFAULT_STATI = [
   { id: 'presente', label: 'Presente', color: '#10b981' },
@@ -9,17 +10,20 @@ const DEFAULT_STATI = [
 
 export default function PresenzeWidget({ config, editMode, onChange }) {
   const titolo = config?.titolo || 'Calendario presenze'
-  const partecipanti = config?.partecipanti || []
+  // Backwards compat: i partecipanti possono essere stringhe (vecchio) o oggetti {id, name} (nuovo)
+  const partecipantiRaw = config?.partecipanti || []
+  const partecipanti = partecipantiRaw.map(p =>
+    typeof p === 'string' ? { id: p, name: p } : p
+  )
   const date = config?.date || []
   const presenze = config?.presenze || {}
   const stati = config?.stati || DEFAULT_STATI
 
   const [showSettings, setShowSettings] = useState(false)
-  const [activeCell, setActiveCell] = useState(null)  // {partecipante, data} per dropdown
+  const [activeCell, setActiveCell] = useState(null)
   const [dropdownPos, setDropdownPos] = useState({ x: 0, y: 0 })
   const dropdownRef = useRef(null)
 
-  // Chiudi dropdown se click fuori
   useEffect(() => {
     if (!activeCell) return
     function handleClickOutside(e) {
@@ -31,11 +35,11 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [activeCell])
 
-  function openCellMenu(partecipante, data, e) {
+  function openCellMenu(partecipanteId, data, e) {
     e.stopPropagation()
     const rect = e.currentTarget.getBoundingClientRect()
     setDropdownPos({ x: rect.left, y: rect.bottom + 4 })
-    setActiveCell({ partecipante, data })
+    setActiveCell({ partecipante: partecipanteId, data })
   }
 
   function setStatoCell(statoId) {
@@ -43,7 +47,7 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
     const key = `${activeCell.partecipante}_${activeCell.data}`
     const newPresenze = { ...presenze }
     if (statoId === null) {
-      delete newPresenze[key]  // svuota
+      delete newPresenze[key]
     } else {
       newPresenze[key] = statoId
     }
@@ -51,37 +55,35 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
     setActiveCell(null)
   }
 
-  function getColorForCell(partecipante, data) {
-    const key = `${partecipante}_${data}`
+  function getColorForCell(partecipanteId, data) {
+    const key = `${partecipanteId}_${data}`
     const statoId = presenze[key]
     if (!statoId) return ''
     const stato = stati.find(s => s.id === statoId)
     return stato?.color || ''
   }
 
-  function getLabelForCell(partecipante, data) {
-    const key = `${partecipante}_${data}`
+  function getLabelForCell(partecipanteId, data) {
+    const key = `${partecipanteId}_${data}`
     const statoId = presenze[key]
     if (!statoId) return 'Non registrato'
     const stato = stati.find(s => s.id === statoId)
     return stato?.label || '—'
   }
 
-  // Statistiche presenze: conta TUTTI gli stati "positivi" (default: solo presente)
   const statsPerPartecipante = useMemo(() => {
     const result = {}
     partecipanti.forEach(p => {
       const totale = date.length
-      const presenti = date.filter(d => presenze[`${p}_${d}`] === 'presente').length
+      const presenti = date.filter(d => presenze[`${p.id}_${d}`] === 'presente').length
       const percentuale = totale > 0 ? Math.round((presenti / totale) * 100) : 0
-      result[p] = { presenti, totale, percentuale }
+      result[p.id] = { presenti, totale, percentuale }
     })
     return result
   }, [partecipanti, date, presenze])
 
   return (
     <div className="bg-white rounded-xl shadow p-3 h-full flex flex-col overflow-hidden">
-      {/* Header */}
       <div className="flex justify-between items-center mb-2 border-b pb-2">
         <h3 className="font-bold text-gray-800 text-sm truncate">{titolo}</h3>
         <button
@@ -94,7 +96,6 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
         </button>
       </div>
 
-      {/* Tabella presenze */}
       <div className="flex-1 overflow-auto">
         {partecipanti.length === 0 || date.length === 0 ? (
           <div className="text-center text-gray-400 py-8 text-xs">
@@ -128,18 +129,18 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
             </thead>
             <tbody>
               {partecipanti.map(p => {
-                const stats = statsPerPartecipante[p]
+                const stats = statsPerPartecipante[p.id] || { presenti: 0, totale: 0, percentuale: 0 }
                 return (
-                  <tr key={p}>
+                  <tr key={p.id}>
                     <td className="border-r border-b p-1 font-medium text-[11px] sticky left-0 bg-white">
-                      {p}
+                      {p.name}
                     </td>
                     {date.map(d => {
-                      const bg = getColorForCell(p, d)
+                      const bg = getColorForCell(p.id, d)
                       return (
                         <td key={d} className="border-r border-b p-0">
                           <button
-                            onClick={(e) => openCellMenu(p, d, e)}
+                            onClick={(e) => openCellMenu(p.id, d, e)}
                             onMouseDown={(e) => e.stopPropagation()}
                             className="widget-action-btn hover:opacity-75 transition-opacity rounded mx-auto block"
                             style={{
@@ -148,7 +149,7 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
                               width: '28px',
                               height: '28px',
                             }}
-                            title={`${p} · ${formatShortDate(d)}: ${getLabelForCell(p, d)}`}
+                            title={`${p.name} · ${formatShortDate(d)}: ${getLabelForCell(p.id, d)}`}
                           />
                         </td>
                       )
@@ -173,7 +174,6 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
         )}
       </div>
 
-      {/* Legenda */}
       {partecipanti.length > 0 && date.length > 0 && (
         <div className="mt-2 pt-2 border-t flex flex-wrap gap-2 text-[10px]">
           {stati.map(s => (
@@ -192,7 +192,6 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
         </div>
       )}
 
-      {/* Dropdown menu (popup vicino alla cella cliccata) */}
       {activeCell && (
         <div
           ref={dropdownRef}
@@ -202,7 +201,7 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-[10px] font-bold text-gray-500 uppercase mb-1 px-2">
-            {activeCell.partecipante} · {formatShortDate(activeCell.data)}
+            {partecipanti.find(p => p.id === activeCell.partecipante)?.name || activeCell.partecipante} · {formatShortDate(activeCell.data)}
           </div>
           <div className="space-y-1">
             {stati.map(s => (
@@ -229,7 +228,6 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
         </div>
       )}
 
-      {/* Modal Settings */}
       {showSettings && (
         <PresenzeSettingsModal
           config={config}
@@ -249,9 +247,13 @@ export default function PresenzeWidget({ config, editMode, onChange }) {
 // ──────────────────────────────────────────────────────────
 function PresenzeSettingsModal({ config, onClose, onSave }) {
   const [titolo, setTitolo] = useState(config?.titolo || 'Calendario presenze')
-  const [partecipantiText, setPartecipantiText] = useState(
-    (config?.partecipanti || []).join('\n')
+
+  // 🆕 Partecipanti come oggetti {id, name} — UserPicker
+  const partecipantiRaw = config?.partecipanti || []
+  const [partecipanti, setPartecipanti] = useState(
+    partecipantiRaw.map(p => typeof p === 'string' ? { id: p, name: p } : p)
   )
+
   const [date, setDate] = useState(config?.date || [])
   const [nuovaData, setNuovaData] = useState('')
   const [stati, setStati] = useState(config?.stati || DEFAULT_STATI)
@@ -292,11 +294,10 @@ function PresenzeSettingsModal({ config, onClose, onSave }) {
   }
 
   function handleSave() {
-    const partecipanti = partecipantiText.split('\n').map(p => p.trim()).filter(Boolean)
     onSave({
       ...config,
       titolo,
-      partecipanti,
+      partecipanti,  // array di {id, name}
       date: date.sort(),
       stati,
     })
@@ -334,17 +335,17 @@ function PresenzeSettingsModal({ config, onClose, onSave }) {
             />
           </div>
 
-          {/* Partecipanti */}
+          {/* Partecipanti con UserPicker */}
           <div>
             <label className="block text-sm font-medium mb-1">
-              Partecipanti <span className="text-gray-500 font-normal">(uno per riga)</span>
+              Partecipanti
+              <span className="text-gray-500 font-normal ml-1">({partecipanti.length})</span>
             </label>
-            <textarea
-              value={partecipantiText}
-              onChange={(e) => setPartecipantiText(e.target.value)}
-              onMouseDown={(e) => e.stopPropagation()}
-              rows={5}
-              className="widget-action-btn w-full border rounded-lg px-3 py-2 text-sm font-mono"
+            <UserPicker
+              value={partecipanti}
+              onChange={setPartecipanti}
+              mode="multi"
+              placeholder="Cerca utenti per nome o email..."
             />
           </div>
 
