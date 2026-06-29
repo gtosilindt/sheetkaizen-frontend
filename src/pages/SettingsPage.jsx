@@ -60,7 +60,6 @@ const SECTIONS = [
     label: 'Kaizen',
     color: 'red',
     tabs: [
-      {
         {
         id: 'categorie_perdita',
         label: 'Categoria Perdita (TPM)',
