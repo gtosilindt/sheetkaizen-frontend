@@ -1864,6 +1864,9 @@ function Step3Content({ data, color, onUpdate, lossesStep2 = [], pillar, allStep
           />
         </div>
       )}
+    </div>
+  )
+}
 
 function Step4Content({ data, color, onUpdate, allStepsData, pillar }) {
   const step3Progetti = allStepsData?.step3_target_definition?.progetti || []
