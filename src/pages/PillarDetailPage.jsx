@@ -2361,6 +2361,11 @@ function Step5Content({ data, color, onUpdate, allStepsData, pillar }) {
           />
         </div>
       )}
+      </div>
+    </div>
+  )
+}
+
 function BridgeCell({ label, value, autoValue, isOverridden, onChange, onReset, colSpan = 'col-span-3', suffix = '' }) {
   return (
     <div className={colSpan}>
