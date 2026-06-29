@@ -1059,7 +1059,7 @@ function KpiManagementTab({ pillar, color, onSaved }) {
 function StepContent({ step, data, color, onUpdate, allStepsData, pillar }) {
   if (step.id === 'step1_kpi_definition') return <Step1Content data={data} color={color} onUpdate={onUpdate} pillar={pillar} />
   if (step.id === 'step2_pareto_analysis') return <Step2Content data={data} color={color} onUpdate={onUpdate} pillar={pillar} />
-  if (step.id === 'step3_target_definition') return <Step3Content data={data} color={color} onUpdate={onUpdate} lossesStep2={allStepsData?.step2_pareto_analysis?.losses || []} pillar={pillar} />
+  if (step.id === 'step3_target_definition') return <Step3Content data={data} color={color} onUpdate={onUpdate} lossesStep2={allStepsData?.step2_pareto_analysis?.losses || []} pillar={pillar} allStepsData={allStepsData} />
   if (step.id === 'step4_implementation') return <Step4Content data={data} color={color} onUpdate={onUpdate} allStepsData={allStepsData} pillar={pillar} />
   if (step.id === 'step5_close_the_loop') return <Step5Content data={data} color={color} onUpdate={onUpdate} allStepsData={allStepsData} pillar={pillar} />
   return null
