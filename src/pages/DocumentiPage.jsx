@@ -224,7 +224,8 @@ function PreviewModal({ doc, onClose }) {
   const fileType = getFileType(doc.file_name)
   const fileUrl = `${API_BASE}/api/documenti/${doc._id}/file`
   const downloadUrl = `${fileUrl}?download=true`
-  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`
+  const publicFileUrl = `${API_BASE}/api/documenti/${doc._id}/preview`
+  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(publicFileUrl)}`
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -249,16 +250,16 @@ function PreviewModal({ doc, onClose }) {
 
         <div className="flex-1 overflow-hidden bg-gray-100 relative">
           {fileType === 'pdf' && (
-            <iframe src={fileUrl} className="w-full h-full border-0" title={doc.titolo} />
+            {publicFileUrl}
           )}
           {fileType === 'image' && (
             <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
-              <img src={fileUrl} alt={doc.titolo} className="max-w-full max-h-full object-contain shadow-lg" />
+              {publicFileUrl}contain shadow-lg" />
             </div>
           )}
           {fileType === 'office' && (
             <>
-              <iframe src={officeViewerUrl} className="w-full h-full border-0" title={doc.titolo} frameBorder="0" />
+              {officeViewerUrl}" title={doc.titolo} frameBorder="0" />
               <div className="absolute bottom-3 right-3 bg-white shadow-lg rounded px-3 py-2 text-xs text-gray-600 max-w-xs">
                 ℹ️ Se l'anteprima non si carica, usa <strong>Scarica</strong> per aprirlo.
               </div>
