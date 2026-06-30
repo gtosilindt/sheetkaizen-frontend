@@ -97,6 +97,20 @@ const SECTIONS = [
       },
     ],
   },
+  {
+    id: 'meetings',
+    label: 'Meetings',
+    color: 'orange',
+    tabs: [
+      {
+        id: 'tipi_meeting',
+        label: 'Tipi di Meeting',
+        color: 'orange',
+        description: 'Tipologie configurabili di Meeting/Dashboard (es. PCS Daily, Steering, Weekly Review)',
+        usedIn: ['Form Nuova Dashboard', 'Filtri Meetings'],
+      },
+    ],
+  },
 ]
 
 const TAB_COLORS = {
