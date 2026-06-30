@@ -128,6 +128,7 @@ const SECTION_BG = {
   green: 'bg-green-50',
   red: 'bg-red-50',
   purple: 'bg-purple-50',
+  orange: 'bg-orange-50',
 }
 
 const ALL_TABS = SECTIONS.flatMap(s => s.tabs)
@@ -166,7 +167,8 @@ export default function SettingsPage() {
                 <div className={`px-3 py-2 ${SECTION_BG[section.color]}`}
                   style={{ borderLeft: `4px solid ${section.color === 'indigo' ? '#6366f1' :
                             section.color === 'green' ? '#10b981' :
-                            section.color === 'red' ? '#ef4444' : '#a855f7'}` }}>
+                            section.color === 'red' ? '#ef4444' :
+                            section.color === 'orange' ? '#f97316' : '#a855f7'}` }}>
                   <div className="text-xs font-bold uppercase tracking-wide text-gray-600">
                     {section.label}
                   </div>
