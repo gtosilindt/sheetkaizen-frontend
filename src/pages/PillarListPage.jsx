@@ -241,13 +241,6 @@ function PillarCard({ pillar, stats, onOpen }) {
       </div>
 
       {/* Stato kaizen — esaltato con icone */}
-      {stats && stats.totale_kaizen > 0 && (
-        <div className="px-4 py-3 bg-gray-50 grid grid-cols-3 gap-2">
-          <StatoBox label="Aperti" value={stats.aperti} color="blue" />
-          <StatoBox label="In corso" value={stats.in_corso} color="yellow" />
-          <StatoBox label="Chiusi" value={stats.chiusi} color="green" />
-        </div>
-      )}
 
       {/* Footer azioni */}
       <div className="p-3 flex justify-between items-center bg-white">
