@@ -240,26 +240,36 @@ function PillarCard({ pillar, stats, onOpen }) {
         </div>
       </div>
 
-      {/* Stato kaizen — esaltato con icone */}
+      {/* Stato Kaizen */}
+      {stats && stats.totale_kaizen > 0 && (
+        <div className="px-4 py-3 bg-gray-50 border-b">
+          <div className="text-xs uppercase text-gray-500 font-bold tracking-wider mb-2">
+            Stato Kaizen
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <StatoBox label="Aperti" value={stats.kaizen_aperti ?? stats.aperti ?? 0} color="blue" />
+            <StatoBox label="In corso" value={stats.kaizen_in_corso ?? stats.in_corso ?? 0} color="yellow" />
+            <StatoBox label="Chiusi" value={stats.kaizen_chiusi ?? stats.chiusi ?? 0} color="green" />
+          </div>
+        </div>
+      )}
 
-      {/* Footer azioni */}
-      <div className="p-3 flex justify-between items-center bg-white">
-        {!pillar.attivo && (
-          <span className="text-xs text-orange-600 flex items-center gap-1">
-            <AlertCircle size={12} /> Disattivato
-          </span>
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); onOpen() }}
-          className="ml-auto px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
-          style={{ backgroundColor: color }}
-        >
-          Apri Pillar
-        </button>
-      </div>
-    </div>
-  )
-}
+      {/* Stato Action Plan */}
+      {stats && stats.totale_ap > 0 && (
+        <div className="px-4 py-3 bg-gray-50 border-b">
+          <div className="flex justify-between items-baseline mb-2">
+            <div className="text-xs uppercase text-gray-500 font-bold tracking-wider">
+              Stato Action Plan
+            </div>
+            <div className="text-sm font-bold text-gray-700">{stats.totale_ap}</div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <StatoBox label="Da fare" value={stats.ap_da_fare ?? 0} color="blue" />
+            <StatoBox label="In corso" value={stats.ap_in_corso ?? 0} color="yellow" />
+            <StatoBox label="Done" value={stats.ap_done ?? 0} color="green" />
+          </div>
+        </div>
+      )}
 
 // ──────────────────────────────────────────────────────────
 // HELPERS
