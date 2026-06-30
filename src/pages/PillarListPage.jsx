@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { usePillars } from '../hooks/usePillars'
-import { Search, User, Eye, AlertCircle, Zap, BarChart3, Trophy, Activity } from 'lucide-react'
+import { Search, User, AlertCircle, Zap, BarChart3, Trophy } from 'lucide-react'
 
 export default function PillarListPage() {
   const navigate = useNavigate()
@@ -25,6 +25,7 @@ export default function PillarListPage() {
             statsMap[p._id] = {
               totale_kaizen: 0, quick: 0, standard: 0, major: 0,
               aperti: 0, chiusi: 0, in_corso: 0,
+              totale_ap: 0, ap_da_fare: 0, ap_in_corso: 0, ap_done: 0,
               steps_completed: 0, steps_total: 5,
             }
           }
@@ -197,7 +198,7 @@ function PillarCard({ pillar, stats, onOpen }) {
         </span>
       </div>
 
-      {/* Counter Kaizen — esaltato */}
+      {/* Counter Kaizen */}
       <div className="p-4 border-b">
         <div className="flex justify-between items-baseline mb-3">
           <span className="text-xs uppercase text-gray-500 font-bold tracking-wider">Kaizen del Pillar</span>
@@ -206,28 +207,13 @@ function PillarCard({ pillar, stats, onOpen }) {
           </span>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <KaizenStatBox
-            icon={Zap}
-            label="Quick"
-            value={stats?.quick ?? 0}
-            color="emerald"
-          />
-          <KaizenStatBox
-            icon={BarChart3}
-            label="Standard"
-            value={stats?.standard ?? 0}
-            color="blue"
-          />
-          <KaizenStatBox
-            icon={Trophy}
-            label="Major"
-            value={stats?.major ?? 0}
-            color="purple"
-          />
+          <KaizenStatBox icon={Zap} label="Quick" value={stats?.quick ?? 0} color="emerald" />
+          <KaizenStatBox icon={BarChart3} label="Standard" value={stats?.standard ?? 0} color="blue" />
+          <KaizenStatBox icon={Trophy} label="Major" value={stats?.major ?? 0} color="purple" />
         </div>
       </div>
 
-      {/* 5 Step KPI — solo numero, niente barra */}
+      {/* 5 Step KPI */}
       <div className="p-4 border-b flex items-center justify-between">
         <span className="text-xs uppercase text-gray-500 font-bold tracking-wider">
           5 Step KPI Management
@@ -270,6 +256,25 @@ function PillarCard({ pillar, stats, onOpen }) {
           </div>
         </div>
       )}
+
+      {/* Footer azioni */}
+      <div className="p-3 flex justify-between items-center bg-white">
+        {!pillar.attivo && (
+          <span className="text-xs text-orange-600 flex items-center gap-1">
+            <AlertCircle size={12} /> Disattivato
+          </span>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpen() }}
+          className="ml-auto px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity"
+          style={{ backgroundColor: color }}
+        >
+          Apri Pillar
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ──────────────────────────────────────────────────────────
 // HELPERS
